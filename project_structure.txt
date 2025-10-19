@@ -1,21 +1,29 @@
 .
-├── ARCHITECTURE.md
-├── CHANGELOG.md
-├── CI_CD.md
-├── CONFIG.md
-├── CONTRIBUTING.md
-├── DASHBOARD_SPEC.md
-├── DATA_SCHEMA.md
-├── GLOSSARY.md
-├── LICENSE
-├── README.md
-├── RISK_POLICY.md
-├── ROADMAP.md
-├── RUNBOOK.md
-├── SESSION_MODEL.md
-├── WATCHLIST_SPEC.md
 ├── analysis_agent.py
+├── app
 ├── connect.py
-└── project_structure.txt
+├── documents
+│   ├── README.md
+│   ├── architecture
+│   │   └── ARCHITECTURE.md
+│   ├── operations
+│   │   ├── CI_CD.md
+│   │   ├── ROADMAP.md
+│   │   └── RUNBOOK.md
+│   ├── reference
+│   │   ├── CHANGELOG.md
+│   │   ├── CONTRIBUTING.md
+│   │   ├── GLOSSARY.md
+│   │   └── LICENSE
+│   └── specs
+│       ├── CONFIG.md
+│       ├── DASHBOARD_SPEC.md
+│       ├── DATA_SCHEMA.md
+│       ├── RISK_POLICY.md
+│       ├── SESSION_MODEL.md
+│       └── WATCHLIST_SPEC.md
+├── infra
+├── project_structure.txt
+└── tests
 
-1 directory, 18 files
+9 directories, 18 files
