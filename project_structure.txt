@@ -1,5 +1,17 @@
 .
+├── .DS_Store
+├── .dockerignore
+├── .env.example
+├── .github
+│   └── workflows
+│       ├── ci.yml
+│       └── deploy.yml
+├── .gitignore
+├── .streamlit
+│   └── config.toml
 ├── Dockerfile
+├── Makefile
+├── README.md
 ├── analysis_agent.py
 ├── app
 │   ├── __init__.py
@@ -41,7 +53,6 @@
 │   └── config.yaml
 ├── connect.py
 ├── documents
-│   ├── README.md
 │   ├── architecture
 │   │   └── ARCHITECTURE.md
 │   ├── operations
@@ -62,15 +73,15 @@
 │       └── WATCHLIST_SPEC.md
 ├── infra
 │   └── README.md
-├── makefile
 ├── project_structure.txt
 ├── pyproject.toml
+├── pytest.ini
 ├── requirements.txt
 ├── scripts
 │   └── schema.sql
 └── tests
     └── bootstrap
-        ├── pytest.ini
+        ├── __init__.py
         └── test_smoke.py
 
-20 directories, 54 files
+23 directories, 62 files

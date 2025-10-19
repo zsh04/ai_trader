@@ -1,0 +1,13 @@
+# .dockerignore
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.db
+*.parquet
+data/
+tests/
+.git
+.github
+documents/
+infra/
