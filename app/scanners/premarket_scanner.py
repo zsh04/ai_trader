@@ -1,28 +1,23 @@
-from dataclasses import dataclass
-from typing import List
-import json, os, datetime, pathlib
+import json, datetime
+from app.data.data_client import DataClient
+from app.data.store import Store
 
-@dataclass
-class Candidate:
-    symbol: str
-    price: float
-    gap_pct: float
-    rvol: float
-    spread_pct: float
-    dollar_vol: float
+def premarket_watchlist(symbols):
+    api = DataClient()
+    cands = []
+    for s in symbols:
+        q = api.get_premarket_quotes(s)
+        # TODO: compute gap%, RVOL, spread% (you’ll add OHLCV + volume pulls)
+        # Placeholder spread from bid/ask if present:
+        bid = q.get("quote", {}).get("bp")
+        ask = q.get("quote", {}).get("ap")
+        if bid and ask and 1 <= ((bid+ask)/2) <= 10:
+            spread_pct = (ask - bid) / ((ask + bid) / 2) * 100
+            if spread_pct <= 0.75:
+                cands.append({"symbol": s, "spread_pct": spread_pct})
+    return cands
 
-def scan_premarket() -> List[Candidate]:
-    # Placeholder: integrate Alpaca data client later
-    # For now, produce a few fake candidates in $1-$10 with decent RVOL
-    return [
-        Candidate("ABC", 3.45, 8.2, 4.0, 0.4, 2_500_000),
-        Candidate("XYZ", 9.10, 6.0, 3.2, 0.6, 1_200_000),
-    ]
-
-def write_watchlist(cands: List[Candidate], out_dir: str = "data/watchlists"):
+def write_to_blob(cands):
     dt = datetime.datetime.now().strftime("%Y-%m-%d")
-    pathlib.Path(out_dir).mkdir(parents=True, exist_ok=True)
-    path = pathlib.Path(out_dir) / f"{dt}.json"
-    with open(path, "w") as f:
-        json.dump([c.__dict__ for c in cands], f, indent=2)
-    return str(path)
+    Store().upload_text(f"watchlists/{dt}.json", json.dumps(cands, indent=2))
+    return f"watchlists/{dt}.json"

@@ -17,3 +17,5 @@ jobs:
         run: ruff check .
       - name: Test
         run: pytest -v
+      - name: Security Scan
+        run: bandit -r app
