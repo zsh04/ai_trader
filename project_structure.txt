@@ -1,6 +1,44 @@
 .
+├── Dockerfile
 ├── analysis_agent.py
 ├── app
+│   ├── __init__.py
+│   ├── agent
+│   │   ├── __init__.py
+│   │   ├── policy.py
+│   │   ├── risk.py
+│   │   └── sizing.py
+│   ├── config.py
+│   ├── data
+│   │   ├── __init__.py
+│   │   ├── calendar.py
+│   │   ├── data_client.py
+│   │   └── store.py
+│   ├── execution
+│   │   ├── __init__.py
+│   │   ├── alpaca_client.py
+│   │   └── router.py
+│   ├── features
+│   │   ├── __init__.py
+│   │   ├── indicators.py
+│   │   └── mtf_aggregate.py
+│   ├── main.py
+│   ├── monitoring
+│   │   ├── __init__.py
+│   │   └── dashboard.py
+│   ├── scanners
+│   │   ├── __init__.py
+│   │   ├── intraday_scanner.py
+│   │   └── premarket_scanner.py
+│   ├── sessions
+│   │   ├── __init__.py
+│   │   ├── session_clock.py
+│   │   └── session_metrics.py
+│   └── utils
+│       ├── __init__.py
+│       └── logging.py
+├── config
+│   └── config.yaml
 ├── connect.py
 ├── documents
 │   ├── README.md
@@ -23,7 +61,16 @@
 │       ├── SESSION_MODEL.md
 │       └── WATCHLIST_SPEC.md
 ├── infra
+│   └── README.md
+├── makefile
 ├── project_structure.txt
+├── pyproject.toml
+├── requirements.txt
+├── scripts
+│   └── schema.sql
 └── tests
+    └── bootstrap
+        ├── pytest.ini
+        └── test_smoke.py
 
-9 directories, 18 files
+20 directories, 54 files
