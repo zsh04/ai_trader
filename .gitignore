@@ -23,3 +23,5 @@ storage/
 
 # Logs
 *.log
+
+dump_json
