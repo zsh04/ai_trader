@@ -1,13 +1,18 @@
-import os
-from sqlalchemy import create_engine, text
+# app/utils/db.py
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
+from app.config import settings
 
-def pg_engine():
-    dsn = f"postgresql+psycopg2://{os.getenv('PGUSER')}:{os.getenv('PGPASSWORD')}@{os.getenv('PGHOST')}:{os.getenv('PGPORT','5432')}/{os.getenv('PGDATABASE')}?sslmode={os.getenv('PGSSLMODE','require')}"
-    return create_engine(dsn, pool_pre_ping=True, pool_size=5, max_overflow=5)
+_engine: Engine | None = None
 
-def insert_trade(engine, payload: dict):
-    cols = ",".join(payload.keys())
-    vals = ",".join([f":{k}" for k in payload.keys()])
-    sql = text(f"INSERT INTO trades ({cols}) VALUES ({vals})")
-    with engine.begin() as cx:
-        cx.execute(sql, payload)
+def pg_engine() -> Engine:
+    global _engine
+    if _engine is None:
+        url = (
+            f"postgresql+psycopg2://{settings.pg_user}:{settings.pg_password}"
+            f"@{settings.pg_host}:{settings.pg_port}/{settings.pg_db}"
+        )
+        if settings.pg_sslmode:
+            url += f"?sslmode={settings.pg_sslmode}"
+        _engine = create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=5)
+    return _engine
