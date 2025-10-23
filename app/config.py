@@ -2,6 +2,12 @@
 from pydantic import BaseModel
 import os
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # loads .env from project root
+except Exception:
+    pass
+
 class Settings(BaseModel):
     # runtime
     port: int = int(os.getenv("PORT", "8000"))
