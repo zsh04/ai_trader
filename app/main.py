@@ -4,12 +4,12 @@ from fastapi import FastAPI, HTTPException, Request, Query
 from datetime import datetime, timezone
 from sqlalchemy import text
 from app.config import settings
-from app.utils.db import pg_engine
-from app.scanners.premarket_scanner import build_premarket_watchlist
-from app.data.store import put_json, today_key
+from app.adapters.db.postgres import make_engine, make_session_factory
+from app.scanners.watchlist_builder import build_watchlist
+from app.adapters.storage.blob import *
 from pydantic import BaseModel
 from typing import List, Optional
-from app.utils.telegram import send_message
+from app.adapters.notifiers.telegram import send_message
 from app.utils.formatting import format_watchlist_telegram
 from app.data.data_client import batch_latest_ohlcv
 
@@ -58,39 +58,18 @@ class ScanRequest(BaseModel):
     symbols: Optional[List[str]] = None
     debug: bool = False
 
-@app.post("/tasks/premarket-scan")
-def premarket_scan(
-    body: ScanRequest | None = None,
+@app.post("/tasks/watchlist")
+def watchlist_task(
     symbols: Optional[List[str]] = Query(None),
-    debug: bool = False,
+    include_filters: bool = True,
     passthrough: bool = False,
-    include_ohlcv: bool = True,   # <-- default ON
+    include_ohlcv: bool = True,
+    debug: bool = False,
 ):
-    custom = symbols or (body.symbols if body else None)
-
-    if passthrough:
-        if not custom:
-            raise HTTPException(status_code=400, detail="Provide symbols via ?symbols=AAA&symbols=BBB or body {symbols:[...]}")
-        syms = [s.strip().upper() for s in custom if s and s.strip()]
-        items = [{"symbol": s} for s in syms]
-        if include_ohlcv:
-            snapmap = batch_latest_ohlcv(syms)
-            for it in items:
-                m = snapmap.get(it["symbol"], {})
-                it["last"] = m.get("last", 0.0)
-                it["o"] = m.get("ohlcv", {}).get("o", 0.0)
-                it["h"] = m.get("ohlcv", {}).get("h", 0.0)
-                it["l"] = m.get("ohlcv", {}).get("l", 0.0)
-                it["c"] = m.get("ohlcv", {}).get("c", 0.0)
-                it["v"] = m.get("ohlcv", {}).get("v", 0)
-    else:
-        items = build_premarket_watchlist(debug=debug, symbols=custom)
-
-    key = today_key("watchlists/manual" if passthrough else "watchlists/premarket")
-    put_json(items, key)
-
-    title = "AI Trader • Manual Watchlist" if passthrough else "AI Trader • Premarket Watchlist"
-    text = format_watchlist_telegram(items, title=title, blob_path=key)
-    send_message(text)
-
-    return {"ok": True, "count": len(items), "path": key, "items": items}
+    wl = build_watchlist(
+        symbols=symbols,
+        include_filters=include_filters,
+        passthrough=passthrough,
+        include_ohlcv=include_ohlcv,
+    )
+    return wl

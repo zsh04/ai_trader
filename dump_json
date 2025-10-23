@@ -1,0 +1,137 @@
+[
+  {
+    "name": "PORT",
+    "value": "8000",
+    "slotSetting": false
+  },
+  {
+    "name": "WEBSITES_PORT",
+    "value": "8000",
+    "slotSetting": false
+  },
+  {
+    "name": "PYTHONUNBUFFERED",
+    "value": "1",
+    "slotSetting": false
+  },
+  {
+    "name": "PGHOST",
+    "value": "ai-trader-db.postgres.database.azure.com",
+    "slotSetting": false
+  },
+  {
+    "name": "PGPORT",
+    "value": "5432",
+    "slotSetting": false
+  },
+  {
+    "name": "PGDATABASE",
+    "value": "traderdata",
+    "slotSetting": false
+  },
+  {
+    "name": "PGUSER",
+    "value": "db_admin",
+    "slotSetting": false
+  },
+  {
+    "name": "PGPASSWORD",
+    "value": "aitrader#04",
+    "slotSetting": false
+  },
+  {
+    "name": "PGSSLMODE",
+    "value": "require",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_STORAGE_ACCOUNT_NAME",
+    "value": "aitraderblobstore",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_STORAGE_ACCOUNT_KEY",
+    "value": "cvzyxGIIc+L9n12FVDn/olxepmFnWQhhQcskLeffeQAz+uXemARtEmYjKdBcy0oGWwJYPHRXJSfX+AStXzND0Q==",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_STORAGE_CONTAINER_NAME",
+    "value": "traderdata",
+    "slotSetting": false
+  },
+  {
+    "name": "ALPACA_API_KEY",
+    "value": "PK64Y4IYEKAOU67MCSAGYESYFO",
+    "slotSetting": false
+  },
+  {
+    "name": "ALPACA_API_SECRET",
+    "value": "PK64Y4IYEKAOU67MCSAGYESYFO",
+    "slotSetting": false
+  },
+  {
+    "name": "ALPACA_BASE_URL",
+    "value": "https://paper-api.alpaca.markets",
+    "slotSetting": false
+  },
+  {
+    "name": "PAPER_TRADING",
+    "value": "true",
+    "slotSetting": false
+  },
+  {
+    "name": "TRADING_ENABLED",
+    "value": "true",
+    "slotSetting": false
+  },
+  {
+    "name": "MAX_RISK_PER_TRADE",
+    "value": "0.01",
+    "slotSetting": false
+  },
+  {
+    "name": "DAILY_DRAWDOWN_HALT",
+    "value": "0.05",
+    "slotSetting": false
+  },
+  {
+    "name": "CONCENTRATION_MANUAL_GATE",
+    "value": "0.5",
+    "slotSetting": false
+  },
+  {
+    "name": "TELEGRAM_ENABLE",
+    "value": "true",
+    "slotSetting": false
+  },
+  {
+    "name": "TELEGRAM_BOT_TOKEN",
+    "value": "8313975890:AAFhCadnhIlb7qTLHgSZYo516nM5pmRXrSA",
+    "slotSetting": false
+  },
+  {
+    "name": "TELEGRAM_CHAT_ID",
+    "value": "8414729426",
+    "slotSetting": false
+  },
+  {
+    "name": "TELEGRAM_ALLOWED_USER_IDS",
+    "value": "8414729426",
+    "slotSetting": false
+  },
+  {
+    "name": "TELEGRAM_WEBHOOK_SECRET",
+    "value": "lSLfPpmSLSiGm1qsVO2jRRsUYdz_S4PDUxyky0feAA6qVx6bxGFsGNpRY4fMTAGa",
+    "slotSetting": false
+  },
+  {
+    "name": "ADMIN_PASSPHRASE",
+    "value": "GunnersBStepping#04",
+    "slotSetting": false
+  },
+  {
+    "name": "TZ",
+    "value": "America/Los_Angeles",
+    "slotSetting": false
+  }
+]

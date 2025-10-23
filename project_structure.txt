@@ -12,20 +12,38 @@
 ├── Dockerfile
 ├── Makefile
 ├── README.md
-├── analysis_agent.py
 ├── app
 │   ├── __init__.py
+│   ├── adapters
+│   │   ├── __init__.py
+│   │   ├── db
+│   │   │   ├── __init__.py
+│   │   │   └── postgres.py
+│   │   ├── notifiers
+│   │   │   ├── __init__.py
+│   │   │   └── telegram.py
+│   │   ├── storage
+│   │   │   ├── __init__.py
+│   │   │   └── blob.py
+│   │   └── telemetry
+│   │       ├── __init__.py
+│   │       └── logging.py
 │   ├── agent
 │   │   ├── __init__.py
+│   │   ├── analysis.py
 │   │   ├── policy.py
 │   │   ├── risk.py
 │   │   └── sizing.py
 │   ├── config.py
-│   ├── data
+│   ├── core
 │   │   ├── __init__.py
 │   │   ├── calendar.py
-│   │   ├── data_client.py
-│   │   └── store.py
+│   │   ├── exceptions.py
+│   │   ├── models.py
+│   │   └── timeutils.py
+│   ├── data
+│   │   ├── __init__.py
+│   │   └── data_client.py
 │   ├── execution
 │   │   ├── __init__.py
 │   │   ├── alpaca_client.py
@@ -38,18 +56,24 @@
 │   ├── monitoring
 │   │   ├── __init__.py
 │   │   └── dashboard.py
+│   ├── providers
+│   │   ├── __init__.py
+│   │   ├── alpaca_provider.py
+│   │   └── yahoo_provider.py
 │   ├── scanners
 │   │   ├── __init__.py
 │   │   ├── intraday_scanner.py
-│   │   └── premarket_scanner.py
+│   │   └── watchlist_builder.py
 │   ├── sessions
 │   │   ├── __init__.py
 │   │   ├── session_clock.py
 │   │   └── session_metrics.py
 │   └── utils
 │       ├── __init__.py
-│       ├── db.py
-│       └── logging.py
+│       ├── env.py
+│       ├── formatting.py
+│       ├── http.py
+│       └── normalize.py
 ├── config
 │   └── config.yaml
 ├── connect.py
@@ -72,6 +96,7 @@
 │       ├── RISK_POLICY.md
 │       ├── SESSION_MODEL.md
 │       └── WATCHLIST_SPEC.md
+├── dump_json
 ├── infra
 │   └── README.md
 ├── project_structure.txt
@@ -85,4 +110,4 @@
         ├── __init__.py
         └── test_smoke.py
 
-23 directories, 63 files
+30 directories, 81 files
