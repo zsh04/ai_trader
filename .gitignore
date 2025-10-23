@@ -1,28 +1,68 @@
 # Python
 __pycache__/
 *.py[cod]
-*.egg-info/
+*.pyo
+*.pyd
+*.so
+*.egg*
+
+# Environments
 .venv/
 venv/
-dist/
-build/
+env/
+ENV/
+.Python
 
-# IDE
+# VSCode / IDEs
 .vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
 
-# Data & models
-data/
-models/
-storage/
-*.parquet
-*.db
-*.sqlite
+# OS metadata
+.DS_Store
+Thumbs.db
 
-# Streamlit
-.streamlit/
-
-# Logs
+# Logs & temp
 *.log
+*.tmp
+*.bak
+*.swp
+*.swo
 
-dump_json
+# Build & packaging
+build/
+dist/
+.eggs/
+*.egg-info/
+
+# Testing
+.coverage
+.tox/
+.pytest_cache/
+
+# Environment & config files
 .env
+.env.*
+*.env.local
+.envrc
+
+# Azure / Cloud
+*.publishsettings
+*.azure/
+local.settings.json
+__pycache__/
+
+# GitHub
+.github/*secrets*
+
+# Data & caches
+data/*.json
+*.sqlite3
+*.db
+*.csv
+
+# Ignore personal notes or exports
+notes/
+exports/
+dump_json
