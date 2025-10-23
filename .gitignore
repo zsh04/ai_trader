@@ -1,68 +1,26 @@
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-*.so
-*.egg*
-
-# Environments
-.venv/
-venv/
-env/
-ENV/
-.Python
-
-# VSCode / IDEs
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-
-# OS metadata
-.DS_Store
-Thumbs.db
-
-# Logs & temp
-*.log
-*.tmp
-*.bak
-*.swp
-*.swo
-
-# Build & packaging
-build/
-dist/
-.eggs/
 *.egg-info/
+.venv/
+env/
+venv/
 
-# Testing
-.coverage
-.tox/
-.pytest_cache/
-
-# Environment & config files
+# Local creds
 .env
 .env.*
-*.env.local
-.envrc
+!.env.example
 
-# Azure / Cloud
-*.publishsettings
-*.azure/
-local.settings.json
-__pycache__/
+# Build
+dist/
+build/
 
-# GitHub
-.github/*secrets*
-
-# Data & caches
-data/*.json
-*.sqlite3
-*.db
-*.csv
-
-# Ignore personal notes or exports
-notes/
-exports/
-dump_json
+# Data dumps
+dump_json/
+data/
+.parquet/

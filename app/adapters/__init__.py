@@ -1,0 +1,1 @@
+# Namespace for outbound adapters: db, notifiers, telemetry
