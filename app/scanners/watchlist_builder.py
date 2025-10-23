@@ -1,12 +1,20 @@
-from app.providers.alpaca_provider import snapshots as get_snapshots_batch, day_bars as get_daily_bars, minute_bars as get_minutes_bars
-from app.providers.yahoo_provider import intraday_last as yf_intraday_last, latest_close as yf_latest_close, latest_volume as yf_latest_volume
-from app.data.data_client import batch_latest_ohlcv
+from __future__ import annotations
+from typing import List
+from statistics import mean
+
+from app.data.data_client import batch_latest_ohlcv, get_universe
 from app.core.timeutils import now_utc, session_for
+from app.utils.env import MAX_WATCHLIST
+
+# --------------------------------------------------------------------------------------
+# Lightweight helpers (kept for future scanner enrichment)
+# --------------------------------------------------------------------------------------
 
 def _gap_pct(today_open: float, prev_close: float) -> float:
     if not prev_close or prev_close <= 0:
         return 0.0
     return (today_open - prev_close) / prev_close * 100.0
+
 
 def _spread_pct(bid: float, ask: float) -> float:
     if not bid or not ask:
@@ -16,28 +24,51 @@ def _spread_pct(bid: float, ask: float) -> float:
         return 999.0
     return (ask - bid) / mid * 100.0
 
+
 def _pick_price(latest_trade: dict | None, daily_bar: dict | None, prev_daily: dict | None) -> float:
-    """
-    Use latestTrade price if present; fallback to today's open or prev close.
-    """
-    if latest_trade and latest_trade.get("p"):
-        return float(latest_trade["p"])
-    if daily_bar and daily_bar.get("o"):
-        return float(daily_bar["o"])
-    if prev_daily and prev_daily.get("c"):
-        return float(prev_daily["c"])
+    """Use latestTrade price if present; fallback to today's open or previous close."""
+    try:
+        if latest_trade and latest_trade.get("p"):
+            p = float(latest_trade["p"])  # type: ignore[index]
+            if p > 0:
+                return p
+    except Exception:
+        pass
+    try:
+        if daily_bar and daily_bar.get("o"):
+            o = float(daily_bar["o"])  # type: ignore[index]
+            if o > 0:
+                return o
+    except Exception:
+        pass
+    try:
+        if prev_daily and prev_daily.get("c"):
+            c = float(prev_daily["c"])  # type: ignore[index]
+            if c > 0:
+                return c
+    except Exception:
+        pass
     return 0.0
 
-def _volumes_for_rvol(bars: List[dict], daily_bar: dict | None) -> Tuple[float, float]:
-    """
-    Return (today_volume, avg_5d_volume). If today's volume is 0 premarket, we still return 0.
-    """
-    hist = [b.get("v", 0) for b in bars[:-1] if b.get("v")]
-    avg5 = mean(hist[-5:]) if hist else 0.0
-    today = float(daily_bar.get("v", 0.0)) if daily_bar else 0.0
+
+def _volumes_for_rvol(bars: list[dict], daily_bar: dict | None) -> tuple[float, float]:
+    """Return (today_volume, avg_5d_volume). If today's volume is 0 premarket, we still return 0."""
+    hist = [b.get("v", 0) for b in (bars or []) if b.get("v")]
+    avg5 = float(mean(hist[-5:])) if hist else 0.0
+    today = float((daily_bar or {}).get("v") or 0.0)
     return today, avg5
 
-def build_watchlist(symbols=None, include_filters=True, passthrough=False, include_ohlcv=True):
+
+# --------------------------------------------------------------------------------------
+# Public API
+# --------------------------------------------------------------------------------------
+
+def build_watchlist(
+    symbols: list[str] | None = None,
+    include_filters: bool = True,
+    passthrough: bool = False,  # reserved for future use
+    include_ohlcv: bool = True,  # kept for compatibility; batch already returns OHLCV
+) -> dict:
     """
     Unified watchlist creator:
       - symbols provided => manual mode
@@ -48,22 +79,22 @@ def build_watchlist(symbols=None, include_filters=True, passthrough=False, inclu
     if symbols:
         candidates = sorted({s.strip().upper() for s in symbols if s and s.strip()})
     else:
-        candidates = scan_candidates()  # your existing filter logic
+        candidates = scan_candidates()
 
-    # 2) (optional) apply filters even in manual mode if you want
+    # 2) optionally apply filters
     if include_filters:
-        candidates = apply_filters(candidates)  # existing logic
+        candidates = apply_filters(candidates)
 
-    # 3) enrich
+    # 3) enrich with latest price + OHLCV
     snap = batch_latest_ohlcv(candidates)
 
     # 4) structure response
-    items = []
+    items: list[dict] = []
     for sym in candidates:
         d = snap.get(sym, {"last": 0.0, "price_source": "none", "ohlcv": {}})
         items.append({
             "symbol": sym,
-            "last": d.get("last", 0.0),
+            "last": float(d.get("last", 0.0) or 0.0),
             "price_source": d.get("price_source", "none"),
             "ohlcv": d.get("ohlcv", {}),
         })
@@ -74,3 +105,19 @@ def build_watchlist(symbols=None, include_filters=True, passthrough=False, inclu
         "count": len(items),
         "items": items,
     }
+
+
+# --------------------------------------------------------------------------------------
+# Temporary scanning stubs (replace with real gap/RVOL/spread filters soon)
+# --------------------------------------------------------------------------------------
+
+def scan_candidates() -> List[str]:
+    """Default scanning universe (placeholder until real scanner is wired)."""
+    return get_universe()
+
+
+def apply_filters(symbols: List[str]) -> List[str]:
+    """No-op filter other than capping list length with MAX_WATCHLIST."""
+    syms = [s.strip().upper() for s in symbols if s and s.strip()]
+    cap = MAX_WATCHLIST if isinstance(MAX_WATCHLIST, int) and MAX_WATCHLIST > 0 else 15
+    return syms[:cap]
