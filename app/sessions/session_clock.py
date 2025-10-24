@@ -1,5 +1,7 @@
 from datetime import datetime, time
+
 import pytz
+
 
 class SessionClock:
     def __init__(self, tz: str, ranges: dict):

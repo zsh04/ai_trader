@@ -1,12 +1,15 @@
 # app/config.py
-from pydantic import BaseModel
 import os
+
+from pydantic import BaseModel
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv()  # loads .env from project root
 except Exception:
     pass
+
 
 class Settings(BaseModel):
     # runtime
@@ -16,7 +19,9 @@ class Settings(BaseModel):
     # alpaca
     alpaca_key: str = os.getenv("ALPACA_API_KEY", "")
     alpaca_secret: str = os.getenv("ALPACA_API_SECRET", "")
-    alpaca_base_url: str = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+    alpaca_base_url: str = os.getenv(
+        "ALPACA_BASE_URL", "https://paper-api.alpaca.markets"
+    )
     paper_trading: bool = os.getenv("PAPER_TRADING", "true").lower() == "true"
 
     # blob
@@ -40,5 +45,6 @@ class Settings(BaseModel):
     spread_max_pct_pre: float = float(os.getenv("SPREAD_MAX_PCT_PRE", "0.75"))
     dollar_vol_min_pre: float = float(os.getenv("DOLLAR_VOL_MIN_PRE", "1000000"))
     max_watchlist: int = int(os.getenv("MAX_WATCHLIST", "15"))
+
 
 settings = Settings()

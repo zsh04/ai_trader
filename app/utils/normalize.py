@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from typing import Any, Dict, List
+
 
 def bars_to_map(bars_obj: Any, symbols: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """

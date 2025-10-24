@@ -1,17 +1,19 @@
 from __future__ import annotations
+
 import os
 from typing import Optional
 from urllib.parse import quote_plus
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.utils import env as ENV
 
 # ----------------------------------------------------------------------------
 # DSN helpers
 # ----------------------------------------------------------------------------
+
 
 def _dsn_from_env() -> str:
     """Build a SQLAlchemy DSN from env. Prefer DATABASE_URL if present.
@@ -22,14 +24,14 @@ def _dsn_from_env() -> str:
         return ENV.DATABASE_URL
 
     user = ENV.PGUSER or os.getenv("PGUSER", "")
-    pwd  = ENV.PGPASSWORD or os.getenv("PGPASSWORD", "")
+    pwd = ENV.PGPASSWORD or os.getenv("PGPASSWORD", "")
     host = ENV.PGHOST or os.getenv("PGHOST", "localhost")
     port = int(ENV.PGPORT or os.getenv("PGPORT", 5432))
-    db   = ENV.PGDATABASE or os.getenv("PGDATABASE", "postgres")
-    ssl  = ENV.PGSSLMODE or os.getenv("PGSSLMODE", "require")
+    db = ENV.PGDATABASE or os.getenv("PGDATABASE", "postgres")
+    ssl = ENV.PGSSLMODE or os.getenv("PGSSLMODE", "require")
 
     user_q = quote_plus(user)
-    pwd_q  = quote_plus(pwd)
+    pwd_q = quote_plus(pwd)
 
     # Example: postgresql+psycopg2://user:pass@host:5432/db?sslmode=require
     return f"postgresql+psycopg2://{user_q}:{pwd_q}@{host}:{port}/{db}?sslmode={ssl}"
@@ -42,7 +44,10 @@ def _dsn_from_env() -> str:
 _ENGINE: Optional[Engine] = None
 _SESSION_FACTORY: Optional[sessionmaker] = None
 
-def make_engine(dsn: Optional[str] = None, pool_size: int = 5, max_overflow: int = 5) -> Engine:
+
+def make_engine(
+    dsn: Optional[str] = None, pool_size: int = 5, max_overflow: int = 5
+) -> Engine:
     """Create a new Engine (uncached). Prefer `get_engine()` for a singleton."""
     dsn = dsn or _dsn_from_env()
     return create_engine(
@@ -64,9 +69,13 @@ def get_engine() -> Engine:
 
 def make_session_factory(engine: Optional[Engine] = None) -> sessionmaker:
     global _SESSION_FACTORY
-    if _SESSION_FACTORY is None or (engine is not None and _SESSION_FACTORY.kw.get("bind") is not engine):
+    if _SESSION_FACTORY is None or (
+        engine is not None and _SESSION_FACTORY.kw.get("bind") is not engine
+    ):
         eng = engine or get_engine()
-        _SESSION_FACTORY = sessionmaker(bind=eng, expire_on_commit=False, autoflush=False, future=True)
+        _SESSION_FACTORY = sessionmaker(
+            bind=eng, expire_on_commit=False, autoflush=False, future=True
+        )
     return _SESSION_FACTORY
 
 
@@ -78,6 +87,7 @@ def get_session() -> Session:
 # ----------------------------------------------------------------------------
 # Health / diagnostics
 # ----------------------------------------------------------------------------
+
 
 def ping(engine: Optional[Engine] = None) -> bool:
     try:

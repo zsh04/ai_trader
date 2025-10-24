@@ -1,10 +1,12 @@
 from __future__ import annotations
+
 import logging
-import time
 import random
+import time
 from typing import Any, Dict, Optional, Tuple
 
 import requests
+
 from app.utils import env as ENV
 
 log = logging.getLogger(__name__)
@@ -12,6 +14,7 @@ log = logging.getLogger(__name__)
 # ------------------------------------------------------------------------------
 # Header helpers
 # ------------------------------------------------------------------------------
+
 
 def _ensure_ua(headers: Optional[Dict[str, str]]) -> Dict[str, str]:
     merged = {"User-Agent": ENV.HTTP_USER_AGENT}
@@ -42,9 +45,11 @@ def with_alpaca(headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
         merged.update(headers)
     return merged
 
+
 # ------------------------------------------------------------------------------
 # Core HTTP (JSON) with retries and jittered backoff
 # ------------------------------------------------------------------------------
+
 
 def _compute_sleep(attempt: int, backoff: float, retry_after: Optional[str]) -> float:
     # Respect Retry-After if present and valid
@@ -81,7 +86,11 @@ def request_json(
     - On repeated network failure, returns (599, {}).
     """
     timeout = timeout if timeout is not None else ENV.HTTP_TIMEOUT_SECS
-    retries = retries if retries is not None else getattr(ENV, "HTTP_RETRIES", ENV.HTTP_RETRY_ATTEMPTS)
+    retries = (
+        retries
+        if retries is not None
+        else getattr(ENV, "HTTP_RETRIES", ENV.HTTP_RETRY_ATTEMPTS)
+    )
     backoff = backoff if backoff is not None else ENV.HTTP_RETRY_BACKOFF_SEC
 
     merged = _ensure_ua(headers)
@@ -112,10 +121,17 @@ def request_json(
             # Retryable?
             retryable = resp.status_code in {408, 429, 500, 502, 503, 504}
             if retryable and attempt < retries:
-                sleep_s = _compute_sleep(attempt, backoff, resp.headers.get("Retry-After"))
+                sleep_s = _compute_sleep(
+                    attempt, backoff, resp.headers.get("Retry-After")
+                )
                 log.warning(
                     "HTTP %s %s -> %s — retry %s/%s in %.2fs",
-                    method.upper(), url, resp.status_code, attempt + 1, retries, sleep_s,
+                    method.upper(),
+                    url,
+                    resp.status_code,
+                    attempt + 1,
+                    retries,
+                    sleep_s,
                 )
                 time.sleep(sleep_s)
                 continue
@@ -135,7 +151,12 @@ def request_json(
                 sleep_s = _compute_sleep(attempt, backoff, None)
                 log.warning(
                     "HTTP %s %s error — retry %s/%s in %.2fs: %s",
-                    method.upper(), url, attempt + 1, retries, sleep_s, e,
+                    method.upper(),
+                    url,
+                    attempt + 1,
+                    retries,
+                    sleep_s,
+                    e,
                 )
                 time.sleep(sleep_s)
                 continue
@@ -149,6 +170,7 @@ def request_json(
 # ------------------------------------------------------------------------------
 # Convenience wrappers (backward compatible signatures)
 # ------------------------------------------------------------------------------
+
 
 def http_get(
     url: str,

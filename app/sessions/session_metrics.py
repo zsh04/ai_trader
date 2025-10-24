@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, List
 
+
 @dataclass
 class MetricEvent:
     session: str
@@ -8,11 +9,18 @@ class MetricEvent:
     slippage_bp: float = 0.0
     spread_pct: float = 0.0
 
+
 @dataclass
 class SessionMetrics:
-    buckets: Dict[str, List[MetricEvent]] = field(default_factory=lambda: {
-        "PRE": [], "REG-AM": [], "REG-MID": [], "REG-PM": [], "AFT": []
-    })
+    buckets: Dict[str, List[MetricEvent]] = field(
+        default_factory=lambda: {
+            "PRE": [],
+            "REG-AM": [],
+            "REG-MID": [],
+            "REG-PM": [],
+            "AFT": [],
+        }
+    )
 
     def record(self, ev: MetricEvent):
         if ev.session in self.buckets:

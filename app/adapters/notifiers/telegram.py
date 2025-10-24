@@ -1,9 +1,11 @@
 from __future__ import annotations
+
 import logging
 import time
-from typing import Iterable, Optional, Set, Dict, Any
+from typing import Any, Dict, Iterable, Optional, Set
 
 import requests
+
 from app.utils import env as ENV
 
 log = logging.getLogger(__name__)
@@ -64,16 +66,34 @@ class TelegramClient:
         return (header_secret or "") == self.secret
 
     # --- Message Sending ---
-    def send_text(self, chat_id: int | str, text: str, parse_mode: Optional[str] = "Markdown", disable_preview: bool = True) -> bool:
-        return self._send(chat_id, text, parse_mode=parse_mode, disable_preview=disable_preview)
+    def send_text(
+        self,
+        chat_id: int | str,
+        text: str,
+        parse_mode: Optional[str] = "Markdown",
+        disable_preview: bool = True,
+    ) -> bool:
+        return self._send(
+            chat_id, text, parse_mode=parse_mode, disable_preview=disable_preview
+        )
 
-    def send_markdown(self, chat_id: int | str, text: str, disable_preview: bool = True) -> bool:
-        return self._send(chat_id, text, parse_mode="Markdown", disable_preview=disable_preview)
+    def send_markdown(
+        self, chat_id: int | str, text: str, disable_preview: bool = True
+    ) -> bool:
+        return self._send(
+            chat_id, text, parse_mode="Markdown", disable_preview=disable_preview
+        )
 
-    def send_html(self, chat_id: int | str, text: str, disable_preview: bool = True) -> bool:
-        return self._send(chat_id, text, parse_mode="HTML", disable_preview=disable_preview)
+    def send_html(
+        self, chat_id: int | str, text: str, disable_preview: bool = True
+    ) -> bool:
+        return self._send(
+            chat_id, text, parse_mode="HTML", disable_preview=disable_preview
+        )
 
-    def send_document(self, chat_id: int | str, file_path: str, caption: Optional[str] = None) -> bool:
+    def send_document(
+        self, chat_id: int | str, file_path: str, caption: Optional[str] = None
+    ) -> bool:
         if not self.base:
             log.warning("[Telegram] Missing bot token; skipping document send")
             return False
@@ -88,12 +108,21 @@ class TelegramClient:
             if 200 <= resp.status_code < 300:
                 log.info("[Telegram] Document sent to %s: %s", chat_id, file_path)
                 return True
-            log.warning("[Telegram] Failed to send document: %s %s", resp.status_code, resp.text)
+            log.warning(
+                "[Telegram] Failed to send document: %s %s", resp.status_code, resp.text
+            )
         except Exception as e:
             log.error("[Telegram] Error sending document: %s", e)
         return False
 
-    def smart_send(self, chat_id: int | str, text: str, mode: str = "Markdown", chunk_size: int = 3500, retries: int = 2) -> bool:
+    def smart_send(
+        self,
+        chat_id: int | str,
+        text: str,
+        mode: str = "Markdown",
+        chunk_size: int = 3500,
+        retries: int = 2,
+    ) -> bool:
         ok = True
         for part in _split_chunks(text, limit=chunk_size):
             for attempt in range(retries + 1):
@@ -101,14 +130,25 @@ class TelegramClient:
                     break
                 if attempt < retries:
                     delay = 1.5 * (attempt + 1)
-                    log.warning("[Telegram] Retry %s sending chunk to %s in %.1fs", attempt + 1, chat_id, delay)
+                    log.warning(
+                        "[Telegram] Retry %s sending chunk to %s in %.1fs",
+                        attempt + 1,
+                        chat_id,
+                        delay,
+                    )
                     time.sleep(delay)
                 else:
                     ok = False
         return ok
 
     # --- Internal HTTP ---
-    def _send(self, chat_id: int | str, text: str, parse_mode: Optional[str] = None, disable_preview: bool = True) -> bool:
+    def _send(
+        self,
+        chat_id: int | str,
+        text: str,
+        parse_mode: Optional[str] = None,
+        disable_preview: bool = True,
+    ) -> bool:
         if not self.base:
             log.warning("[Telegram] Missing bot token; skipping send")
             return False
@@ -133,6 +173,7 @@ class TelegramClient:
 
 # --- Module-level helpers -------------------------------------------------------
 
+
 def build_client_from_env() -> TelegramClient:
     return TelegramClient(
         bot_token=ENV.TELEGRAM_BOT_TOKEN,
@@ -142,25 +183,35 @@ def build_client_from_env() -> TelegramClient:
     )
 
 
-def format_watchlist_message(session: str, items: Iterable[dict], title: str = "AI Trader • Watchlist") -> str:
+def format_watchlist_message(
+    session: str, items: Iterable[dict], title: str = "AI Trader • Watchlist"
+) -> str:
     header = f"*{title}* — _{session}_\n"
     lines = []
     for it in items:
         sym = it.get("symbol", "?")
         last = it.get("last")
-        src  = it.get("price_source", "")
-        vol  = (it.get("ohlcv") or {}).get("v")
+        src = it.get("price_source", "")
+        vol = (it.get("ohlcv") or {}).get("v")
         last_s = f"${last:,.2f}" if isinstance(last, (int, float)) and last else "$0.00"
-        vol_s  = f"{vol:,}" if isinstance(vol, int) and vol is not None else "0"
+        vol_s = f"{vol:,}" if isinstance(vol, int) and vol is not None else "0"
         suffix = f"  `{src}`" if src else ""
         lines.append(f"{sym:<6} {last_s:>10}  vol {vol_s}{suffix}")
     return header + ("\n".join(lines) if lines else "_No candidates._")
 
 
-def send_watchlist(session: str, items: Iterable[dict], *, chat_id: Optional[str | int] = None, title: str = "AI Trader • Watchlist") -> bool:
+def send_watchlist(
+    session: str,
+    items: Iterable[dict],
+    *,
+    chat_id: Optional[str | int] = None,
+    title: str = "AI Trader • Watchlist",
+) -> bool:
     cid = _coerce_chat_id(ENV.TELEGRAM_DEFAULT_CHAT_ID)
     if cid is None:
-        log.warning("[Telegram] No chat_id (TELEGRAM_DEFAULT_CHAT_ID unset). Skipping send.")
+        log.warning(
+            "[Telegram] No chat_id (TELEGRAM_DEFAULT_CHAT_ID unset). Skipping send."
+        )
         return False
     client = build_client_from_env()
     msg = format_watchlist_message(session, items, title=title)

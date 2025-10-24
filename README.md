@@ -1,3 +1,13 @@
+# AI Trader — v0.1.0
+> Modular trading intelligence platform for scanning, watchlists, and strategy orchestration.
+
+**Version:** 0.1.0  
+**Python:** 3.13.x  
+**Environment:** FastAPI + Alpaca + PostgreSQL + Telegram  
+**Author:** Zishan Malik
+
+
+
 # Personal AI Trading Agent (Equities/ETFs, Alpaca, MTF)
 
 **Goal:** Fully autonomous, session-aware retail trading agent with multi-timeframe signals (5m, 15m, 1h, 4h, 1D), daily watchlist generation, pre/regular/after-hours operation, and continuous learning. Broker: **Alpaca**.

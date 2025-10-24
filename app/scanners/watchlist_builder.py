@@ -1,14 +1,16 @@
 from __future__ import annotations
-from typing import List
-from statistics import mean
 
-from app.data.data_client import batch_latest_ohlcv, get_universe
+from statistics import mean
+from typing import List
+
 from app.core.timeutils import now_utc, session_for
+from app.data.data_client import batch_latest_ohlcv, get_universe
 from app.utils.env import MAX_WATCHLIST
 
 # --------------------------------------------------------------------------------------
 # Lightweight helpers (kept for future scanner enrichment)
 # --------------------------------------------------------------------------------------
+
 
 def _gap_pct(today_open: float, prev_close: float) -> float:
     if not prev_close or prev_close <= 0:
@@ -25,7 +27,9 @@ def _spread_pct(bid: float, ask: float) -> float:
     return (ask - bid) / mid * 100.0
 
 
-def _pick_price(latest_trade: dict | None, daily_bar: dict | None, prev_daily: dict | None) -> float:
+def _pick_price(
+    latest_trade: dict | None, daily_bar: dict | None, prev_daily: dict | None
+) -> float:
     """Use latestTrade price if present; fallback to today's open or previous close."""
     try:
         if latest_trade and latest_trade.get("p"):
@@ -63,6 +67,7 @@ def _volumes_for_rvol(bars: list[dict], daily_bar: dict | None) -> tuple[float, 
 # Public API
 # --------------------------------------------------------------------------------------
 
+
 def build_watchlist(
     symbols: list[str] | None = None,
     include_filters: bool = True,
@@ -92,12 +97,14 @@ def build_watchlist(
     items: list[dict] = []
     for sym in candidates:
         d = snap.get(sym, {"last": 0.0, "price_source": "none", "ohlcv": {}})
-        items.append({
-            "symbol": sym,
-            "last": float(d.get("last", 0.0) or 0.0),
-            "price_source": d.get("price_source", "none"),
-            "ohlcv": d.get("ohlcv", {}),
-        })
+        items.append(
+            {
+                "symbol": sym,
+                "last": float(d.get("last", 0.0) or 0.0),
+                "price_source": d.get("price_source", "none"),
+                "ohlcv": d.get("ohlcv", {}),
+            }
+        )
 
     return {
         "session": session_for(now_utc()),
@@ -110,6 +117,7 @@ def build_watchlist(
 # --------------------------------------------------------------------------------------
 # Temporary scanning stubs (replace with real gap/RVOL/spread filters soon)
 # --------------------------------------------------------------------------------------
+
 
 def scan_candidates() -> List[str]:
     """Default scanning universe (placeholder until real scanner is wired)."""

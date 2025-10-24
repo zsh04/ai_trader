@@ -1,8 +1,12 @@
 # app/data/store.py
-import os, json
+import json
+import os
 from datetime import datetime, timezone
+
 from azure.storage.blob import BlobServiceClient
+
 from app.config import settings
+
 
 def _client() -> BlobServiceClient:
     conn = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
@@ -12,6 +16,7 @@ def _client() -> BlobServiceClient:
         f"https://{settings.blob_account}.blob.core.windows.net",
         credential=settings.blob_key,
     )
+
 
 def put_json(obj, path: str) -> str:
     bsc = _client()
@@ -24,6 +29,7 @@ def put_json(obj, path: str) -> str:
     buf = json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     blob.upload_blob(buf, overwrite=True, content_type="application/json")
     return f"{settings.blob_container}/{path}"
+
 
 def today_key(prefix: str, suffix: str = "json") -> str:
     d = datetime.now(timezone.utc).strftime("%Y-%m-%d")

@@ -1,5 +1,6 @@
-import alpaca_trade_api as tradeapi
 import os
+
+import alpaca_trade_api as tradeapi
 from dotenv import load_dotenv
 
 # Load environment variables from the .env file
@@ -15,7 +16,7 @@ if not all([API_KEY, SECRET_KEY, BASE_URL]):
     raise ValueError("API keys or Base URL not set in .env file.")
 
 # Connect to the Alpaca API
-api = tradeapi.REST(API_KEY, SECRET_KEY, BASE_URL, api_version='v2')
+api = tradeapi.REST(API_KEY, SECRET_KEY, BASE_URL, api_version="v2")
 
 try:
     # Get and print your account information

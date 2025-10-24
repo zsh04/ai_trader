@@ -1,9 +1,10 @@
 from __future__ import annotations
+
 import logging
 from typing import Any, Dict, List, Optional
 
 from app.utils.env import ALPACA_DATA_BASE_URL, ALPACA_FEED
-from app.utils.http import http_get, alpaca_headers
+from app.utils.http import alpaca_headers, http_get
 from app.utils.normalize import bars_to_map
 
 log = logging.getLogger(__name__)
@@ -18,7 +19,9 @@ def _chunk_symbols(symbols: List[str], n: int = _CHUNK_SIZE) -> List[List[str]]:
     return [syms[i : i + n] for i in range(0, len(syms), n)]
 
 
-def snapshots(symbols: List[str], feed: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+def snapshots(
+    symbols: List[str], feed: Optional[str] = None
+) -> Dict[str, Dict[str, Any]]:
     """Fetch latest snapshots for multiple symbols.
 
     - Batches requests to avoid API limits.
@@ -37,7 +40,13 @@ def snapshots(symbols: List[str], feed: Optional[str] = None) -> Dict[str, Dict[
         status, data = http_get(url, params, headers=alpaca_headers())
         if status != 200:
             err = (data or {}).get("message") or (data or {}).get("error")
-            log.warning("alpaca snapshots feed=%s status=%s err=%s batch=%s", feed, status, err, ",".join(batch))
+            log.warning(
+                "alpaca snapshots feed=%s status=%s err=%s batch=%s",
+                feed,
+                status,
+                err,
+                ",".join(batch),
+            )
             continue
         snaps = (data or {}).get("snapshots") or {}
         for k, v in snaps.items():
@@ -70,7 +79,9 @@ def bars(
     if not batches:
         return {}
 
-    result: Dict[str, List[Dict[str, Any]]] = {s.strip().upper(): [] for s in symbols if s}
+    result: Dict[str, List[Dict[str, Any]]] = {
+        s.strip().upper(): [] for s in symbols if s
+    }
     for batch in batches:
         url = f"{ALPACA_DATA_BASE_URL}/stocks/bars"
         params: Dict[str, Any] = {
@@ -104,12 +115,26 @@ def bars(
     return result
 
 
-def minute_bars(symbols: List[str], limit: int = 1, feed: Optional[str] = None, adjustment: Optional[str] = None) -> Dict[str, List[Dict[str, Any]]]:
-    return bars(symbols, timeframe="1Min", limit=limit, feed=feed, adjustment=adjustment)
+def minute_bars(
+    symbols: List[str],
+    limit: int = 1,
+    feed: Optional[str] = None,
+    adjustment: Optional[str] = None,
+) -> Dict[str, List[Dict[str, Any]]]:
+    return bars(
+        symbols, timeframe="1Min", limit=limit, feed=feed, adjustment=adjustment
+    )
 
 
-def day_bars(symbols: List[str], limit: int = 1, feed: Optional[str] = None, adjustment: Optional[str] = None) -> Dict[str, List[Dict[str, Any]]]:
-    return bars(symbols, timeframe="1Day", limit=limit, feed=feed, adjustment=adjustment)
+def day_bars(
+    symbols: List[str],
+    limit: int = 1,
+    feed: Optional[str] = None,
+    adjustment: Optional[str] = None,
+) -> Dict[str, List[Dict[str, Any]]]:
+    return bars(
+        symbols, timeframe="1Day", limit=limit, feed=feed, adjustment=adjustment
+    )
 
 
 def latest_closes(symbols: List[str], feed: Optional[str] = None) -> Dict[str, float]:

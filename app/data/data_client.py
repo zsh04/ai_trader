@@ -1,17 +1,26 @@
-
 from __future__ import annotations
+
 import logging
 from typing import Any, Dict, List, Optional, Tuple
+
+from app.providers.alpaca_provider import (
+    day_bars as alpaca_day_bars,
+)
+from app.providers.alpaca_provider import (
+    minute_bars as alpaca_minute_bars,
+)
 
 # Providers (all external I/O lives here)
 from app.providers.alpaca_provider import (
     snapshots as alpaca_snapshots,
-    minute_bars as alpaca_minute_bars,
-    day_bars as alpaca_day_bars,
 )
 from app.providers.yahoo_provider import (
     intraday_last as yf_intraday_last,
+)
+from app.providers.yahoo_provider import (
     latest_close as yf_latest_close,
+)
+from app.providers.yahoo_provider import (
     latest_volume as yf_latest_volume,
 )
 
@@ -27,9 +36,11 @@ YF_ENABLED: bool = any(p.lower() == "yahoo" for p in PRICE_PROVIDERS)
 # Public: domain helpers (pure logic)
 # --------------------------------------------------------------------------------------
 
+
 def _midquote(snap: Dict[str, Any]) -> float:
     q = (snap or {}).get("latestQuote") or {}
-    bp = q.get("bp"); ap = q.get("ap")
+    bp = q.get("bp")
+    ap = q.get("ap")
     try:
         if bp is not None and ap is not None and float(bp) > 0 and float(ap) > 0:
             return (float(bp) + float(ap)) / 2.0
@@ -119,6 +130,7 @@ def latest_price_with_source(snap: Dict[str, Any], symbol: str) -> Tuple[float, 
 # Batch orchestration used by endpoints
 # --------------------------------------------------------------------------------------
 
+
 def batch_latest_ohlcv(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
     """
     Returns a map:
@@ -177,16 +189,21 @@ def batch_latest_ohlcv(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
             changed = False
             try:
                 if float(ohlcv.get("o") or 0) <= 0 and b.get("o") is not None:
-                    ohlcv["o"] = float(b.get("o") or 0); changed = True
+                    ohlcv["o"] = float(b.get("o") or 0)
+                    changed = True
                 if float(ohlcv.get("h") or 0) <= 0 and b.get("h") is not None:
-                    ohlcv["h"] = float(b.get("h") or 0); changed = True
+                    ohlcv["h"] = float(b.get("h") or 0)
+                    changed = True
                 if float(ohlcv.get("l") or 0) <= 0 and b.get("l") is not None:
-                    ohlcv["l"] = float(b.get("l") or 0); changed = True
+                    ohlcv["l"] = float(b.get("l") or 0)
+                    changed = True
                 if float(ohlcv.get("c") or 0) <= 0 and b.get("c") is not None:
-                    ohlcv["c"] = float(b.get("c") or 0); changed = True
+                    ohlcv["c"] = float(b.get("c") or 0)
+                    changed = True
                 if int(ohlcv.get("v") or 0) <= 0 and b.get("v") is not None:
                     try:
-                        ohlcv["v"] = int(b.get("v") or 0); changed = True
+                        ohlcv["v"] = int(b.get("v") or 0)
+                        changed = True
                     except Exception:
                         pass
             except Exception:
@@ -209,7 +226,9 @@ def batch_latest_ohlcv(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
                 out[sym]["price_source"] = "yahoo_close"
 
     # Fourth pass: Yahoo daily volume for any symbols still showing v==0
-    unresolved_vol = [s for s, d in out.items() if int((d.get("ohlcv") or {}).get("v", 0)) <= 0]
+    unresolved_vol = [
+        s for s, d in out.items() if int((d.get("ohlcv") or {}).get("v", 0)) <= 0
+    ]
     if YF_ENABLED and unresolved_vol:
         y_vol = yf_latest_volume(unresolved_vol)
         for sym in unresolved_vol:
@@ -226,31 +245,66 @@ def batch_latest_ohlcv(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
 # Backward-compat convenience for callers during migration
 # --------------------------------------------------------------------------------------
 
+
 def get_universe() -> List[str]:
     """Default scanning universe; overridable via WATCHLIST_UNIVERSE env in higher layer."""
     # To avoid env coupling here, return a sensible static universe.
     return [
-        "SPY","QQQ","IWM","AAPL","MSFT","NVDA","TSLA","META","AMZN","GOOGL",
-        "SHOP","NFLX","AMD","INTC","SMCI","PLTR","SOFI","MARA","RIOT","SOUN"
+        "SPY",
+        "QQQ",
+        "IWM",
+        "AAPL",
+        "MSFT",
+        "NVDA",
+        "TSLA",
+        "META",
+        "AMZN",
+        "GOOGL",
+        "SHOP",
+        "NFLX",
+        "AMD",
+        "INTC",
+        "SMCI",
+        "PLTR",
+        "SOFI",
+        "MARA",
+        "RIOT",
+        "SOUN",
     ]
+
 
 # Thin proxies so existing imports keep working while we migrate call sites.
 
-def get_snapshots_batch(symbols: List[str], feed: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+
+def get_snapshots_batch(
+    symbols: List[str], feed: Optional[str] = None
+) -> Dict[str, Dict[str, Any]]:
     return alpaca_snapshots(symbols, feed=feed)
 
 
-def get_minutes_bars(symbols: List[str], timeframe: str = "1Min", limit: int = 1, feed: Optional[str] = None) -> Dict[str, List[Dict[str, Any]]]:
+def get_minutes_bars(
+    symbols: List[str],
+    timeframe: str = "1Min",
+    limit: int = 1,
+    feed: Optional[str] = None,
+) -> Dict[str, List[Dict[str, Any]]]:
     # Only 1Min supported by the provider helper; keep timeframe param for legacy signature
     if timeframe not in ("1Min", "1min", "1MIN"):
-        log.debug("get_minutes_bars: non-1Min timeframe requested=%s; defaulting to 1Min", timeframe)
+        log.debug(
+            "get_minutes_bars: non-1Min timeframe requested=%s; defaulting to 1Min",
+            timeframe,
+        )
     return alpaca_minute_bars(symbols, limit=limit, feed=feed)
 
 
-def get_daily_bars(symbols: List[str], limit: int = 1, feed: Optional[str] = None) -> Dict[str, List[Dict[str, Any]]]:
+def get_daily_bars(
+    symbols: List[str], limit: int = 1, feed: Optional[str] = None
+) -> Dict[str, List[Dict[str, Any]]]:
     return alpaca_day_bars(symbols, limit=limit, feed=feed)
 
 
-def get_minute_bars(symbols: List[str], limit: int = 1, feed: Optional[str] = None) -> Dict[str, List[Dict[str, Any]]]:
+def get_minute_bars(
+    symbols: List[str], limit: int = 1, feed: Optional[str] = None
+) -> Dict[str, List[Dict[str, Any]]]:
     # legacy alias
     return get_minutes_bars(symbols, timeframe="1Min", limit=limit, feed=feed)

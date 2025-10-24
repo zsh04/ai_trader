@@ -7,11 +7,30 @@
 │       ├── ci.yml
 │       └── deploy.yml
 ├── .gitignore
+├── .pre-commit-config.yaml
+├── .python-version
+├── .ruff_cache
+│   ├── .gitignore
+│   ├── 0.14.1
+│   │   ├── 10486183155051560162
+│   │   ├── 14869619965677357052
+│   │   ├── 3478357461063673823
+│   │   └── 6609332381232176211
+│   ├── 0.6.9
+│   │   ├── 11616652495782845620
+│   │   ├── 11909376975843444499
+│   │   ├── 3686330244126402553
+│   │   └── 6708508427490885201
+│   └── CACHEDIR.TAG
 ├── .streamlit
 │   └── config.toml
+├── .tool-versions
+├── .vscode
+│   └── settings.json
 ├── Dockerfile
 ├── Makefile
 ├── README.md
+├── ai_trader_logs
 ├── app
 │   ├── __init__.py
 │   ├── adapters
@@ -34,6 +53,11 @@
 │   │   ├── policy.py
 │   │   ├── risk.py
 │   │   └── sizing.py
+│   ├── backtest
+│   │   ├── engine.py
+│   │   ├── metrics.py
+│   │   ├── model.py
+│   │   └── run_breakout.py
 │   ├── config.py
 │   ├── core
 │   │   ├── __init__.py
@@ -68,12 +92,19 @@
 │   │   ├── __init__.py
 │   │   ├── session_clock.py
 │   │   └── session_metrics.py
-│   └── utils
-│       ├── __init__.py
-│       ├── env.py
-│       ├── formatting.py
-│       ├── http.py
-│       └── normalize.py
+│   ├── strats
+│   │   └── breakout.py
+│   ├── utils
+│   │   ├── __init__.py
+│   │   ├── env.py
+│   │   ├── formatting.py
+│   │   ├── http.py
+│   │   └── normalize.py
+│   └── wiring
+│       ├── telegram.py
+│       └── telegram_router.py
+├── backtest_AAPL.csv
+├── backtest_OKLO.csv
 ├── config
 │   └── config.yaml
 ├── connect.py
@@ -97,6 +128,7 @@
 │       ├── SESSION_MODEL.md
 │       └── WATCHLIST_SPEC.md
 ├── dump_json
+├── ecosystem.config.cjs
 ├── infra
 │   └── README.md
 ├── project_structure.txt
@@ -104,10 +136,20 @@
 ├── pytest.ini
 ├── requirements.txt
 ├── scripts
-│   └── schema.sql
+│   ├── schema.sql
+│   └── set_webhook.sh
+├── signals_debug_tail_AAPL.csv
+├── signals_debug_tail_OKLO.csv
+├── signals_events_AAPL.csv
+├── signals_events_OKLO.csv
+├── signals_flat_debug_AAPL.csv
+├── signals_flat_debug_OKLO.csv
+├── signals_tail_AAPL.csv
+├── signals_tail_OKLO.csv
+├── test_format.py
 └── tests
     └── bootstrap
         ├── __init__.py
         └── test_smoke.py
 
-30 directories, 81 files
+38 directories, 115 files

@@ -1,15 +1,17 @@
 from __future__ import annotations
-from fastapi import Depends
+
 from typing import Generator
+
 from app.adapters.notifiers.telegram import TelegramClient
 from app.utils.env import (
-    TELEGRAM_BOT_TOKEN,
     TELEGRAM_ALLOWED_USER_IDS,
-    TELEGRAM_WEBHOOK_SECRET,
+    TELEGRAM_BOT_TOKEN,
     TELEGRAM_TIMEOUT_SECS,
+    TELEGRAM_WEBHOOK_SECRET,
 )
 
 _client: TelegramClient | None = None
+
 
 def get_telegram() -> TelegramClient:
     global _client
@@ -21,6 +23,7 @@ def get_telegram() -> TelegramClient:
             timeout=TELEGRAM_TIMEOUT_SECS,
         )
     return _client
+
 
 # Optional DI helper for FastAPI endpoints
 def TelegramDep() -> Generator[TelegramClient, None, None]:
