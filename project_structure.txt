@@ -7,19 +7,33 @@
 │       ├── ci.yml
 │       └── deploy.yml
 ├── .gitignore
-├── .pre-commit-config.yaml
+├── .pytest_cache
+│   ├── .gitignore
+│   ├── CACHEDIR.TAG
+│   ├── README.md
+│   └── v
+│       └── cache
+│           └── nodeids
 ├── .python-version
 ├── .ruff_cache
 │   ├── .gitignore
 │   ├── 0.14.1
 │   │   ├── 10486183155051560162
+│   │   ├── 13550397209905555738
 │   │   ├── 14869619965677357052
 │   │   ├── 3478357461063673823
-│   │   └── 6609332381232176211
+│   │   ├── 4836435401913291590
+│   │   ├── 5554663617146642700
+│   │   ├── 6196146346336915265
+│   │   ├── 6609332381232176211
+│   │   ├── 8956772993836721803
+│   │   └── 9347343161986382066
 │   ├── 0.6.9
 │   │   ├── 11616652495782845620
 │   │   ├── 11909376975843444499
+│   │   ├── 2129281394722531643
 │   │   ├── 3686330244126402553
+│   │   ├── 5980450677978365344
 │   │   └── 6708508427490885201
 │   └── CACHEDIR.TAG
 ├── .streamlit
@@ -92,6 +106,10 @@
 │   │   ├── __init__.py
 │   │   ├── session_clock.py
 │   │   └── session_metrics.py
+│   ├── sources
+│   │   ├── __init__.py
+│   │   ├── finviz_source.py
+│   │   └── textlist_source.py
 │   ├── strats
 │   │   └── breakout.py
 │   ├── utils
@@ -106,7 +124,8 @@
 ├── backtest_AAPL.csv
 ├── backtest_OKLO.csv
 ├── config
-│   └── config.yaml
+│   ├── config.yaml
+│   └── watchlist_source.yaml
 ├── connect.py
 ├── documents
 │   ├── architecture
@@ -152,4 +171,4 @@
         ├── __init__.py
         └── test_smoke.py
 
-38 directories, 115 files
+42 directories, 130 files

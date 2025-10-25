@@ -1,11 +1,35 @@
 from __future__ import annotations
 
 from statistics import mean
-from typing import List
+from typing import List, Optional
 
 from app.core.timeutils import now_utc, session_for
 from app.data.data_client import batch_latest_ohlcv, get_universe
 from app.utils.env import MAX_WATCHLIST
+
+# New: optional external sources
+try:
+    from app.sources import dedupe_merge  # type: ignore
+except Exception:
+    def dedupe_merge(*groups, limit: int | None = None):  # fallback no-op
+        seen = set()
+        out: list[str] = []
+        for g in groups:
+            for s in (g or []):
+                u = str(s).strip().upper()
+                if not u or u in seen:
+                    continue
+                seen.add(u)
+                out.append(u)
+                if limit and len(out) >= limit:
+                    return out
+        return out
+
+try:
+    from app.sources.finviz_source import fetch_symbols as finviz_fetch  # type: ignore
+except Exception:
+    def finviz_fetch(*args, **kwargs):  # type: ignore
+        return []
 
 # --------------------------------------------------------------------------------------
 # Lightweight helpers (kept for future scanner enrichment)
@@ -73,20 +97,43 @@ def build_watchlist(
     include_filters: bool = True,
     passthrough: bool = False,  # reserved for future use
     include_ohlcv: bool = True,  # kept for compatibility; batch already returns OHLCV
+    *,
+    # New knobs for external sources
+    include_finviz: bool = False,
+    finviz_preset: Optional[str] = None,
+    finviz_filters: Optional[list[str]] = None,
+    limit: Optional[int] = None,
 ) -> dict:
     """
     Unified watchlist creator:
       - symbols provided => manual mode
       - symbols None/[]  => scanning mode (apply filters if include_filters)
     Session-aware enrichment via batch_latest_ohlcv.
-    """
-    # 1) pick candidate symbols
-    if symbols:
-        candidates = sorted({s.strip().upper() for s in symbols if s and s.strip()})
-    else:
-        candidates = scan_candidates()
 
-    # 2) optionally apply filters
+    New:
+      - include_finviz/finviz_preset/finviz_filters to pull symbols from Finviz
+      - limit to cap merged list (fallback to MAX_WATCHLIST)
+    """
+    # 1) pick candidate symbols from manual/scanner/sources
+    manual = sorted({s.strip().upper() for s in (symbols or []) if s and s.strip()})
+
+    scanner_default = [] if manual else scan_candidates()  # only when no manual symbols
+
+    finviz_list: list[str] = []
+    if include_finviz:
+        finviz_list = finviz_fetch(
+            preset=finviz_preset or "Top Gainers",
+            filters=finviz_filters or [],
+            max_symbols=100,
+        )
+
+    hard_cap = limit if (isinstance(limit, int) and limit > 0) else (
+        MAX_WATCHLIST if isinstance(MAX_WATCHLIST, int) and MAX_WATCHLIST > 0 else 15
+    )
+
+    candidates = dedupe_merge(manual, scanner_default, finviz_list, limit=hard_cap)
+
+    # 2) optionally apply filters (currently only caps/cleanup)
     if include_filters:
         candidates = apply_filters(candidates)
 

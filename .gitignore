@@ -25,3 +25,5 @@ dump_json/
 data/
 .parquet/
 *.csv
+*.zip
+*.tar.gz
