@@ -23,19 +23,38 @@ def _coerce_chat_id(cid: Optional[str | int]) -> Optional[str | int]:
 
 
 def _split_chunks(text: str, limit: int = 3500) -> list[str]:
-    """Split text conservatively under Telegram's 4096 cap (room for formatting)."""
+    """Split text conservatively under Telegram's 4096 cap (room for formatting).
+
+    If a single line exceeds `limit`, hard-wrap that line.
+    """
     if not text:
         return ["(empty)"]
-    lines = text.splitlines(True)
-    chunks, buf = [], ""
-    for ln in lines:
-        if len(buf) + len(ln) > limit and buf:
+    if limit < 1:
+        limit = 1
+
+    chunks: list[str] = []
+    buf = ""
+
+    def flush():
+        nonlocal buf
+        if buf:
             chunks.append(buf)
-            buf = ln
-        else:
-            buf += ln
-    if buf:
-        chunks.append(buf)
+            buf = ""
+
+    for ln in text.splitlines(True):  # keepends=True
+        # If an individual line is too large, hard-wrap it into slices
+        while len(ln) > limit:
+            head, ln = ln[:limit], ln[limit:]
+            if len(buf) + len(head) > limit:
+                flush()
+            buf += head
+            flush()
+        # Now ln is <= limit
+        if len(buf) + len(ln) > limit:
+            flush()
+        buf += ln
+
+    flush()
     return chunks
 
 
@@ -141,6 +160,26 @@ class TelegramClient:
                     ok = False
         return ok
 
+    def ping(self) -> bool:
+        """Lightweight sanity check using getMe."""
+        if not self.base:
+            log.warning("[Telegram] Missing bot token; cannot ping")
+            return False
+        url = f"{self.base}/getMe"
+        try:
+            resp = requests.get(url, timeout=self.timeout)
+            if 200 <= resp.status_code < 300:
+                data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                result = (data or {}).get("result") or {}
+                username = result.get("username") or "unknown"
+                bot_id = result.get("id") or "?"
+                log.info("[Telegram] Bot OK: @%s id=%s", username, bot_id)
+                return True
+            log.warning("[Telegram] Ping failed HTTP %s: %s", resp.status_code, resp.text)
+        except Exception as e:
+            log.error("[Telegram] Ping error: %s", e)
+        return False
+
     # --- Internal HTTP ---
     def _send(
         self,
@@ -152,6 +191,9 @@ class TelegramClient:
         if not self.base:
             log.warning("[Telegram] Missing bot token; skipping send")
             return False
+        # Defensive: Telegram hard limit is 4096 chars; trim if somehow exceeded
+        if len(text) > 4096:
+            text = text[:4096]
         url = f"{self.base}/sendMessage"
         payload: Dict[str, Any] = {
             "chat_id": _coerce_chat_id(chat_id),
@@ -175,11 +217,23 @@ class TelegramClient:
 
 
 def build_client_from_env() -> TelegramClient:
+    token = ENV.TELEGRAM_BOT_TOKEN
+    allowed = ENV.TELEGRAM_ALLOWED_USER_IDS
+    secret = ENV.TELEGRAM_WEBHOOK_SECRET
+    timeout = ENV.TELEGRAM_TIMEOUT_SECS
+
+    if not token:
+        log.warning("[Telegram] TELEGRAM_BOT_TOKEN is not set — sending will be disabled")
+    if not secret:
+        log.info("[Telegram] TELEGRAM_WEBHOOK_SECRET not configured (webhook auth disabled)")
+    if allowed:
+        log.info("[Telegram] Allowed users configured: %d", len(allowed))
+
     return TelegramClient(
-        bot_token=ENV.TELEGRAM_BOT_TOKEN,
-        allowed_users=ENV.TELEGRAM_ALLOWED_USER_IDS,
-        webhook_secret=ENV.TELEGRAM_WEBHOOK_SECRET,
-        timeout=ENV.TELEGRAM_TIMEOUT_SECS,
+        bot_token=token,
+        allowed_users=allowed,
+        webhook_secret=secret,
+        timeout=timeout,
     )
 
 
@@ -207,12 +261,11 @@ def send_watchlist(
     chat_id: Optional[str | int] = None,
     title: str = "AI Trader • Watchlist",
 ) -> bool:
-    cid = _coerce_chat_id(ENV.TELEGRAM_DEFAULT_CHAT_ID)
-    if cid is None:
-        log.warning(
-            "[Telegram] No chat_id (TELEGRAM_DEFAULT_CHAT_ID unset). Skipping send."
-        )
+    # Prefer explicit chat_id argument; fallback to env default
+    target = _coerce_chat_id(chat_id) if chat_id is not None else _coerce_chat_id(ENV.TELEGRAM_DEFAULT_CHAT_ID)
+    if target is None:
+        log.warning("[Telegram] No chat_id (arg or TELEGRAM_DEFAULT_CHAT_ID). Skipping send.")
         return False
     client = build_client_from_env()
     msg = format_watchlist_message(session, items, title=title)
-    return client.smart_send(cid, msg, mode="Markdown", chunk_size=3500, retries=2)
+    return client.smart_send(target, msg, mode="Markdown", chunk_size=3500, retries=2)

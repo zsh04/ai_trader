@@ -131,7 +131,7 @@ def latest_price_with_source(snap: Dict[str, Any], symbol: str) -> Tuple[float, 
 # --------------------------------------------------------------------------------------
 
 
-def batch_latest_ohlcv(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
+def batch_latest_ohlcv(symbols: List[str], feed: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
     """
     Returns a map:
       {
@@ -142,12 +142,13 @@ def batch_latest_ohlcv(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
         },
         ...
       }
+    :param feed: Optional Alpaca feed hint ("iex" for paper, "sip" for paid).
     """
     syms = sorted({s.strip().upper() for s in symbols if s and s.strip()})
     if not syms:
         return {}
 
-    snaps = alpaca_snapshots(syms)
+    snaps = alpaca_snapshots(syms, feed=feed)
     out: Dict[str, Dict[str, Any]] = {}
 
     needs_price_from_bar: List[str] = []
@@ -169,7 +170,7 @@ def batch_latest_ohlcv(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
     # Second pass: hydrate with 1Day bars in one batch (price + volume)
     union_syms = sorted(set(needs_price_from_bar + needs_vol_from_bar))
     if union_syms:
-        bars_map = alpaca_day_bars(union_syms, limit=1)
+        bars_map = alpaca_day_bars(union_syms, limit=1, feed=feed)
         for sym in union_syms:
             seq = bars_map.get(sym, [])
             if not seq:
@@ -214,16 +215,44 @@ def batch_latest_ohlcv(symbols: List[str]) -> Dict[str, Dict[str, Any]]:
     # Third pass: Yahoo fallbacks for any unresolved zeros
     unresolved_price = [s for s, d in out.items() if (d.get("last") or 0) <= 0]
     if YF_ENABLED and unresolved_price:
-        y_intr = yf_intraday_last(unresolved_price)
-        remaining = [s for s in unresolved_price if s not in y_intr]
-        y_close = yf_latest_close(remaining) if remaining else {}
+        y_intr_all = yf_intraday_last(unresolved_price)
+        ok_intr = {s: v for s, v in (y_intr_all or {}).items() if v and float(v) > 0}
+        remaining = [s for s in unresolved_price if s not in ok_intr]
+        y_close_all = yf_latest_close(remaining) if remaining else {}
+        ok_close = {s: v for s, v in (y_close_all or {}).items() if v and float(v) > 0}
         for sym in unresolved_price:
-            if sym in y_intr and y_intr[sym] > 0:
-                out[sym]["last"] = y_intr[sym]
+            if sym in ok_intr:
+                out[sym]["last"] = float(ok_intr[sym])
                 out[sym]["price_source"] = "yahoo_1m"
-            elif sym in y_close and y_close[sym] > 0:
-                out[sym]["last"] = y_close[sym]
+            elif sym in ok_close:
+                out[sym]["last"] = float(ok_close[sym])
                 out[sym]["price_source"] = "yahoo_close"
+
+# --------------------------------------------------------------------------------------
+# Data diagnostics helper
+# --------------------------------------------------------------------------------------
+
+def data_health(symbols: List[str], feed: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Lightweight diagnostics for upstream data availability.
+    Returns counts and lists of symbols with empty Alpaca snapshots or day bars.
+    """
+    syms = sorted({s.strip().upper() for s in symbols if s and s.strip()})
+    if not syms:
+        return {"count": 0, "feed": feed or "auto", "empty_snapshots": [], "empty_day_bars": []}
+
+    snaps = alpaca_snapshots(syms, feed=feed)
+    empty_snapshots = [s for s in syms if not snaps.get(s)]
+
+    bars_map = alpaca_day_bars(syms, limit=1, feed=feed)
+    empty_day_bars = [s for s in syms if not bars_map.get(s)]
+
+    return {
+        "count": len(syms),
+        "feed": feed or "auto",
+        "empty_snapshots": empty_snapshots,
+        "empty_day_bars": empty_day_bars,
+    }
 
     # Fourth pass: Yahoo daily volume for any symbols still showing v==0
     unresolved_vol = [

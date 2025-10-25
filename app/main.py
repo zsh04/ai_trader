@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, Header, HTTPException, Query, Request
+from fastapi import Depends, Header, HTTPException, Query, Request, FastAPI, Body
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import text
 
@@ -21,6 +22,7 @@ from app.utils.env import (
 )
 from app.wiring.telegram import TelegramDep, get_telegram
 from app.wiring.telegram_router import router as telegram_router
+from app.wiring.telegram_router import TelegramDep
 
 app = FastAPI(title="AI Trader", version="0.1.0")
 app.include_router(telegram_router)

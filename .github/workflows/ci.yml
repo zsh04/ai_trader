@@ -1,19 +1,74 @@
 name: CI
+
 on:
-  push: { branches: [ main ] }
-  pull_request: { branches: [ main ] }
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  build-test:
+  lint-test:
+    name: Lint & Test
     runs-on: ubuntu-latest
+    env:
+      PYTHONUNBUFFERED: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.11' }
-      - name: Install
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install tools & deps
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Test
-        run: pytest -v
-      - name: Security Scan
-        run: bandit -r app
+          pip install ruff==0.6.9 black==24.8.0 bandit==1.7.9 pytest-cov==5.0.0
+
+      - name: Ruff (lint)
+        run: ruff check .
+
+      - name: Black (format check)
+        run: black --check .
+
+      - name: Security Scan (bandit)
+        run: bandit -r app -x tests
+
+      - name: Pytest (unit)
+        env:
+          # Prevent accidental network calls in CI
+          TELEGRAM_BOT_TOKEN: ""
+          TELEGRAM_DEFAULT_CHAT_ID: ""
+          ALPACA_API_KEY: ""
+          ALPACA_API_SECRET: ""
+          AZURE_STORAGE_CONNECTION_STRING: ""
+          AZURE_STORAGE_ACCOUNT: ""
+        run: |
+          pytest -q \
+            --maxfail=1 \
+            --disable-warnings \
+            --junitxml=pytest-report.xml \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=term-missing
+
+      - name: Upload test & coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-artifacts
+          path: |
+            pytest-report.xml
+            coverage.xml
+          if-no-files-found: ignore

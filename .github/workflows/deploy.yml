@@ -1,23 +1,41 @@
 name: Deploy-Azure-AppService
+
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
+
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
+    name: Build and Deploy to Azure
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.11' }
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Build Docker image
         run: docker build -t ${{ github.repository }}:${{ github.sha }} .
-      - name: Deploy to Web App (container)
+
+      - name: Push image to Azure Web App (container)
         uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
           images: ${{ github.repository }}:${{ github.sha }}
+
+      - name: Set Telegram webhook (optional)
+        if: success() && secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_WEBHOOK_BASE != '' && secrets.TELEGRAM_WEBHOOK_SECRET != ''
+        run: |
+          curl -sS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/setWebhook" \
+            -H "Content-Type: application/json" \
+            -d "{\"url\":\"${{ secrets.TELEGRAM_WEBHOOK_BASE }}/telegram/webhook\",\"secret_token\":\"${{ secrets.TELEGRAM_WEBHOOK_SECRET }}\",\"drop_pending_updates\":true}" \
+            | jq '.'

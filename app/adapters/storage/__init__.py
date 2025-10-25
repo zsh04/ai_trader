@@ -1,8 +1,10 @@
-# from .blob import *  # BAD
+"""Storage adapter export surface — wraps Azure Blob helper functions."""
+
 from .blob import (
     blob_list,
     blob_load_text,
     blob_save_json,
-)  # export only what you need
+    today_key,
+)
 
-__all__ = ["blob_save_json", "blob_load_text", "blob_list"]
+__all__ = ["blob_save_json", "blob_load_text", "blob_list", "today_key"]
