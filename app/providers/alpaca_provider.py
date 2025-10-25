@@ -7,7 +7,29 @@ from app.utils.env import ALPACA_DATA_BASE_URL, ALPACA_FEED
 from app.utils.http import alpaca_headers, http_get
 from app.utils.normalize import bars_to_map
 
+__all__ = [
+    "snapshots",
+    "bars",
+    "minute_bars",
+    "day_bars",
+    "latest_closes",
+]
+
 log = logging.getLogger(__name__)
+
+def _normalize_symbols(symbols: List[str]) -> List[str]:
+    """Uppercase, trim, and de-duplicate while preserving order."""
+    seen = set()
+    out: List[str] = []
+    for s in symbols:
+        if not s:
+            continue
+        u = s.strip().upper()
+        if not u or u in seen:
+            continue
+        seen.add(u)
+        out.append(u)
+    return out
 
 # Alpaca multi-symbol endpoints have practical payload/throughput limits.
 # Keep batches conservative to avoid HTTP 413/timeout issues.
@@ -15,7 +37,7 @@ _CHUNK_SIZE = 50
 
 
 def _chunk_symbols(symbols: List[str], n: int = _CHUNK_SIZE) -> List[List[str]]:
-    syms = [s.strip().upper() for s in symbols if s and s.strip()]
+    syms = _normalize_symbols(symbols)
     return [syms[i : i + n] for i in range(0, len(syms), n)]
 
 
@@ -53,6 +75,13 @@ def snapshots(
             if not k:
                 continue
             out[k.upper()] = v or {}
+    # If everything came back empty, provide a helpful hint.
+    if not out and symbols:
+        log.warning(
+            "alpaca snapshots returned empty for all symbols (feed=%s). "
+            "Check your Alpaca data plan (IEX vs SIP) and market hours.",
+            feed,
+        )
     return out
 
 
@@ -66,7 +95,7 @@ def bars(
     """Fetch bars for multiple symbols.
 
     Args:
-        timeframe: e.g. "1Min", "5Min", "15Min", "1Hour", "1Day".
+        timeframe: e.g. "1Min", "5Min", "15Min", "1Hour", "1Day" (Alpaca formats).
         limit: number of bars per symbol.
         feed: "iex" (paper/free) or "sip" (paid), defaults to env.
         adjustment: raw/split/dividend (passed-through if provided).
@@ -112,6 +141,14 @@ def bars(
             if not isinstance(seq, list):
                 continue
             result.setdefault(sym, []).extend(seq)
+    # If all returned series are empty, surface a clear hint for debugging.
+    if result and not any(seq for seq in result.values()):
+        log.warning(
+            "alpaca bars returned empty for all symbols (feed=%s, tf=%s). "
+            "Verify Alpaca data subscription and market hours.",
+            feed,
+            timeframe,
+        )
     return result
 
 
@@ -153,3 +190,34 @@ def latest_closes(symbols: List[str], feed: Optional[str] = None) -> Dict[str, f
         except Exception:
             pass
     return out
+
+
+def latest_trades_from_snapshots(snaps: Dict[str, Dict[str, Any]]) -> Dict[str, float]:
+    """Extract the last trade price from snapshot responses.
+    Falls back to last quote if trade is missing. Returns {SYM: price}.
+    """
+    out: Dict[str, float] = {}
+    for sym, s in (snaps or {}).items():
+        if not s:
+            continue
+        try:
+            trade = (s.get("latestTrade") or {})
+            quote = (s.get("latestQuote") or {})
+            p = float(trade.get("p") or quote.get("bp") or 0)
+            if p > 0:
+                out[sym.upper()] = p
+        except Exception:
+            continue
+    if not out:
+        log.warning("no valid latest trade prices extracted from snapshots")
+    return out
+
+
+def has_data(data_map: Optional[Dict[str, Any]]) -> bool:
+    """Return True if any non-empty series or map has data."""
+    if not data_map:
+        return False
+    for v in data_map.values():
+        if v:
+            return True
+    return False
