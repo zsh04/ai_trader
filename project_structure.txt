@@ -43,6 +43,7 @@
 ├── .vscode
 │   └── settings.json
 ├── AGENTS.md
+├── CHANGELOG.md
 ├── Dockerfile
 ├── Makefile
 ├── README.md
@@ -172,6 +173,7 @@
 ├── requirements.txt
 ├── scripts
 │   ├── check_alpaca_entitlement.py
+│   ├── dev.sh
 │   ├── sanity_check.py
 │   ├── schema.sql
 │   ├── set_webhook.sh
@@ -187,16 +189,30 @@
 ├── test_format.py
 └── tests
     ├── api
-    │   └── test_health.py
+    ├── backtest
+    │   └── test_metrics.py
     ├── bootstrap
     │   ├── __init__.py
     │   └── test_smoke.py
+    ├── data
+    │   └── test_data_client.py
+    ├── integration
+    │   └── test_app.py
+    ├── providers
+    │   └── test_yahoo_provider.py
     ├── sources
     │   └── test_sources_init.py
-    └── strats
-        ├── conftest.py
-        ├── test_breakout.py
-        ├── test_common.py
-        └── test_momentum.py
+    ├── strats
+    │   ├── conftest.py
+    │   ├── test_breakout.py
+    │   ├── test_common.py
+    │   └── test_momentum.py
+    ├── test_config.py
+    ├── utils
+    │   ├── test_env.py
+    │   ├── test_http.py
+    │   └── test_normalize.py
+    └── wiring
+        └── test_telegram_router.py
 
-48 directories, 152 files
+54 directories, 162 files
