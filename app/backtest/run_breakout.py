@@ -9,6 +9,7 @@ import logging
 import math
 from dataclasses import asdict
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Callable, Dict, Tuple
 
 import numpy as np
@@ -94,6 +95,7 @@ def run(
     debug: bool = False,
     debug_signals: bool = False,
     debug_entries: bool = False,
+    export_csv: str | None = None,
 ) -> None:
     """
     Execute a long-only breakout backtest for a single symbol.
@@ -316,6 +318,34 @@ def run(
         res["equity"].to_csv(out)
         log.info("Saved equity curve -> %s", out)
 
+    if export_csv:
+        export_dir = Path(export_csv).expanduser()
+        export_dir.mkdir(parents=True, exist_ok=True)
+
+        equity_data = res.get("equity")
+        if isinstance(equity_data, pd.DataFrame):
+            eq_df = equity_data.copy()
+        elif isinstance(equity_data, pd.Series):
+            eq_df = equity_data.to_frame(name="equity")
+        else:
+            eq_df = pd.DataFrame()
+
+        equity_path = (export_dir / f"{symbol}_equity.csv").resolve()
+        eq_df.to_csv(equity_path)
+        log.info("Exported equity CSV -> %s", equity_path)
+
+        trades = res.get("trades")
+        if isinstance(trades, pd.DataFrame):
+            trades_df = trades.copy()
+        elif isinstance(trades, (list, tuple)):
+            trades_df = pd.DataFrame(trades)
+        else:
+            trades_df = pd.DataFrame()
+
+        trades_path = (export_dir / f"{symbol}_trades.csv").resolve()
+        trades_df.to_csv(trades_path, index=False)
+        log.info("Exported trades CSV -> %s", trades_path)
+
 
 if __name__ == "__main__":
     # Minimal logging config for CLI use; app runtime can configure root logging.
@@ -346,6 +376,12 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Print metrics as a single JSON line to stdout (useful in CI)",
+    )
+    ap.add_argument(
+        "--export-csv",
+        dest="export_csv",
+        default=None,
+        help="Directory to write <symbol>_equity.csv and <symbol>_trades.csv exports",
     )
 
     # --- Strategy Parameters ---
@@ -534,6 +570,7 @@ if __name__ == "__main__":
             debug=args.debug,
             debug_signals=args.debug_signals or args.debug,
             debug_entries=args.debug_entries or args.debug,
+            export_csv=args.export_csv,
         )
         if args.print_metrics_json:
             # Determine output file and emit metrics as JSON if available

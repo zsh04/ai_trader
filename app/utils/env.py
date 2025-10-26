@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass, field
 from typing import List, Set
 
 # ------------------------------------------------------------------------------
@@ -8,125 +9,256 @@ from typing import List, Set
 # ------------------------------------------------------------------------------
 
 
-def _env(name: str, default: str | None = None) -> str | None:
-    v = os.getenv(name)
-    return v if v is not None else default
+def get_str(name: str, default: str = "") -> str:
+    """Return env var as a string with a sensible default."""
+    value = os.getenv(name)
+    return value if value not in (None, "") else default
 
 
-def _bool(name: str, default: bool = False) -> bool:
-    raw = _env(name, None)
+def get_bool(name: str, default: bool = False) -> bool:
+    """Coerce env var into bool (accepts 1/0, true/false, yes/no)."""
+    raw = os.getenv(name)
     if raw is None:
         return default
     return str(raw).strip().lower() in {"1", "true", "t", "yes", "y", "on"}
 
 
-def _int(name: str, default: int) -> int:
+def get_int(name: str, default: int) -> int:
+    """Coerce env var into int, falling back on conversion errors."""
+    raw = os.getenv(name)
     try:
-        return int(_env(name, str(default)) or default)
+        return int(raw) if raw not in (None, "") else default
     except Exception:
         return default
 
 
-def _float(name: str, default: float) -> float:
+def get_float(name: str, default: float) -> float:
+    """Coerce env var into float, falling back on conversion errors."""
+    raw = os.getenv(name)
     try:
-        return float(_env(name, str(default)) or default)
+        return float(raw) if raw not in (None, "") else default
     except Exception:
         return default
 
 
-def _split(name: str, default: str = "") -> List[str]:
-    raw = _env(name, default) or ""
-    return [p.strip() for p in raw.split(",") if p.strip()]
+def get_csv(name: str, default: str = "") -> List[str]:
+    """Parse comma-delimited strings into a list of trimmed tokens."""
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        raw = default
+    return [part.strip() for part in (raw or "").split(",") if part.strip()]
 
 
-def _split_ints(name: str) -> Set[int]:
-    out: Set[int] = set()
-    for part in (_env(name, "") or "").split(","):
-        part = part.strip()
-        if part.isdigit():
-            out.add(int(part))
-    return out
+def get_int_set(name: str) -> Set[int]:
+    """Parse comma-delimited ints into a set."""
+    values: Set[int] = set()
+    for token in get_csv(name):
+        try:
+            values.add(int(token))
+        except Exception:
+            continue
+    return values
 
 
-# ------------------------------------------------------------------------------
-# Core runtime
-# ------------------------------------------------------------------------------
-TZ = _env("TZ", "America/Los_Angeles") or "America/Los_Angeles"
-TRADING_ENABLED = _bool("TRADING_ENABLED", False)
-PAPER_TRADING = _bool("PAPER_TRADING", True)
-
-# ------------------------------------------------------------------------------
-# Alpaca
-# ------------------------------------------------------------------------------
-ALPACA_API_KEY = _env("ALPACA_API_KEY", "") or ""
-ALPACA_API_SECRET = _env("ALPACA_API_SECRET", "") or ""
-ALPACA_BASE_URL = (
-    _env("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
-    or "https://paper-api.alpaca.markets"
-)
-ALPACA_DATA_BASE_URL = (
-    _env("ALPACA_DATA_BASE_URL", "https://data.alpaca.markets/v2")
-    or "https://data.alpaca.markets/v2"
-)
-ALPACA_FEED = _env("ALPACA_FEED", "iex") or "iex"
-
-# Price providers
-PRICE_PROVIDERS = [p.lower() for p in _split("PRICE_PROVIDERS", "alpaca,yahoo")]
-YF_ENABLED = any(p == "yahoo" for p in PRICE_PROVIDERS)
-
-# ------------------------------------------------------------------------------
-# Azure storage
-# ------------------------------------------------------------------------------
-AZURE_STORAGE_CONNECTION_STRING = _env("AZURE_STORAGE_CONNECTION_STRING", "") or ""
-AZURE_STORAGE_ACCOUNT = _env("AZURE_STORAGE_ACCOUNT", "") or ""
-AZURE_STORAGE_CONTAINER_DATA = (
-    _env("AZURE_STORAGE_CONTAINER_DATA", "trader-data") or "trader-data"
-)
-AZURE_STORAGE_CONTAINER_MODELS = (
-    _env("AZURE_STORAGE_CONTAINER_MODELS", "trader-models") or "trader-models"
-)
-
-# ------------------------------------------------------------------------------
-# Database
-# ------------------------------------------------------------------------------
-PGHOST = _env("PGHOST", "") or ""
-PGPORT = _int("PGPORT", 5432)
-PGDATABASE = _env("PGDATABASE", "postgres") or "postgres"
-PGUSER = _env("PGUSER", "") or ""
-PGPASSWORD = _env("PGPASSWORD", "") or ""
-PGSSLMODE = _env("PGSSLMODE", "require") or "require"
-DATABASE_URL = _env("DATABASE_URL", "") or ""
+def _list_lower(name: str, default: str = "") -> List[str]:
+    return [p.lower() for p in get_csv(name, default)]
 
 
-# ------------------------------------------------------------------------------
-# Telegram
-# ------------------------------------------------------------------------------
-TELEGRAM_BOT_TOKEN = _env("TELEGRAM_BOT_TOKEN", "") or ""
-TELEGRAM_ALLOWED_USER_IDS = _split_ints("TELEGRAM_ALLOWED_USER_IDS")
-TELEGRAM_WEBHOOK_SECRET = _env("TELEGRAM_WEBHOOK_SECRET", "") or ""
-TELEGRAM_DEFAULT_CHAT_ID = _env("TELEGRAM_DEFAULT_CHAT_ID", "") or ""
-TELEGRAM_TIMEOUT_SECS = _int("TELEGRAM_TIMEOUT_SECS", 10)
+@dataclass(frozen=True)
+class EnvSettings:
+    """Runtime configuration sourced from environment variables."""
 
-# ------------------------------------------------------------------------------
-# HTTP defaults (used by app.utils.http and providers)
-# ------------------------------------------------------------------------------
-HTTP_TIMEOUT_SECS = _int("HTTP_TIMEOUT_SECS", 10)
-HTTP_RETRY_ATTEMPTS = _int("HTTP_RETRY_ATTEMPTS", 2)
-HTTP_RETRY_BACKOFF_SEC = _float("HTTP_RETRY_BACKOFF_SEC", 1.5)
-HTTP_USER_AGENT = (
-    _env("HTTP_USER_AGENT", "ai-trader/0.1 (+https://example.local)") or "ai-trader/0.1"
-)
-HTTP_RETRIES = HTTP_RETRY_ATTEMPTS
-HTTP_BACKOFF = HTTP_RETRY_BACKOFF_SEC
-HTTP_TIMEOUT = HTTP_TIMEOUT_SECS
+    #: HTTP port for FastAPI server.
+    PORT: int = field(default_factory=lambda: get_int("PORT", 8000))
+    #: IANA timezone used for scheduling/logging.
+    TZ: str = field(default_factory=lambda: get_str("TZ", "America/Los_Angeles"))
+    #: Enables live trading hooks when true.
+    TRADING_ENABLED: bool = field(default_factory=lambda: get_bool("TRADING_ENABLED", False))
+    #: Whether to default to Alpaca paper trading endpoints.
+    PAPER_TRADING: bool = field(default_factory=lambda: get_bool("PAPER_TRADING", True))
 
-# ------------------------------------------------------------------------------
-# Scanner thresholds / caps
-# ------------------------------------------------------------------------------
-MAX_WATCHLIST = _int("MAX_WATCHLIST", 15)
-PRICE_MIN = _float("PRICE_MIN", 1.0)
-PRICE_MAX = _float("PRICE_MAX", 50.0)
-GAP_MIN_PCT = _float("GAP_MIN_PCT", 5.0)
-RVOL_MIN = _float("RVOL_MIN", 3.0)
-SPREAD_MAX_PCT_PRE = _float("SPREAD_MAX_PCT_PRE", 0.75)
-DOLLAR_VOL_MIN_PRE = _int("DOLLAR_VOL_MIN_PRE", 1_000_000)
+    #: Alpaca REST API key ID.
+    ALPACA_API_KEY: str = field(default_factory=lambda: get_str("ALPACA_API_KEY", ""))
+    #: Alpaca REST API secret.
+    ALPACA_API_SECRET: str = field(default_factory=lambda: get_str("ALPACA_API_SECRET", ""))
+    #: Base URL for order routing.
+    ALPACA_BASE_URL: str = field(
+        default_factory=lambda: get_str("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+    )
+    #: Base URL for Alpaca market data API.
+    ALPACA_DATA_BASE_URL: str = field(
+        default_factory=lambda: get_str("ALPACA_DATA_BASE_URL", "https://data.alpaca.markets/v2")
+    )
+    #: Preferred Alpaca data feed (iex/sip).
+    ALPACA_FEED: str = field(default_factory=lambda: get_str("ALPACA_FEED", "iex"))
+
+    #: Ordered preference of upstream price providers.
+    PRICE_PROVIDERS: List[str] = field(
+        default_factory=lambda: _list_lower("PRICE_PROVIDERS", "alpaca,yahoo")
+    )
+
+    #: Azure storage connection string (if provided).
+    AZURE_STORAGE_CONNECTION_STRING: str = field(
+        default_factory=lambda: get_str("AZURE_STORAGE_CONNECTION_STRING", "")
+    )
+    #: Azure storage account when using shared key auth (supports legacy names).
+    AZURE_STORAGE_ACCOUNT: str = field(
+        default_factory=lambda: get_str(
+            "AZURE_STORAGE_ACCOUNT_NAME", get_str("AZURE_STORAGE_ACCOUNT", "")
+        )
+    )
+    #: Azure storage shared key credential.
+    AZURE_STORAGE_ACCOUNT_KEY: str = field(
+        default_factory=lambda: get_str("AZURE_STORAGE_ACCOUNT_KEY", "")
+    )
+    #: Container used for general data artifacts (legacy name support).
+    AZURE_STORAGE_CONTAINER_NAME: str = field(
+        default_factory=lambda: get_str(
+            "AZURE_STORAGE_CONTAINER_NAME", "traderdata"
+        )
+    )
+    #: Container used for general data artifacts.
+    AZURE_STORAGE_CONTAINER_DATA: str = field(
+        default_factory=lambda: get_str("AZURE_STORAGE_CONTAINER_DATA", "trader-data")
+    )
+    #: Container used for ML/strategy models.
+    AZURE_STORAGE_CONTAINER_MODELS: str = field(
+        default_factory=lambda: get_str("AZURE_STORAGE_CONTAINER_MODELS", "trader-models")
+    )
+
+    #: Postgres host name.
+    PGHOST: str = field(default_factory=lambda: get_str("PGHOST", ""))
+    #: Postgres port.
+    PGPORT: int = field(default_factory=lambda: get_int("PGPORT", 5432))
+    #: Primary database name.
+    PGDATABASE: str = field(default_factory=lambda: get_str("PGDATABASE", "postgres"))
+    #: Postgres username.
+    PGUSER: str = field(default_factory=lambda: get_str("PGUSER", ""))
+    #: Postgres password.
+    PGPASSWORD: str = field(default_factory=lambda: get_str("PGPASSWORD", ""))
+    #: SSL mode for Postgres connection.
+    PGSSLMODE: str = field(default_factory=lambda: get_str("PGSSLMODE", "require"))
+    #: Full DATABASE_URL if provided (takes precedence elsewhere).
+    DATABASE_URL: str = field(default_factory=lambda: get_str("DATABASE_URL", ""))
+
+    #: Telegram Bot API token.
+    TELEGRAM_BOT_TOKEN: str = field(default_factory=lambda: get_str("TELEGRAM_BOT_TOKEN", ""))
+    #: Comma-delimited list of authorized Telegram user IDs.
+    TELEGRAM_ALLOWED_USER_IDS: Set[int] = field(
+        default_factory=lambda: get_int_set("TELEGRAM_ALLOWED_USER_IDS")
+    )
+    #: Telegram webhook secret for FastAPI verification.
+    TELEGRAM_WEBHOOK_SECRET: str = field(
+        default_factory=lambda: get_str("TELEGRAM_WEBHOOK_SECRET", "")
+    )
+    #: Default chat/channel for proactive notifications.
+    TELEGRAM_DEFAULT_CHAT_ID: str = field(
+        default_factory=lambda: get_str("TELEGRAM_DEFAULT_CHAT_ID", "")
+    )
+    #: HTTP timeout used by Telegram client.
+    TELEGRAM_TIMEOUT_SECS: int = field(
+        default_factory=lambda: get_int("TELEGRAM_TIMEOUT_SECS", 10)
+    )
+
+    #: Default HTTP request timeout (seconds).
+    HTTP_TIMEOUT_SECS: int = field(default_factory=lambda: get_int("HTTP_TIMEOUT_SECS", 10))
+    #: Default retry attempts for outbound HTTP.
+    HTTP_RETRY_ATTEMPTS: int = field(default_factory=lambda: get_int("HTTP_RETRY_ATTEMPTS", 2))
+    #: Default retry backoff for outbound HTTP.
+    HTTP_RETRY_BACKOFF_SEC: float = field(
+        default_factory=lambda: get_float("HTTP_RETRY_BACKOFF_SEC", 1.5)
+    )
+    #: HTTP user-agent header for outbound requests.
+    HTTP_USER_AGENT: str = field(
+        default_factory=lambda: get_str(
+            "HTTP_USER_AGENT", "ai-trader/0.1 (+https://example.local)"
+        )
+    )
+
+    #: Maximum symbols in generated watchlists.
+    MAX_WATCHLIST: int = field(default_factory=lambda: get_int("MAX_WATCHLIST", 15))
+    #: Minimum price allowed by scanners.
+    PRICE_MIN: float = field(default_factory=lambda: get_float("PRICE_MIN", 1.0))
+    #: Maximum price allowed by scanners.
+    PRICE_MAX: float = field(default_factory=lambda: get_float("PRICE_MAX", 50.0))
+    #: Minimum gap percentage filter.
+    GAP_MIN_PCT: float = field(default_factory=lambda: get_float("GAP_MIN_PCT", 5.0))
+    #: Minimum relative-volume threshold.
+    RVOL_MIN: float = field(default_factory=lambda: get_float("RVOL_MIN", 3.0))
+    #: Maximum allowed spread percentage in pre-market.
+    SPREAD_MAX_PCT_PRE: float = field(
+        default_factory=lambda: get_float("SPREAD_MAX_PCT_PRE", 0.75)
+    )
+    #: Minimum pre-market dollar volume.
+    DOLLAR_VOL_MIN_PRE: int = field(
+        default_factory=lambda: get_int("DOLLAR_VOL_MIN_PRE", 1_000_000)
+    )
+
+    #: Convenience mirror of PRICE_PROVIDERS containing "yahoo".
+    YF_ENABLED: bool = field(init=False)
+    #: Convenience alias for HTTP retries.
+    HTTP_RETRIES: int = field(init=False)
+    #: Convenience alias for HTTP backoff seconds.
+    HTTP_BACKOFF: float = field(init=False)
+    #: Convenience alias for HTTP timeout seconds.
+    HTTP_TIMEOUT: int = field(init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "YF_ENABLED", any(p == "yahoo" for p in self.PRICE_PROVIDERS))
+        object.__setattr__(self, "HTTP_RETRIES", self.HTTP_RETRY_ATTEMPTS)
+        object.__setattr__(self, "HTTP_BACKOFF", self.HTTP_RETRY_BACKOFF_SEC)
+        object.__setattr__(self, "HTTP_TIMEOUT", self.HTTP_TIMEOUT_SECS)
+
+
+ENV = EnvSettings()
+
+# Backward compatible module-level aliases -------------------------------------------------
+PORT = ENV.PORT
+TZ = ENV.TZ
+TRADING_ENABLED = ENV.TRADING_ENABLED
+PAPER_TRADING = ENV.PAPER_TRADING
+
+ALPACA_API_KEY = ENV.ALPACA_API_KEY
+ALPACA_API_SECRET = ENV.ALPACA_API_SECRET
+ALPACA_BASE_URL = ENV.ALPACA_BASE_URL
+ALPACA_DATA_BASE_URL = ENV.ALPACA_DATA_BASE_URL
+ALPACA_FEED = ENV.ALPACA_FEED
+PRICE_PROVIDERS = ENV.PRICE_PROVIDERS
+YF_ENABLED = ENV.YF_ENABLED
+
+AZURE_STORAGE_CONNECTION_STRING = ENV.AZURE_STORAGE_CONNECTION_STRING
+AZURE_STORAGE_ACCOUNT = ENV.AZURE_STORAGE_ACCOUNT
+AZURE_STORAGE_ACCOUNT_KEY = ENV.AZURE_STORAGE_ACCOUNT_KEY
+AZURE_STORAGE_CONTAINER_NAME = ENV.AZURE_STORAGE_CONTAINER_NAME
+AZURE_STORAGE_CONTAINER_DATA = ENV.AZURE_STORAGE_CONTAINER_DATA
+AZURE_STORAGE_CONTAINER_MODELS = ENV.AZURE_STORAGE_CONTAINER_MODELS
+
+PGHOST = ENV.PGHOST
+PGPORT = ENV.PGPORT
+PGDATABASE = ENV.PGDATABASE
+PGUSER = ENV.PGUSER
+PGPASSWORD = ENV.PGPASSWORD
+PGSSLMODE = ENV.PGSSLMODE
+DATABASE_URL = ENV.DATABASE_URL
+
+TELEGRAM_BOT_TOKEN = ENV.TELEGRAM_BOT_TOKEN
+TELEGRAM_ALLOWED_USER_IDS = ENV.TELEGRAM_ALLOWED_USER_IDS
+TELEGRAM_WEBHOOK_SECRET = ENV.TELEGRAM_WEBHOOK_SECRET
+TELEGRAM_DEFAULT_CHAT_ID = ENV.TELEGRAM_DEFAULT_CHAT_ID
+TELEGRAM_TIMEOUT_SECS = ENV.TELEGRAM_TIMEOUT_SECS
+
+HTTP_TIMEOUT_SECS = ENV.HTTP_TIMEOUT_SECS
+HTTP_RETRY_ATTEMPTS = ENV.HTTP_RETRY_ATTEMPTS
+HTTP_RETRY_BACKOFF_SEC = ENV.HTTP_RETRY_BACKOFF_SEC
+HTTP_USER_AGENT = ENV.HTTP_USER_AGENT
+HTTP_RETRIES = ENV.HTTP_RETRIES
+HTTP_BACKOFF = ENV.HTTP_BACKOFF
+HTTP_TIMEOUT = ENV.HTTP_TIMEOUT
+
+MAX_WATCHLIST = ENV.MAX_WATCHLIST
+PRICE_MIN = ENV.PRICE_MIN
+PRICE_MAX = ENV.PRICE_MAX
+GAP_MIN_PCT = ENV.GAP_MIN_PCT
+RVOL_MIN = ENV.RVOL_MIN
+SPREAD_MAX_PCT_PRE = ENV.SPREAD_MAX_PCT_PRE
+DOLLAR_VOL_MIN_PRE = ENV.DOLLAR_VOL_MIN_PRE

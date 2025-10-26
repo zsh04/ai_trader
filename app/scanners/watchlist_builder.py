@@ -1,18 +1,45 @@
 from __future__ import annotations
 
+import logging
 from statistics import mean
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 from app.core.timeutils import now_utc, session_for
 from app.data.data_client import batch_latest_ohlcv, get_universe
 from app.utils.env import MAX_WATCHLIST
 
+log = logging.getLogger(__name__)
+
+FALLBACK_WATCHLIST_CAP = 15
+INVALID_SPREAD_PCT = 999.0
+PCT_SCALE = 100.0
+RVOL_LOOKBACK_DAYS = 5
+FINVIZ_MAX_SYMBOLS = 100
+
+# Default cap helper (honors env and safe fallback)
+DEFAULT_CAP = (
+    MAX_WATCHLIST
+    if isinstance(MAX_WATCHLIST, int) and MAX_WATCHLIST > 0
+    else FALLBACK_WATCHLIST_CAP
+)
+
+
+def _cap_list(syms: list[str], n: int | None) -> list[str]:
+    """Return symbols truncated to desired size (falls back to DEFAULT_CAP)."""
+    if not syms:
+        return []
+    if n is None or n <= 0:
+        return syms[:DEFAULT_CAP]
+    return syms[:n]
+
 # New: optional external sources
 try:
     from app.sources import dedupe_merge  # type: ignore
 except Exception:
-    def dedupe_merge(*groups, limit: int | None = None):  # fallback no-op
-        seen = set()
+
+    def dedupe_merge(*groups: Iterable[str], limit: int | None = None) -> list[str]:
+        """Fallback dedupe helper when app.sources is unavailable."""
+        seen: set[str] = set()
         out: list[str] = []
         for g in groups:
             for s in (g or []):
@@ -28,8 +55,9 @@ except Exception:
 try:
     from app.sources.finviz_source import fetch_symbols as finviz_fetch  # type: ignore
 except Exception:
+
     def finviz_fetch(*args, **kwargs):  # type: ignore
-        return []
+        return []  # quiet fallback if finviz source not available
 
 # --------------------------------------------------------------------------------------
 # Lightweight helpers (kept for future scanner enrichment)
@@ -37,18 +65,20 @@ except Exception:
 
 
 def _gap_pct(today_open: float, prev_close: float) -> float:
+    """Compute gap percentage between today's open and prior close."""
     if not prev_close or prev_close <= 0:
         return 0.0
-    return (today_open - prev_close) / prev_close * 100.0
+    return (today_open - prev_close) / prev_close * PCT_SCALE
 
 
 def _spread_pct(bid: float, ask: float) -> float:
+    """Return bid/ask spread as a percentage of the midpoint."""
     if not bid or not ask:
-        return 999.0
+        return INVALID_SPREAD_PCT
     mid = (bid + ask) / 2.0
     if mid <= 0:
-        return 999.0
-    return (ask - bid) / mid * 100.0
+        return INVALID_SPREAD_PCT
+    return (ask - bid) / mid * PCT_SCALE
 
 
 def _pick_price(
@@ -82,9 +112,9 @@ def _pick_price(
 def _volumes_for_rvol(bars: list[dict], daily_bar: dict | None) -> tuple[float, float]:
     """Return (today_volume, avg_5d_volume). If today's volume is 0 premarket, we still return 0."""
     hist = [b.get("v", 0) for b in (bars or []) if b.get("v")]
-    avg5 = float(mean(hist[-5:])) if hist else 0.0
+    avg5 = float(mean(hist[-RVOL_LOOKBACK_DAYS:])) if hist else 0.0
     today = float((daily_bar or {}).get("v") or 0.0)
-    return today, avg5
+    return today, avg5  # kept for future rVOL features
 
 
 # --------------------------------------------------------------------------------------
@@ -105,15 +135,18 @@ def build_watchlist(
     limit: Optional[int] = None,
 ) -> dict:
     """
-    Unified watchlist creator:
-      - symbols provided => manual mode
-      - symbols None/[]  => scanning mode (apply filters if include_filters)
-    Session-aware enrichment via batch_latest_ohlcv.
+    Build a watchlist payload enriched with latest price/OHLCV data.
 
-    New:
-      - include_finviz/finviz_preset/finviz_filters to pull symbols from Finviz
-      - limit to cap merged list (fallback to MAX_WATCHLIST)
+    Maintains existing behavior where manual symbols skip scanner lookup,
+    optional Finviz inputs augment the candidate list, and filters apply last.
     """
+    # capture a single timestamp for consistency
+    _ts = now_utc()
+    _session = session_for(_ts)
+
+    # decide hard cap early
+    hard_cap = limit if (isinstance(limit, int) and limit > 0) else DEFAULT_CAP
+
     # 1) pick candidate symbols from manual/scanner/sources
     manual = sorted({s.strip().upper() for s in (symbols or []) if s and s.strip()})
 
@@ -121,24 +154,50 @@ def build_watchlist(
 
     finviz_list: list[str] = []
     if include_finviz:
-        finviz_list = finviz_fetch(
-            preset=finviz_preset or "Top Gainers",
-            filters=finviz_filters or [],
-            max_symbols=100,
-        )
+        try:
+            finviz_list = finviz_fetch(
+                preset=finviz_preset or "Top Gainers",
+                filters=finviz_filters or [],
+                max_symbols=FINVIZ_MAX_SYMBOLS,
+            ) or []
+        except Exception as e:
+            log.warning("finviz fetch failed: %s", e)
+            finviz_list = []
 
-    hard_cap = limit if (isinstance(limit, int) and limit > 0) else (
-        MAX_WATCHLIST if isinstance(MAX_WATCHLIST, int) and MAX_WATCHLIST > 0 else 15
+    log.debug(
+        "watchlist sources: manual=%d scanner=%d finviz=%d include_filters=%s",
+        len(manual),
+        len(scanner_default),
+        len(finviz_list),
+        include_filters,
     )
 
     candidates = dedupe_merge(manual, scanner_default, finviz_list, limit=hard_cap)
+
+    # Always enforce a cap (even if include_filters is False)
+    candidates = _cap_list(candidates, hard_cap)
+
+    if not candidates:
+        log.info("watchlist: no candidates after merge; returning empty payload")
+        return {
+            "session": _session,
+            "asof_utc": _ts.isoformat(),
+            "count": 0,
+            "items": [],
+        }
 
     # 2) optionally apply filters (currently only caps/cleanup)
     if include_filters:
         candidates = apply_filters(candidates)
 
+    log.debug("watchlist candidates (post-filters): %d", len(candidates))
+
     # 3) enrich with latest price + OHLCV
     snap = batch_latest_ohlcv(candidates)
+
+    if not isinstance(snap, dict):
+        log.warning("batch_latest_ohlcv returned non-dict type: %s", type(snap))
+        snap = {}
 
     # 4) structure response
     items: list[dict] = []
@@ -153,9 +212,14 @@ def build_watchlist(
             }
         )
 
+    log.info("watchlist built: %d items", len(items))
+
+    # stable ordering
+    items.sort(key=lambda x: x.get("symbol", ""))
+
     return {
-        "session": session_for(now_utc()),
-        "asof_utc": now_utc().isoformat(),
+        "session": _session,
+        "asof_utc": _ts.isoformat(),
         "count": len(items),
         "items": items,
     }
@@ -172,7 +236,6 @@ def scan_candidates() -> List[str]:
 
 
 def apply_filters(symbols: List[str]) -> List[str]:
-    """No-op filter other than capping list length with MAX_WATCHLIST."""
+    """Primary filter pass (currently only enforces the configured cap)."""
     syms = [s.strip().upper() for s in symbols if s and s.strip()]
-    cap = MAX_WATCHLIST if isinstance(MAX_WATCHLIST, int) and MAX_WATCHLIST > 0 else 15
-    return syms[:cap]
+    return _cap_list(syms, DEFAULT_CAP)

@@ -65,6 +65,31 @@ def _compute_sleep(attempt: int, backoff: float, retry_after: Optional[str]) -> 
     return max(0.1, backoff * (attempt + 1) * jitter)
 
 
+def _log_http_event(
+    *,
+    level: int,
+    method: str,
+    url: str,
+    status: int,
+    attempt: int,
+    retries: int,
+    start_time: float,
+    note: str = "",
+) -> None:
+    latency_ms = round((time.perf_counter() - start_time) * 1000.0, 1)
+    log.log(
+        level,
+        "[http] method=%s url=%s status=%s latency_ms=%.1f attempt=%s/%s %s",
+        method.upper(),
+        url,
+        status,
+        latency_ms,
+        attempt + 1,
+        retries + 1,
+        note,
+    )
+
+
 def request_json(
     method: str,
     url: str,
@@ -99,6 +124,7 @@ def request_json(
     last_exc: Exception | None = None
 
     for attempt in range(retries + 1):
+        start_time = time.perf_counter()
         try:
             resp = client.request(
                 method=method.upper(),
@@ -112,6 +138,16 @@ def request_json(
 
             # Success path
             if 200 <= resp.status_code < 300:
+                _log_http_event(
+                    level=logging.INFO,
+                    method=method,
+                    url=url,
+                    status=resp.status_code,
+                    attempt=attempt,
+                    retries=retries,
+                    start_time=start_time,
+                    note="ok",
+                )
                 try:
                     return resp.status_code, resp.json()
                 except Exception:
@@ -123,6 +159,16 @@ def request_json(
             if retryable and attempt < retries:
                 sleep_s = _compute_sleep(
                     attempt, backoff, resp.headers.get("Retry-After")
+                )
+                _log_http_event(
+                    level=logging.WARNING,
+                    method=method,
+                    url=url,
+                    status=resp.status_code,
+                    attempt=attempt,
+                    retries=retries,
+                    start_time=start_time,
+                    note="retry",
                 )
                 log.warning(
                     "HTTP %s %s -> %s — retry %s/%s in %.2fs",
@@ -137,6 +183,16 @@ def request_json(
                 continue
 
             # Non-retriable or exhausted
+            _log_http_event(
+                level=logging.WARNING,
+                method=method,
+                url=url,
+                status=resp.status_code,
+                attempt=attempt,
+                retries=retries,
+                start_time=start_time,
+                note="non-2xx",
+            )
             try:
                 return resp.status_code, resp.json()
             except Exception:
@@ -147,6 +203,16 @@ def request_json(
 
         except requests.RequestException as e:
             last_exc = e
+            _log_http_event(
+                level=logging.WARNING,
+                method=method,
+                url=url,
+                status=599,
+                attempt=attempt,
+                retries=retries,
+                start_time=start_time,
+                note=f"error={e}",
+            )
             if attempt < retries:
                 sleep_s = _compute_sleep(attempt, backoff, None)
                 log.warning(

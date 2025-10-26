@@ -1,41 +1,56 @@
-name: Deploy-Azure-AppService
+name: deploy
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
+    tags:
+      - 'v*'
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  deployments: write
+
+env:
+  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
+  AZURE_PUBLISH_PROFILE: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+  TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+  TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
+  TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
 
 jobs:
   deploy:
+    name: deploy-to-azure
     runs-on: ubuntu-latest
-    name: Build and Deploy to Azure
+    environment:
+      name: prod
+      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
     steps:
-      - name: Checkout
+      - name: checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: setup python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Build Docker image
-        run: docker build -t ${{ github.repository }}:${{ github.sha }} .
-
-      - name: Push image to Azure Web App (container)
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          images: ${{ github.repository }}:${{ github.sha }}
-
-      - name: Set Telegram webhook (optional)
-        if: success() && secrets.TELEGRAM_BOT_TOKEN != '' && secrets.TELEGRAM_WEBHOOK_BASE != '' && secrets.TELEGRAM_WEBHOOK_SECRET != ''
+      - name: install dependencies
         run: |
-          curl -sS -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/setWebhook" \
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: publish to azure
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ env.AZURE_PUBLISH_PROFILE }}
+          package: .
+
+      - name: post-deploy telegram webhook
+        if: env.TELEGRAM_TOKEN && env.TELEGRAM_WEBHOOK_URL
+        run: |
+          curl -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
             -H "Content-Type: application/json" \
-            -d "{\"url\":\"${{ secrets.TELEGRAM_WEBHOOK_BASE }}/telegram/webhook\",\"secret_token\":\"${{ secrets.TELEGRAM_WEBHOOK_SECRET }}\",\"drop_pending_updates\":true}" \
-            | jq '.'
+            -d '{"url":"'"${TELEGRAM_WEBHOOK_URL}"'","secret_token":"'"${TELEGRAM_WEBHOOK_SECRET}"'"}'

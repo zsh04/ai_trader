@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from fastapi import APIRouter
@@ -21,6 +22,12 @@ router = APIRouter(tags=["health"])
 
 @router.get("/health")
 async def health() -> Dict[str, Any]:
+    """Legacy health endpoint (mirrors /health/live)."""
+    return await health_live()
+
+
+@router.get("/health/live")
+async def health_live() -> Dict[str, Any]:
     """Lightweight liveness probe."""
     return {"ok": True, "service": "ai-trader", "version": APP_VERSION}
 
@@ -38,6 +45,12 @@ async def health_db() -> Dict[str, Any]:
         ok = False
     latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
     return {"ok": ok, "latency_ms": latency_ms}
+
+
+@router.get("/health/ready")
+async def health_ready() -> Dict[str, str]:
+    """Lightweight readiness probe with UTC timestamp."""
+    return {"status": "ok", "utc": datetime.now(timezone.utc).isoformat()}
 
 
 @router.get("/version")

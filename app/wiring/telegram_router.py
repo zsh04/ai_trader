@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import hmac
 import logging
-import re
-import unicodedata
 from typing import Any, Callable, Dict, List, Optional, Tuple, Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -12,78 +10,27 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from app.adapters.notifiers.telegram import TelegramClient, format_watchlist_message
 from app.scanners.watchlist_builder import build_watchlist
 from app.utils import env as ENV
+from app.utils.normalize import (
+    normalize_quotes_and_dashes,
+    parse_kv_flags,
+    parse_watchlist_args,
+)
+from app.wiring.telegram import TelegramDep
 
 log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 
-# ------------------------------------------------------------------------------
-# Telegram client singleton
-# ------------------------------------------------------------------------------
-_client: Optional[TelegramClient] = None
-
-
-def _sanitize(value: Optional[str]) -> str:
-    """Trim quotes/whitespace; normalize None to empty string."""
-    return (value or "").strip().strip('"').strip("'")
-
-
-def get_telegram() -> TelegramClient:
-    """Single place to construct the client from env."""
-    token = _sanitize(ENV.TELEGRAM_BOT_TOKEN)
-    return TelegramClient(token)
-
-
-def TelegramDep() -> TelegramClient:
-    """FastAPI dependency that returns a singleton Telegram client."""
-    global _client
-    if _client:
-        return _client
-    bot_token = _sanitize(ENV.TELEGRAM_BOT_TOKEN)
-    if not bot_token:
-        raise RuntimeError("TELEGRAM_BOT_TOKEN not configured")
-    _client = TelegramClient(bot_token=bot_token)
-    return _client
+_watchlist_meta: Dict[str, Any] = {
+    "count": 0,
+    "session": "regular",
+    "asof_utc": None,
+}
 
 
 # ------------------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------------------
-# --- Normalization: turn fancy dashes/quotes into plain CLI-friendly ones ---
-_FANCY_DASHES = {"\u2013", "\u2014", "\u2212"}  # en dash, em dash, minus
-_QUOTES_MAP = {
-    "\u201c": '"',
-    "\u201d": '"',  # curly double
-    "\u201e": '"',
-    "\u201f": '"',
-    "\u00ab": '"',
-    "\u00bb": '"',  # guillemets
-    "\u2018": "'",
-    "\u2019": "'",  # curly single
-    "\u2032": "'",
-    "\u2033": '"',  # primes sometimes appear
-}
-
-
-def _normalize_cli(s: str) -> str:
-    # Unicode compatibility and normalization
-    s = unicodedata.normalize("NFKC", s or "")
-    # Replace fancy dashes with double-dash (flag) form
-    for d in _FANCY_DASHES:
-        s = s.replace(d, "--")
-    # Replace curly quotes with straight quotes
-    for k, v in _QUOTES_MAP.items():
-        s = s.replace(k, v)
-    # Normalize optional spaces around '='
-    s = re.sub(r"\s*=\s*", "=", s)
-    # Handle more exotic mobile punctuation
-    s = s.replace("—", "--").replace("–", "--")  # em/en dash
-    s = s.replace("‘", "'").replace("’", "'")
-    s = s.replace("“", '"').replace("”", '"')
-    s = s.replace("`", "'")  # backtick
-    return s.strip()
-
-
 def _is_authorized(user_id: Optional[int]) -> bool:
     """Allow all if no allowed list configured; else enforce match."""
     allow_list = ENV.TELEGRAM_ALLOWED_USER_IDS or []
@@ -104,6 +51,15 @@ def _reply(tg: TelegramClient, chat_id: int | str, text: str) -> None:
     tg.smart_send(chat_id, text, mode="Markdown", chunk_size=3500, retries=1)
 
 
+def _safe_reply(tg: TelegramClient, chat_id: int | str, msg: str, exc: Exception | None = None) -> None:
+    note = f"⚠️ {msg}"
+    if exc:
+        log.warning("[tg] %s: %s", msg, exc)
+    else:
+        log.warning("[tg] %s", msg)
+    _reply(tg, chat_id, note)
+
+
 def _parse_command(text: str) -> Tuple[str, List[str]]:
     text = (text or "").strip()
     if not text.startswith("/"):
@@ -117,35 +73,17 @@ def _parse_command(text: str) -> Tuple[str, List[str]]:
     return cmd, args
 
 
-def _parse_watchlist_args(args: List[str]) -> Dict[str, Any]:
-    import shlex
-
-    opts = {
-        "symbols": [],
-        "limit": None,
-        "session_hint": None,
-        "title": None,
-        "include_filters": None,
-    }
-
-    # Use shlex for robust parsing (handles quotes)
-    parts = shlex.split(" ".join(args))
-    for a in parts:
-        if a.startswith("--limit="):
-            try:
-                opts["limit"] = int(a.split("=", 1)[1])
-            except ValueError:
-                pass
-        elif a.startswith("--session="):
-            opts["session_hint"] = a.split("=", 1)[1]
-        elif a.startswith("--title="):
-            opts["title"] = a.split("=", 1)[1].strip('"').strip("'")
-        elif a in ("--filters", "--no-filters"):
-            opts["include_filters"] = a == "--filters"
-        elif not a.startswith("--"):
-            opts["symbols"].append(a.upper())
-
-    return opts
+def _watchlist_summary_text() -> str:
+    """Format summary text using the latest watchlist metadata."""
+    asof = _watchlist_meta.get("asof_utc") or "never"
+    session = _watchlist_meta.get("session") or "regular"
+    count = int(_watchlist_meta.get("count") or 0)
+    return (
+        "*Watchlist Summary*\n"
+        f"• Last build: `{asof}`\n"
+        f"• Session: `{session}`\n"
+        f"• Symbols tracked: *{count}*"
+    )
 
 
 # ------------------------------------------------------------------------------
@@ -161,46 +99,83 @@ def cmd_start(tg: TelegramClient, chat_id: int, args: List[str]) -> None:
 
 
 def cmd_help(tg: TelegramClient, chat_id: int, args: List[str]) -> None:
-    _reply(
-        tg,
-        chat_id,
+    flags = "`--no-filters`, `--filters`, `--limit=15`, `--session=pre|regular|after`, `--title=\"Custom\"`"
+    text = (
         "*Commands*\n"
         "• `/ping` — health check\n"
-        "• `/watchlist` — build watchlist using default config\n"
-        "• `/watchlist <SYMS...>` — on-demand list using provided symbols (space-separated or comma-separated)\n"
-        '• Flags: `--no-filters`, `--filters`, `--limit=15`, `--session=pre|regular|after`, `--title="Custom"`\n'
-        "• `/help` — this menu",
+        "• `/watchlist` — build watchlist using defaults\n"
+        "• `/watchlist <SYMS...>` — manual symbols (comma or space separated)\n"
+        f"• Flags: {flags}\n"
+        "• `/summary` — last watchlist metadata\n"
+        "• `/help` — this menu"
     )
+    _reply(tg, chat_id, text)
 
 
 def cmd_ping(tg: TelegramClient, chat_id: int, args: List[str]) -> None:
     _reply(tg, chat_id, "pong ✅")
 
 
+def _bool_from_text(value: str) -> Optional[bool]:
+    lowered = value.strip().lower()
+    if lowered in {"1", "true", "t", "yes", "y", "on"}:
+        return True
+    if lowered in {"0", "false", "f", "no", "n", "off"}:
+        return False
+    return None
+
+
 def cmd_watchlist(tg: TelegramClient, chat_id: int, args: List[str]) -> None:
-    try:
-        opts = _parse_watchlist_args(args)
-        symbols = opts["symbols"] or None
-        include_filters = opts["include_filters"]
-        title = opts["title"] or "AI Trader • Watchlist"
+    cleaned = normalize_quotes_and_dashes(" ".join(args))
+    opts = parse_watchlist_args(cleaned)
+    kv_flags = parse_kv_flags(cleaned)
+    if "title" in kv_flags:
+        opts["title"] = kv_flags["title"]
+    if "limit" in kv_flags:
+        try:
+            opts["limit"] = int(kv_flags["limit"])
+        except ValueError:
+            pass
+    if "filters" in kv_flags:
+        flag = _bool_from_text(kv_flags["filters"])
+        if flag is not None:
+            opts["include_filters"] = flag
+    if "session" in kv_flags:
+        opts["session_hint"] = kv_flags["session"]
 
-        wl = build_watchlist(
-            symbols=symbols,
-            include_filters=(
-                True
-                if include_filters is None and not symbols
-                else bool(include_filters)
-            ),
-            passthrough=False,
-            include_ohlcv=True,
-        )
+    symbols = opts["symbols"] or None
+    include_filters = opts["include_filters"]
+    title = opts["title"] or "AI Trader • Watchlist"
 
-        items = wl.get("items", []) if isinstance(wl, dict) else []
-        session = wl.get("session", "regular") if isinstance(wl, dict) else "regular"
-        text = format_watchlist_message(session, items, title=title)
-        _reply(tg, chat_id, text or "_(empty)_")
-    except Exception as e:
-        _reply(tg, chat_id, f"⚠️ *Failed to build watchlist:*\n`{e}`")
+    wl = build_watchlist(
+        symbols=symbols,
+        include_filters=(
+            True if include_filters is None and not symbols else bool(include_filters)
+        ),
+        passthrough=False,
+        include_ohlcv=True,
+        limit=opts.get("limit"),
+    )
+    if not isinstance(wl, dict):
+        raise ValueError("Watchlist response malformed")
+
+    items = wl.get("items", [])
+    session = wl.get("session", "regular")
+    text = format_watchlist_message(session, items, title=title)
+    _watchlist_meta.update(
+        {
+            "count": len(items or []),
+            "session": session,
+            "asof_utc": wl.get("asof_utc"),
+        }
+    )
+    _reply(tg, chat_id, text or "_(empty)_")
+
+
+def cmd_summary(tg: TelegramClient, chat_id: int, args: List[str]) -> None:
+    """Summarize last watchlist build metadata."""
+    text = _watchlist_summary_text()
+    _reply(tg, chat_id, text)
 
 
 COMMANDS: Dict[str, Callable[[TelegramClient, int, List[str]], None]] = {
@@ -208,7 +183,22 @@ COMMANDS: Dict[str, Callable[[TelegramClient, int, List[str]], None]] = {
     "/help": cmd_help,
     "/ping": cmd_ping,
     "/watchlist": cmd_watchlist,
+    "/summary": cmd_summary,
 }
+
+
+def _run_command(
+    cmd_name: str,
+    handler: Callable[[TelegramClient, int, List[str]], None],
+    tg: TelegramClient,
+    chat_id: int,
+    args: List[str],
+) -> None:
+    try:
+        handler(tg, chat_id, args)
+    except Exception as exc:
+        label = cmd_name or "command"
+        _safe_reply(tg, chat_id, f"{label} failed", exc)
 
 
 # ------------------------------------------------------------------------------
@@ -225,8 +215,8 @@ def webhook(
     x_secret_legacy: Optional[str] = Header(None, alias="X-Telegram-Secret-Token"),
 ):
     # --- Secret validation ---
-    env_secret = _sanitize(ENV.TELEGRAM_WEBHOOK_SECRET)
-    hdr_secret = _sanitize(x_secret_primary or x_secret_legacy)
+    env_secret = _quote_trim(ENV.TELEGRAM_WEBHOOK_SECRET)
+    hdr_secret = _quote_trim(x_secret_primary or x_secret_legacy)
 
     def _mask(s: str) -> str:
         return (
@@ -258,25 +248,26 @@ def webhook(
         return {"ok": True, "ignored": True}
 
     # --- Command dispatch ---
-    text = msg.get("text") or ""
-    cmd, args = _parse_command(text)
+    raw_text = msg.get("text") or ""
+    normalized_text = normalize_quotes_and_dashes(raw_text)
+    cmd, args = _parse_command(normalized_text)
 
     handler = COMMANDS.get(cmd)
     if handler:
-        handler(tg, int(chat), args)
+        _run_command(cmd, handler, tg, int(chat), args)
         return {"ok": True, "cmd": cmd}
 
     # Treat free text as `/watchlist <text>` fallback (optional)
-    if text and not text.startswith("/"):
+    if normalized_text and not normalized_text.startswith("/"):
         try_syms = [
             t.strip().upper()
-            for t in text.replace(",", " ").split()
+            for t in normalized_text.replace(",", " ").split()
             if t.strip().isalpha()
         ]
         if try_syms:
-            cmd_watchlist(tg, int(chat), try_syms)
+            _run_command("/watchlist", cmd_watchlist, tg, int(chat), try_syms)
             return {"ok": True, "cmd": "/watchlist", "implicit": True}
 
     # Default help
-    cmd_help(tg, int(chat), [])
+    _run_command("/help", cmd_help, tg, int(chat), [])
     return {"ok": True, "cmd": "/help"}

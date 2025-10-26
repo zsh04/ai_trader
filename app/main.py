@@ -14,29 +14,43 @@ from sqlalchemy import text
 from app import __version__
 from app.adapters.db.postgres import make_engine as pg_engine
 from app.adapters.notifiers.telegram import TelegramClient, send_watchlist
+from app.api import get_api_router
 from app.config import settings
 from app.scanners.watchlist_builder import build_watchlist
 from app.utils import env as ENV
-from app.utils.env import (
-    TELEGRAM_DEFAULT_CHAT_ID,
-)
+from app.utils.env import TELEGRAM_DEFAULT_CHAT_ID, TELEGRAM_WEBHOOK_SECRET
 from app.wiring.telegram import TelegramDep, get_telegram
-from app.wiring.telegram_router import router as telegram_router
-from app.wiring.telegram_router import TelegramDep
 
-app = FastAPI(title="AI Trader", version="0.1.0")
-app.include_router(telegram_router)
+app = FastAPI(title="AI Trader", version=settings.VERSION)
+app.include_router(get_api_router())
 
 
 @app.on_event("startup")
 def _startup():
-    try:
-        _ = get_telegram()  # warm-up so we fail fast if token is missing
-    except Exception as e:
-        # don't block startup—just log; webhook handler will still work if you fix env
-        import logging
+    import logging
 
-        logging.getLogger(__name__).warning("Telegram warm-up failed: %s", e)
+    logger = logging.getLogger(__name__)
+    required = {
+        "ALPACA_API_KEY": settings.alpaca_key,
+        "ALPACA_API_SECRET": settings.alpaca_secret,
+        "AZURE_STORAGE_ACCOUNT": settings.blob_account,
+    }
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        logger.warning("Missing required env vars: %s", ",".join(missing))
+
+    try:
+        _ = get_telegram()
+    except Exception as exc:
+        logger.warning("Telegram warm-up failed: %s", exc)
+
+    logger.info(
+        "AI Trader %s port=%s tz=%s env=%s",
+        settings.VERSION,
+        settings.port,
+        settings.tz,
+        os.getenv("ENV", "local"),
+    )
 
 
 @app.post("/notify/test")
@@ -58,7 +72,8 @@ async def telegram_webhook(
     x_telegram_secret_token: Optional[str] = Header(None, convert_underscores=False),
 ):
     secret = x_telegram_bot_api_secret_token or x_telegram_secret_token
-    if ENV.TELEGRAM_WEBHOOK_SECRET and secret != ENV.TELEGRAM_WEBHOOK_SECRET:
+    expected_secret = TELEGRAM_WEBHOOK_SECRET
+    if expected_secret and secret != expected_secret:
         raise HTTPException(status_code=401, detail="invalid secret")
 
     try:

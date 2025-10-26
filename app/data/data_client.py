@@ -25,12 +25,80 @@ from app.providers.yahoo_provider import (
 )
 
 # Config flags (pure)
+from app.adapters.notifiers.telegram import TelegramClient
+from app.utils import env as ENV
 from app.utils.env import PRICE_PROVIDERS
 
 log = logging.getLogger(__name__)
 
 # Yahoo enabled flag derived from PRICE_PROVIDERS
 YF_ENABLED: bool = any(p.lower() == "yahoo" for p in PRICE_PROVIDERS)
+
+_PROVIDER_GAP_STREAK: Dict[str, int] = {"snapshots": 0, "bars": 0}
+_ALERT_CLIENT: Optional[TelegramClient] = None
+
+
+def _send_gap_alert(kind: str, symbol_count: int) -> None:
+    token = getattr(ENV, "TELEGRAM_BOT_TOKEN", "") or ""
+    chat = getattr(ENV, "TELEGRAM_DEFAULT_CHAT_ID", "") or ""
+    if not token or not chat:
+        return
+    global _ALERT_CLIENT
+    if _ALERT_CLIENT is None:
+        try:
+            _ALERT_CLIENT = TelegramClient(bot_token=token)
+        except Exception as exc:
+            log.debug("Failed to initialize TelegramClient for alerts: %s", exc)
+            return
+    try:
+        _ALERT_CLIENT.send_text(
+            chat,
+            f"⚠️ Alpaca {kind} feed empty twice consecutively for {symbol_count} symbols.",
+        )
+    except Exception as exc:
+        log.debug("Telegram alert send failed: %s", exc)
+
+
+def _record_provider_gap(kind: str, is_empty: bool, symbol_count: int) -> None:
+    if kind not in _PROVIDER_GAP_STREAK:
+        _PROVIDER_GAP_STREAK[kind] = 0
+    if not is_empty:
+        _PROVIDER_GAP_STREAK[kind] = 0
+        return
+    _PROVIDER_GAP_STREAK[kind] += 1
+    if _PROVIDER_GAP_STREAK[kind] >= 2:
+        _send_gap_alert(kind, symbol_count)
+        _PROVIDER_GAP_STREAK[kind] = 0
+
+
+def _apply_yahoo_prices(target: Dict[str, Dict[str, Any]], symbols: List[str]) -> None:
+    if not symbols:
+        return
+    if not YF_ENABLED:
+        log.warning("Yahoo provider disabled; cannot fall back for %d symbols", len(symbols))
+        return
+    try:
+        intr = yf_intraday_last(symbols) or {}
+    except Exception as exc:
+        log.debug("Yahoo intraday fallback failed: %s", exc)
+        intr = {}
+    remaining = [s for s in symbols if s not in intr]
+    try:
+        close = yf_latest_close(remaining) if remaining else {}
+    except Exception as exc:
+        log.debug("Yahoo close fallback failed: %s", exc)
+        close = {}
+
+    for sym in symbols:
+        entry = target.setdefault(sym, {"last": 0.0, "price_source": "none", "ohlcv": {}})
+        price = intr.get(sym)
+        source = "yahoo_1m"
+        if price is None:
+            price = close.get(sym)
+            source = "yahoo_close"
+        if price and float(price) > 0:
+            entry["last"] = float(price)
+            entry["price_source"] = source
 
 # --------------------------------------------------------------------------------------
 # Public: domain helpers (pure logic)
@@ -149,6 +217,11 @@ def batch_latest_ohlcv(symbols: List[str], feed: Optional[str] = None) -> Dict[s
         return {}
 
     snaps = alpaca_snapshots(syms, feed=feed)
+    snaps_empty = not snaps or all(not snaps.get(s) for s in syms)
+    if snaps_empty:
+        log.warning("alpaca snapshots returned empty payload; falling back to Yahoo for %d symbols", len(syms))
+    _record_provider_gap("snapshots", snaps_empty, len(syms))
+    force_yahoo_fallback = snaps_empty
     out: Dict[str, Dict[str, Any]] = {}
 
     needs_price_from_bar: List[str] = []
@@ -169,8 +242,17 @@ def batch_latest_ohlcv(symbols: List[str], feed: Optional[str] = None) -> Dict[s
 
     # Second pass: hydrate with 1Day bars in one batch (price + volume)
     union_syms = sorted(set(needs_price_from_bar + needs_vol_from_bar))
+    bars_empty = False
     if union_syms:
         bars_map = alpaca_day_bars(union_syms, limit=1, feed=feed)
+        bars_empty = not bars_map or all(not bars_map.get(s) for s in union_syms)
+        if bars_empty:
+            log.warning(
+                "alpaca day bars returned empty payload; falling back to Yahoo for %d symbols",
+                len(union_syms),
+            )
+        _record_provider_gap("bars", bars_empty, len(union_syms))
+        force_yahoo_fallback = force_yahoo_fallback or bars_empty
         for sym in union_syms:
             seq = bars_map.get(sym, [])
             if not seq:
@@ -212,6 +294,12 @@ def batch_latest_ohlcv(symbols: List[str], feed: Optional[str] = None) -> Dict[s
             if changed:
                 out[sym]["ohlcv"] = ohlcv
 
+    else:
+        _record_provider_gap("bars", False, 0)
+
+    if force_yahoo_fallback:
+        _apply_yahoo_prices(out, syms)
+
     # Third pass: Yahoo fallbacks for any unresolved zeros
     unresolved_price = [s for s, d in out.items() if (d.get("last") or 0) <= 0]
     if YF_ENABLED and unresolved_price:
@@ -227,6 +315,21 @@ def batch_latest_ohlcv(symbols: List[str], feed: Optional[str] = None) -> Dict[s
             elif sym in ok_close:
                 out[sym]["last"] = float(ok_close[sym])
                 out[sym]["price_source"] = "yahoo_close"
+
+    # Fourth pass: Yahoo daily volume for any symbols still showing v==0
+    unresolved_vol = [
+        s for s, d in out.items() if int((d.get("ohlcv") or {}).get("v", 0)) <= 0
+    ]
+    if YF_ENABLED and unresolved_vol:
+        y_vol = yf_latest_volume(unresolved_vol)
+        for sym in unresolved_vol:
+            vol = y_vol.get(sym)
+            if vol and vol > 0:
+                ohlcv = out[sym].get("ohlcv") or {}
+                ohlcv["v"] = int(vol)
+                out[sym]["ohlcv"] = ohlcv
+
+    return out
 
 # --------------------------------------------------------------------------------------
 # Data diagnostics helper
@@ -253,21 +356,6 @@ def data_health(symbols: List[str], feed: Optional[str] = None) -> Dict[str, Any
         "empty_snapshots": empty_snapshots,
         "empty_day_bars": empty_day_bars,
     }
-
-    # Fourth pass: Yahoo daily volume for any symbols still showing v==0
-    unresolved_vol = [
-        s for s, d in out.items() if int((d.get("ohlcv") or {}).get("v", 0)) <= 0
-    ]
-    if YF_ENABLED and unresolved_vol:
-        y_vol = yf_latest_volume(unresolved_vol)
-        for sym in unresolved_vol:
-            vol = y_vol.get(sym)
-            if vol and vol > 0:
-                ohlcv = out[sym].get("ohlcv") or {}
-                ohlcv["v"] = int(vol)
-                out[sym]["ohlcv"] = ohlcv
-
-    return out
 
 
 # --------------------------------------------------------------------------------------

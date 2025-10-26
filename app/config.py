@@ -1,50 +1,69 @@
-# app/config.py
-import os
+from __future__ import annotations
 
-from pydantic import BaseModel
+from dataclasses import dataclass, field
 
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv()  # loads .env from project root
-except Exception:
-    pass
+from app import __version__
+from app.utils.env import ENV
 
 
-class Settings(BaseModel):
-    # runtime
-    port: int = int(os.getenv("PORT", "8000"))
-    tz: str = os.getenv("TZ", "America/Los_Angeles")
+@dataclass(frozen=True)
+class Settings:
+    """Application settings derived from environment variables."""
 
-    # alpaca
-    alpaca_key: str = os.getenv("ALPACA_API_KEY", "")
-    alpaca_secret: str = os.getenv("ALPACA_API_SECRET", "")
-    alpaca_base_url: str = os.getenv(
-        "ALPACA_BASE_URL", "https://paper-api.alpaca.markets"
+    #: Semantic version string exposed to FastAPI/open health endpoints.
+    VERSION: str = __version__
+    #: HTTP port for the API server (used by CLI wrappers/process managers).
+    port: int = ENV.PORT
+    #: Default timezone for scheduling/logging.
+    tz: str = ENV.TZ
+
+    #: Alpaca API key ID.
+    alpaca_key: str = ENV.ALPACA_API_KEY
+    #: Alpaca API secret.
+    alpaca_secret: str = ENV.ALPACA_API_SECRET
+    #: Alpaca REST endpoint base URL.
+    alpaca_base_url: str = ENV.ALPACA_BASE_URL
+    #: Whether the deployment is using paper trading.
+    paper_trading: bool = ENV.PAPER_TRADING
+
+    #: Azure storage account name for blob access.
+    blob_account: str = ENV.AZURE_STORAGE_ACCOUNT
+    #: Azure blob shared key credential (if not using connection string).
+    blob_key: str = ENV.AZURE_STORAGE_ACCOUNT_KEY
+    #: Default blob container for persistent artifacts.
+    blob_container: str = (
+        ENV.AZURE_STORAGE_CONTAINER_NAME or ENV.AZURE_STORAGE_CONTAINER_DATA
     )
-    paper_trading: bool = os.getenv("PAPER_TRADING", "true").lower() == "true"
 
-    # blob
-    blob_account: str = os.getenv("AZURE_STORAGE_ACCOUNT_NAME", "")
-    blob_key: str = os.getenv("AZURE_STORAGE_ACCOUNT_KEY", "")
-    blob_container: str = os.getenv("AZURE_STORAGE_CONTAINER_NAME", "traderdata")
+    #: Postgres host.
+    pg_host: str = ENV.PGHOST
+    #: Postgres port.
+    pg_port: int = ENV.PGPORT
+    #: Postgres database name.
+    pg_db: str = ENV.PGDATABASE
+    #: Postgres username.
+    pg_user: str = ENV.PGUSER
+    #: Postgres password.
+    pg_password: str = ENV.PGPASSWORD
+    #: Postgres SSL mode.
+    pg_sslmode: str = ENV.PGSSLMODE
 
-    # postgres
-    pg_host: str = os.getenv("PGHOST", "")
-    pg_port: int = int(os.getenv("PGPORT", "5432"))
-    pg_db: str = os.getenv("PGDATABASE", "")
-    pg_user: str = os.getenv("PGUSER", "")
-    pg_password: str = os.getenv("PGPASSWORD", "")
-    pg_sslmode: str = os.getenv("PGSSLMODE", "require")
-
-    # scan constraints
-    price_min: float = float(os.getenv("PRICE_MIN", "1.0"))
-    price_max: float = float(os.getenv("PRICE_MAX", "10.0"))
-    gap_min_pct: float = float(os.getenv("GAP_MIN_PCT", "5.0"))
-    rvol_min: float = float(os.getenv("RVOL_MIN", "3.0"))
-    spread_max_pct_pre: float = float(os.getenv("SPREAD_MAX_PCT_PRE", "0.75"))
-    dollar_vol_min_pre: float = float(os.getenv("DOLLAR_VOL_MIN_PRE", "1000000"))
-    max_watchlist: int = int(os.getenv("MAX_WATCHLIST", "15"))
+    #: Minimum symbol price accepted by scanners.
+    price_min: float = ENV.PRICE_MIN
+    #: Maximum symbol price accepted by scanners.
+    price_max: float = ENV.PRICE_MAX
+    #: Minimum gap percentage filter.
+    gap_min_pct: float = ENV.GAP_MIN_PCT
+    #: Minimum relative volume filter.
+    rvol_min: float = ENV.RVOL_MIN
+    #: Maximum acceptable pre-market spread (percentage).
+    spread_max_pct_pre: float = ENV.SPREAD_MAX_PCT_PRE
+    #: Minimum pre-market dollar volume.
+    dollar_vol_min_pre: int = ENV.DOLLAR_VOL_MIN_PRE
+    #: Maximum symbols returned by watchlist builder.
+    max_watchlist: int = ENV.MAX_WATCHLIST
 
 
 settings = Settings()
+
+__all__ = ["settings", "Settings"]

@@ -13,6 +13,7 @@
 │   ├── README.md
 │   └── v
 │       └── cache
+│           ├── lastfailed
 │           └── nodeids
 ├── .python-version
 ├── .ruff_cache
@@ -41,6 +42,7 @@
 ├── .tool-versions
 ├── .vscode
 │   └── settings.json
+├── AGENTS.md
 ├── Dockerfile
 ├── Makefile
 ├── README.md
@@ -67,7 +69,15 @@
 │   │   ├── policy.py
 │   │   ├── risk.py
 │   │   └── sizing.py
+│   ├── api
+│   │   ├── __init__.py
+│   │   └── routes
+│   │       ├── __init__.py
+│   │       ├── health.py
+│   │       ├── tasks.py
+│   │       └── telegram.py
 │   ├── backtest
+│   │   ├── __init__.py
 │   │   ├── engine.py
 │   │   ├── metrics.py
 │   │   ├── model.py
@@ -111,9 +121,14 @@
 │   │   ├── finviz_source.py
 │   │   └── textlist_source.py
 │   ├── strats
-│   │   └── breakout.py
+│   │   ├── __init__.py
+│   │   ├── breakout.py
+│   │   ├── common.py
+│   │   ├── momentum.py
+│   │   └── params.py
 │   ├── utils
 │   │   ├── __init__.py
+│   │   ├── datetime_utils.py
 │   │   ├── env.py
 │   │   ├── formatting.py
 │   │   ├── http.py
@@ -121,6 +136,7 @@
 │   └── wiring
 │       ├── telegram.py
 │       └── telegram_router.py
+├── artifacts
 ├── backtest_AAPL.csv
 ├── backtest_OKLO.csv
 ├── config
@@ -155,9 +171,11 @@
 ├── pytest.ini
 ├── requirements.txt
 ├── scripts
+│   ├── check_alpaca_entitlement.py
 │   ├── sanity_check.py
 │   ├── schema.sql
-│   └── set_webhook.sh
+│   ├── set_webhook.sh
+│   └── strat_preview.py
 ├── signals_debug_tail_AAPL.csv
 ├── signals_debug_tail_OKLO.csv
 ├── signals_events_AAPL.csv
@@ -168,8 +186,17 @@
 ├── signals_tail_OKLO.csv
 ├── test_format.py
 └── tests
-    └── bootstrap
-        ├── __init__.py
-        └── test_smoke.py
+    ├── api
+    │   └── test_health.py
+    ├── bootstrap
+    │   ├── __init__.py
+    │   └── test_smoke.py
+    ├── sources
+    │   └── test_sources_init.py
+    └── strats
+        ├── conftest.py
+        ├── test_breakout.py
+        ├── test_common.py
+        └── test_momentum.py
 
-42 directories, 131 files
+48 directories, 152 files

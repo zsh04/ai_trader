@@ -25,6 +25,47 @@
 3. `python -m app.main --mode paper --symbol-list config/universe.yaml`
 4. Open **Streamlit dashboard**: `streamlit run app/monitoring/dashboard.py`
 
+### PM2 Runtime
+Use the provided `ecosystem.config.cjs` to keep the API and log rotation online:
+
+```bash
+# first time
+LOG_DIR=$HOME/ai_trader_logs pm2 start ecosystem.config.cjs --only ai_trader,pm2-logrotate
+
+# subsequent deployments
+pm2 restart ai_trader
+
+# logs (rotated daily, 7 day retention)
+pm2 logs ai_trader
+ls ${LOG_DIR:-$HOME/ai_trader_logs}
+```
+
+The PM2 config runs `python -m uvicorn app.main:app --workers 1` via `.venv/bin/python`, binds to `PORT` (default 8000), and writes logs to `${LOG_DIR:-$HOME/ai_trader_logs}`. Rotation happens nightly via `pm2-logrotate`.
+
+### Dev Helpers
+Common workflows are wrapped in `./scripts/dev.sh`:
+
+```bash
+# 1) Create venv + install
+./scripts/dev.sh mkvenv
+
+# 2) Install after requirements change
+./scripts/dev.sh install
+
+# 3) Format / lint / test
+./scripts/dev.sh fmt
+./scripts/dev.sh lint
+./scripts/dev.sh test
+
+# 4) Run FastAPI locally
+./scripts/dev.sh run
+
+# 5) Production helpers
+./scripts/dev.sh pm2-up
+./scripts/dev.sh ngrok-up
+./scripts/dev.sh webhook-set
+```
+
 ### Core Components
 - **scanners/**: premarket & intraday scanners for watchlists
 - **sessions/**: session clock + per-session metrics
