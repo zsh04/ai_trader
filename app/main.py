@@ -50,6 +50,7 @@ async def lifespan(app: FastAPI):
         settings.tz,
         os.getenv("ENV", "local"),
     )
+    yield
 
 
 app = FastAPI(title="AI Trader", version=settings.VERSION, lifespan=lifespan)
