@@ -261,7 +261,11 @@ def webhook(
     # --- read secrets/flags dynamically so pytest monkeypatch works ---
     env_secret = _quote_trim(os.getenv("TELEGRAM_WEBHOOK_SECRET", getattr(ENV, "TELEGRAM_WEBHOOK_SECRET", "")))
     hdr_secret = _quote_trim(x_secret_primary or x_secret_legacy)
-    env_name = (os.getenv("ENV") or getattr(ENV, "ENV", "") or "").lower()
+    raw_env = os.getenv("ENV") or getattr(ENV, "ENV", "")
+    if isinstance(raw_env, str):
+        env_name = raw_env.lower()
+    else:
+        env_name = str(raw_env).lower() if raw_env else ""
 
     test_mode = (
         env_name.startswith("test")
