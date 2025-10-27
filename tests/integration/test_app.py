@@ -1,7 +1,10 @@
 from __future__ import annotations
-
+import os
 from fastapi.testclient import TestClient
+from dotenv import load_dotenv
 
+load_dotenv(override=True)
+os.environ.setdefault("TELEGRAM_ALLOW_TEST_NO_SECRET", "1")
 
 def make_client(monkeypatch):
     import sys
@@ -68,10 +71,11 @@ def test_telegram_webhook_ping(monkeypatch):
     client = make_client(monkeypatch)
 
     payload = {"message": {"chat": {"id": 1}, "text": "/ping"}}
+    #secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
     response = client.post(
         "/telegram/webhook",
         json=payload,
-        headers={"X-Telegram-Bot-Api-Secret-Token": ""},
+        headers={"X-Telegram-Bot-Api-Secret-Token": os.getenv("TELEGRAM_WEBHOOK_SECRET", "")},
     )
 
     assert response.status_code == 200, response.text

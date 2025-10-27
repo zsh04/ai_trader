@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import is_dataclass
 from typing import Any, Iterable, Mapping
-
+import re
 import numpy as np
 import pandas as pd
 
+def _normalize_name(s: str) -> str:
+    return re.sub(r"[\s\-]+", "_", s).lower()
 
 # -------- Param helpers --------
 def get_param(p: Any, key: str, default: Any) -> Any:
@@ -38,31 +40,38 @@ def first_column(df: pd.DataFrame, name: str) -> pd.Series:
 
 def pick_col(df: pd.DataFrame, *candidates: str) -> pd.Series:
     """
-    Return a Series for the first matching candidate column name.
-    Tries exact matches first, then a few fuzzy patterns.
+    Return the first matching column (case-insensitive, with basic normalization).
+    Tries exact, case-insensitive exact, then fuzzy (prefix/suffix/contains).
     """
-    cols: list[str] = list(df.columns)
+    if df is None or df.empty:
+        raise KeyError("Empty DataFrame")
 
-    # Exact
+    cols = list(df.columns)
+    lower_map = {_normalize_name(c): c for c in cols}
+
+    # 1) Exact (as-is)
     for name in candidates:
         if name in df.columns:
             return first_column(df, name)
 
-    # Fuzzy
-    def _match(name: str) -> str | None:
-        for c in cols:
-            if c == name:
-                return c
-            if c.startswith(name + "_") or c.endswith("_" + name):
-                return c
-            if name in c:
-                return c
-        return None
-
+    # 2) Exact (normalized, case-insensitive)
     for name in candidates:
-        hit = _match(name)
-        if hit is not None:
-            return first_column(df, hit)
+        key = _normalize_name(name)
+        if key in lower_map:
+            return first_column(df, lower_map[key])
+
+    # 3) Fuzzy (contains/prefix/suffix) with normalization
+    for name in candidates:
+        key = _normalize_name(name)
+        for c in cols:
+            cc = _normalize_name(c)
+            if (
+                cc == key
+                or cc.startswith(key + "_")
+                or cc.endswith("_" + key)
+                or key in cc
+            ):
+                return first_column(df, c)
 
     raise KeyError(
         f"None of {candidates} found in DataFrame. "

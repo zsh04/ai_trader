@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 from typing import Any
-
 import numpy as np
 import pandas as pd
+
+# Opt-in to pandas future behavior to avoid silent downcasting warnings in fillna/ffill/bfill.
+try:
+    pd.set_option("future.no_silent_downcasting", True)
+except Exception:
+    # If running with an older pandas that doesn't support this option, ignore.
+    pass
 
 from .common import (
     ensure_flat_ohlcv,
@@ -69,7 +75,7 @@ def generate_signals(df: pd.DataFrame, p: Any) -> pd.DataFrame:
     out["ema"] = trend
     out["rank"] = rank
     out["mom_z"] = mom_z
-    out["long_entry"] = long_entry_sig.fillna(False)
-    out["long_exit"] = long_exit_sig.fillna(False)
+    out["long_entry"] = long_entry_sig.fillna(False).astype(bool)
+    out["long_exit"] = long_exit_sig.fillna(False).astype(bool)
 
     return out

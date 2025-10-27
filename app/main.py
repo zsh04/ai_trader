@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
-
+from contextlib import asynccontextmanager
 from fastapi import Depends, Header, HTTPException, Query, Request, FastAPI, Body
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -20,13 +20,12 @@ from app.scanners.watchlist_builder import build_watchlist
 from app.utils import env as ENV
 from app.utils.env import TELEGRAM_DEFAULT_CHAT_ID, TELEGRAM_WEBHOOK_SECRET
 from app.wiring.telegram import TelegramDep, get_telegram
+from app.wiring import telegram_router
+from app.api.routes import router as api_router
 
-app = FastAPI(title="AI Trader", version=settings.VERSION)
-app.include_router(get_api_router())
 
-
-@app.on_event("startup")
-def _startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     import logging
 
     logger = logging.getLogger(__name__)
@@ -51,6 +50,11 @@ def _startup():
         settings.tz,
         os.getenv("ENV", "local"),
     )
+
+
+app = FastAPI(title="AI Trader", version=settings.VERSION, lifespan=lifespan)
+app.include_router(telegram_router.router)
+app.include_router(api_router)
 
 
 @app.post("/notify/test")

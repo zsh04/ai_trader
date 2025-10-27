@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
-
+import re
 from app.strats.common import ensure_flat_ohlcv, pick_col, ema, rolling_max, rank_percentile
 
 

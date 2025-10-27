@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
-
+import re
 from app.strats.params import MomentumParams
 from app.strats.momentum import generate_signals
 

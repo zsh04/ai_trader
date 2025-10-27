@@ -1,19 +1,25 @@
 const path = require("path");
+const fs = require("fs");
 
 const LOG_DIR =
   process.env.LOG_DIR ||
   (process.env.HOME ? path.join(process.env.HOME, "ai_trader_logs") : path.join(process.cwd(), "logs"));
 
+fs.mkdirSync(LOG_DIR, { recursive: true });
+
 module.exports = {
   apps: [
     {
       name: "ai_trader",
-      script: "-m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1",
-      exec_mode: "fork",
-      exec_interpreter: path.join(process.cwd(), ".venv/bin/python"),
+      // Use the uvicorn binary directly (no -m)
+      script: path.join(process.cwd(), ".venv/bin/uvicorn"),
+      args: "app.main:app --host 0.0.0.0 --port 8000 --workers 1",
+      interpreter: "none",              // <— IMPORTANT
       cwd: process.env.PWD || ".",
       env: {
         PYTHONUNBUFFERED: "1",
+        PYTHONPATH: ".",
+        ENV: process.env.ENV || "production",
         TZ: "America/Los_Angeles",
         PORT: process.env.PORT || "8000",
         LOG_DIR: LOG_DIR,
@@ -27,8 +33,8 @@ module.exports = {
     {
       name: "ngrok",
       script: "ngrok",
-      args: "http 8000 --region us",
-      exec_interpreter: "none",
+      args: "http 8000 --region us --host-header=rewrite --log=stdout",
+      interpreter: "none",              // <— IMPORTANT
       out_file: path.join(LOG_DIR, "ngrok.out.log"),
       error_file: path.join(LOG_DIR, "ngrok.err.log"),
       merge_logs: true,
@@ -36,8 +42,8 @@ module.exports = {
     },
     {
       name: "pm2-logrotate",
-      script: "pm2-logrotate",
-      exec_interpreter: "none",
+      script: "pm2-logrotate.config.js",
+      interpreter: "none",              // <— IMPORTANT
       autorestart: true,
       env: {
         PM2_LOGROTATE_ENABLE: true,

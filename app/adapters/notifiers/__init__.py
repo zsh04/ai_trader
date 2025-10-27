@@ -1,15 +1,14 @@
-# Notification adapters (Telegram, email, etc.)
+# app/adapters/notifiers/__init__.py
 """
-Notification adapters package.
-Centralized entry point for all outbound notifications — Telegram, Email, Discord, etc.
+Notifier adapters package.
+
+Exports Telegram notifier utilities without pulling in non-existent modules.
 """
 
-import logging
+from .telegram import TelegramClient, format_watchlist_message, send_watchlist
 
-logger = logging.getLogger("notifiers")
-
-from app.adapters.notifiers.telegram_notifier import TelegramNotifier  # noqa: F401
-# from app.adapters.notifiers.email_notifier import EmailNotifier       # optional future import
-# from app.adapters.notifiers.discord_notifier import DiscordNotifier   # optional future import
-
-__all__ = ["TelegramNotifier"]
+__all__ = [
+    "TelegramClient",
+    "format_watchlist_message",
+    "send_watchlist",
+]
