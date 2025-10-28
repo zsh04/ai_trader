@@ -64,6 +64,22 @@ graph TD
   E1 --- Alerting
 ```
 
+```mermaid
+graph TD
+  subgraph "Monitoring & SLOs"
+    S1[HTTP request latency p95]
+    S2[Telegram webhook success rate (2xx ratio)]
+    S3[Alpaca API 2xx ratio]
+    S4[DB ping success rate]
+    S5[Strategy cycle time]
+    S6[Error alert volume]
+  end
+
+  S1 --> S2 --> S3 --> S4 --> S5 --> S6
+```
+
+**Log ingestion:** Azure App Service platform logs and structured Loguru events flow into Application Insights for centralized querying and retention.
+
 %% PHASE 2 — OBSERVABILITY (Monitoring, Logs, Metrics, Tracing, Health, Alerts)
 %% ---------------------------------------------------------------------------
 %% This Mermaid file captures the target-state observability architecture for ai_trader.

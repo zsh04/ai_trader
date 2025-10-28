@@ -62,6 +62,18 @@ flowchart LR
   L --> M[Notify: Telegram #releases & Azure App Insights annotation]
   M --> N[Set doc freshness TTL label]
 
+```mermaid
+flowchart LR
+  title["Phase 5 – Codex Docs Automation"]
+  subgraph "Codex Workflow"
+    B["backlog.yaml"]
+    P["Task parser"]
+    G["Generator"]
+    R["PR submitter"]
+  end
+  B --> P --> G --> R
+```
+
 %% 3) Documentation lifecycle state machine
 stateDiagram-v2
   [*] --> Draft

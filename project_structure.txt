@@ -1,11 +1,15 @@
 .
 ├── .DS_Store
+├── .codex
+│   └── backlog.yaml
 ├── .dockerignore
 ├── .env.example
 ├── .github
 │   └── workflows
 │       ├── ci.yml
-│       └── deploy.yml
+│       ├── deploy.yml
+│       ├── lint.yml
+│       └── set_webhook.yml
 ├── .gitignore
 ├── .pytest_cache
 │   ├── .gitignore
@@ -19,14 +23,23 @@
 ├── .ruff_cache
 │   ├── .gitignore
 │   ├── 0.14.1
+│   │   ├── 10258570341471723871
 │   │   ├── 10486183155051560162
+│   │   ├── 12605824034182755426
 │   │   ├── 13550397209905555738
 │   │   ├── 14869619965677357052
+│   │   ├── 1698239122138351823
+│   │   ├── 1991831123163736903
 │   │   ├── 3478357461063673823
+│   │   ├── 3612617521532981895
+│   │   ├── 4008802351846913986
 │   │   ├── 4836435401913291590
 │   │   ├── 5554663617146642700
 │   │   ├── 6196146346336915265
 │   │   ├── 6609332381232176211
+│   │   ├── 7257490627620402856
+│   │   ├── 7859535693268906562
+│   │   ├── 808555346153905197
 │   │   ├── 8956772993836721803
 │   │   └── 9347343161986382066
 │   ├── 0.6.9
@@ -93,6 +106,9 @@
 │   ├── data
 │   │   ├── __init__.py
 │   │   └── data_client.py
+│   ├── domain
+│   │   ├── watchlist_service.py
+│   │   └── watchlist_utils.py
 │   ├── execution
 │   │   ├── __init__.py
 │   │   ├── alpaca_client.py
@@ -117,6 +133,10 @@
 │   │   ├── __init__.py
 │   │   ├── session_clock.py
 │   │   └── session_metrics.py
+│   ├── source
+│   │   ├── __init__.py
+│   │   ├── finviz_source.py
+│   │   └── textlist_source.py
 │   ├── sources
 │   │   ├── __init__.py
 │   │   ├── finviz_source.py
@@ -144,9 +164,15 @@
 │   ├── config.yaml
 │   └── watchlist_source.yaml
 ├── connect.py
-├── documents
+├── debug_webhook_call.py
+├── docs
 │   ├── architecture
-│   │   └── ARCHITECTURE.md
+│   │   ├── ARCHITECTURE.md
+│   │   ├── PHASE1_CORE_RUNTIME.md
+│   │   ├── PHASE2_OBSERVABILITY.md
+│   │   ├── PHASE3_BACKTESTING.md
+│   │   ├── PHASE4_EXECUTION.md
+│   │   └── PHASE5_CODEX_DOCS.md
 │   ├── operations
 │   │   ├── CI_CD.md
 │   │   ├── ROADMAP.md
@@ -167,6 +193,7 @@
 ├── ecosystem.config.cjs
 ├── infra
 │   └── README.md
+├── pm2-logrotate.config.js
 ├── project_structure.txt
 ├── pyproject.toml
 ├── pytest.ini
@@ -192,8 +219,8 @@
     ├── backtest
     │   └── test_metrics.py
     ├── bootstrap
-    │   ├── __init__.py
-    │   └── test_smoke.py
+    │   └── __init__.py
+    ├── confest.py
     ├── data
     │   └── test_data_client.py
     ├── integration
@@ -208,6 +235,11 @@
     │   ├── test_common.py
     │   └── test_momentum.py
     ├── test_config.py
+    ├── test_smoke.py
+    ├── unit
+    │   ├── test_watchlist_route.py
+    │   ├── test_watchlist_service.py
+    │   └── test_watchlist_utils.py
     ├── utils
     │   ├── test_env.py
     │   ├── test_http.py
@@ -215,4 +247,4 @@
     └── wiring
         └── test_telegram_router.py
 
-54 directories, 162 files
+58 directories, 190 files

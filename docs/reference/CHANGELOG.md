@@ -1,48 +1,124 @@
+# 🧾 Changelog
 
+## [0.1.1] — 2025-10-26
 
-# Changelog — Personal AI Trading Agent (Azure, Alpaca, MTF)
-
-All notable changes to this project will be documented in this file.  
-Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),  
-Adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
----
-
-## [Unreleased]
-### Planned
-- Implement multi-agent system (ScannerAgent, SignalAgent, RiskAgent, MetaAgent)
-- Integrate continuous learning (nightly retrain, drift detection)
-- Add AI journaling & LangChain meta-evaluation
-- Enhanced dashboard with Azure Monitor integration
+**Codename:** _“Codex Awakens”_  
+Codex agents integrated, hygiene overhaul complete, and full system now stable across API, backtest, and Telegram layers.
 
 ---
 
-## [0.1.0] — 2025-10-19
-### Added
-- Initial repository scaffold and complete documentation set:
-  - README.md, ARCHITECTURE.md, CONFIG.md, RISK_POLICY.md, SESSION_MODEL.md, WATCHLIST_SPEC.md, DATA_SCHEMA.md, DASHBOARD_SPEC.md, CI_CD.md, RUNBOOK.md, ROADMAP.md, CONTRIBUTING.md, LICENSE, GLOSSARY.md
-- Azure-first architecture:
-  - App Service (Linux container)
-  - Azure Blob Storage for data/models
-  - Azure Database for PostgreSQL (Flexible Server) for trades, orders, journal
-  - Azure Key Vault for secrets with Managed Identity
-- Multi-timeframe (5m, 15m, 1h, 4h, 1D) trading architecture
-- Session-aware model (PRE, REG-AM, REG-MID, REG-PM, AFT)
-- Guardrails: 1% per-trade risk, 5% daily DD halt, 50% account manual gate
-- Premarket and intraday scanner specifications
-- Streamlit dashboard specification for live metrics
-- GitHub Actions CI/CD plan for Azure deployment
-- Paper trading mode support (Alpaca API integration planned)
+### 🚀 New Features
 
-### Notes
-- This marks the **foundation release (MVP docs + infra plan)**.
-- Code scaffolding and initial paper mode logic to follow in version `0.2.0`.
+- **Codex Integration:** Added `AGENTS.md` and connected VS Code Codex agents for automated patching, linting, and test scaffolding.
+- **Health & Telemetry:**
+  - `/health/live` and `/health/ready` endpoints operational.
+  - Structured startup banner with version, environment, and timezone info.
+- **Telegram Router:**
+  - `/ping`, `/help`, `/watchlist` commands stabilized.
+  - Mobile-safe parsing for smart quotes/dashes.
+  - Unified error handling and user-friendly replies.
+- **Utilities Layer:**
+  - Added typed `ENV` dataclass with fallback defaults.
+  - Introduced `normalize_quotes_and_dashes` and `parse_kv_flags` helpers.
+  - Implemented `http_get` with retry/backoff and structured logging.
+- **Backtest & Metrics:**
+  - `breakout.py` refactored for robust signal generation and NaN-safe exits.
+  - Metrics engine now includes **unrealized PnL** tracking.
+  - CLI `run_breakout` hardened with debug mode and enhanced summaries.
+- **Infrastructure:**
+  - Split GitHub Actions into `ci.yml` (lint/test) and `deploy.yml` (Azure App Service).
+  - Added `scripts/dev_helpers.sh` for local automation (`fmt`, `lint`, `test`, `ngrok`, `pm2`, `webhook`).
+  - PM2 ecosystem file now supports log rotation and cleaner process management.
+- **Tests & CI:**
+  - Added smoke tests for `/health` and Telegram webhook.
+  - Unit tests for `utils/` modules.
+  - CI matrix expanded to Python 3.11 → 3.13.
 
 ---
 
-## [0.0.1] — 2025-10-15
-### Created
-- Project initialized by **Zish Malik** with defined scope:
-  - Equities/ETFs focus
-  - Cloud-native AI trading agent vision
-  - Initial planning and design documentation
+### 🧹 Improvements
+
+- Global code hygiene via **Ruff** + **Black** reformat.
+- Added docstrings, type hints, and explicit return types across all layers.
+- Consistent exception handling and logging schema.
+- Updated version management via `config.VERSION` and startup printout.
+- Enhanced timezone logic to default to **Pacific Time** with **NYSE/NASDAQ** calendars.
+
+---
+
+### 🧠 Developer Experience
+
+- `AGENTS.md` defines architecture rules, naming conventions, and Codex task prompts.
+- Codex automation pipeline now ready for fine-grained tasks (refactor, test, deploy).
+- Added sanity logging and health checks for DB and Telegram integrations.
+
+---
+
+### 🧩 Parking Lot / Future Enhancements
+
+- Paper-trading order flow via Alpaca (long-only MVP).
+- Automatic detection of IEX vs SIP market data availability.
+- Finviz + XTrades watchlist ingestion and probabilistic scoring.
+- Additional metrics (Calmar, downside deviation, skew/kurtosis).
+- Azure App Service webhook auto-registration post-deploy.
+
+---
+
+### 🧰 Migration Notes
+
+- Run `pip install -r requirements.txt` to apply new dependencies.
+- Ensure `.env` includes updated keys:  
+  `TELEGRAM_WEBHOOK_SECRET`, `ALPACA_API_KEY`, `ALPACA_API_SECRET`, and `AZURE_STORAGE_CONNECTION_STRING`.
+- After deploying to Azure, **immediately call**:
+  <https://api.telegram.org/bot/setWebhook>
+- using your **App Service URL** and `TELEGRAM_WEBHOOK_SECRET`.
+
+---
+
+### 🧭 Version Summary
+
+| Component    | Status     | Notes                         |
+| ------------ | ---------- | ----------------------------- |
+| FastAPI Core | ✅ Stable  | Health + Telemetry wired      |
+| Telegram Bot | ✅ Stable  | Verified via Postman + Mobile |
+| Backtester   | ✅ Working | CLI + Unrealized PnL added    |
+| Metrics      | ✅ Working | Modular & test-covered        |
+| CI/CD        | ⚙️ Ready   | GitHub Actions configured     |
+| Azure Deploy | 🕓 Pending | Final validation needed       |
+
+---
+
+**Author:** Zish Malik  
+**Date:** October 26 2025  
+**Version:** `0.1.1`
+
+## [v1.5.0] — 2025-10-28
+
+### 🚀 Features
+
+- Added **Finviz** and **TextList** watchlist sources.
+- Introduced dynamic `WATCHLIST_SOURCE` environment selection.
+- Unified `/tasks/watchlist` and Telegram `/watchlist` behavior.
+- Implemented normalization and deduplication logic for symbols.
+- Enhanced logging for watchlist operations with source and count metadata.
+- Added integration and unit tests for watchlist routes and utilities.
+
+### 🧠 Improvements
+
+- Telegram command responses now include watchlist source.
+- Added better error handling and fallbacks (scanner → textlist).
+- Prepared dynamic versioning hooks for CI/CD tags.
+
+### 🧰 Internal
+
+- Added `watchlist_utils.py` and `watchlist_service.py`.
+- Refactored routes for consistency.
+- Tests: added `test_watchlist_utils.py` and `test_watchlist_route.py`.
+
+### 🔖 Tag
+
+`v1.5.0` — Watchlist service refactor and multi-source support.
+
+**Author:** Zish Malik  
+**Date:** October 28 2025  
+**Version:** `1.5.0`
