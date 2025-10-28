@@ -164,6 +164,11 @@ def cmd_help(tg: TelegramClient, chat_id: int, args: List[str]) -> None:
         "• `/ping` — health check\n"
         "• `/watchlist` — build watchlist using defaults\n"
         "• `/watchlist <SYMS...>` — manual symbols (comma or space separated)\n"
+        "• `/watchlist [source] [scanner] [limit] [sort]` — dynamic source mode\n"
+        f"  • source: `auto|finviz|textlist`\n"
+        f"  • scanner: source-specific (optional)\n"
+        f"  • limit: integer cap (optional)\n"
+        f"  • sort: `alpha` (optional)\n"
         f"• Flags: {flags}\n"
         "• `/summary` — last watchlist metadata\n"
         "• `/help` — this menu"
@@ -185,6 +190,30 @@ def _bool_from_text(value: str) -> Optional[bool]:
 
 
 def cmd_watchlist(tg: TelegramClient, chat_id: int, args: List[str]) -> None:
+    # Positional dynamic form: /watchlist [source] [scanner] [limit] [sort]
+    if args and args[0].lower() in {"auto", "finviz", "textlist"}:
+        src = args[0].lower()
+        scanner = None
+        limit = None
+        sort = None
+        if len(args) >= 2 and not args[1].startswith("--"):
+            scanner = args[1]
+        if len(args) >= 3 and not args[2].startswith("--"):
+            try:
+                limit = int(args[2])
+            except ValueError:
+                limit = None
+        if len(args) >= 4 and not args[3].startswith("--"):
+            sort = args[3].lower()
+        try:
+            # resolve_watchlist is expected to accept these optional hints
+            source, symbols = resolve_watchlist(source=src, scanner=scanner, limit=limit, sort=sort)  # type: ignore
+            body = ", ".join(symbols) if symbols else "_No symbols available_"
+            _reply(tg, chat_id, f"*Watchlist* (source: {source})\n{body}")
+        except Exception as exc:
+            _safe_reply(tg, chat_id, "watchlist (dynamic) failed", exc)
+        return
+
     if not args:
         source, symbols = resolve_watchlist()
         if symbols:
@@ -268,21 +297,6 @@ def _run_command(
     except Exception as exc:
         label = cmd_name or "command"
         _safe_reply(tg, chat_id, f"{label} failed", exc)
-
-def _cmd_watchlist(tg, chat_id: int) -> None:
-    source, symbols = resolve_watchlist()
-    if not symbols:
-        tg.smart_send(chat_id, f"*Watchlist* (source: {source})\n_No symbols available_", parse_mode="Markdown")
-        return
-
-    # Render comma-separated, wrap at ~80-100 chars if you want (optional)
-    body = ", ".join(symbols)
-    tg.smart_send(
-        chat_id,
-        f"*Watchlist* (source: {source})\n{body}",
-        parse_mode="Markdown",
-        disable_web_page_preview=True,
-    )
 
 
 # ------------------------------------------------------------------------------
