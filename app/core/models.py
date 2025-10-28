@@ -6,6 +6,8 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
 from pydantic.fields import AliasChoices
+from sqlalchemy import Column, Integer, String, Float, JSON, DateTime, text
+from app.adapters.db.postgres import Base
 
 # NOTE: We standardize on `low` for readability (avoid linter E741 on `l`).
 #       We also accept multiple inbound aliases (e.g., "l", "lo", "low")
@@ -121,3 +123,14 @@ class Watchlist(BaseModel):
         return len(self.items)
 
     model_config = {"extra": "ignore"}
+
+class Trade(Base):
+    __tablename__ = "trades"
+    id = Column(Integer, primary_key=True, index=True)
+    symbol = Column(String, index=True, nullable=False)
+    entry_price = Column(Float, nullable=False)
+    exit_price = Column(Float)
+    quantity = Column(Float)
+    pnl = Column(Float)
+    meta = Column(JSON)
+    created_at = Column(DateTime, server_default=text("NOW()"))

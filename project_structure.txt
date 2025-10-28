@@ -56,7 +56,6 @@
 ├── .vscode
 │   └── settings.json
 ├── AGENTS.md
-├── CHANGELOG.md
 ├── Dockerfile
 ├── Makefile
 ├── README.md
@@ -69,6 +68,9 @@
 │   │   ├── db
 │   │   │   ├── __init__.py
 │   │   │   └── postgres.py
+│   │   ├── market
+│   │   │   ├── __init__.py
+│   │   │   └── alpaca_client.py
 │   │   ├── notifiers
 │   │   │   ├── __init__.py
 │   │   │   └── telegram.py
@@ -129,6 +131,8 @@
 │   │   ├── __init__.py
 │   │   ├── intraday_scanner.py
 │   │   └── watchlist_builder.py
+│   ├── services
+│   │   └── watchlist_service.py
 │   ├── sessions
 │   │   ├── __init__.py
 │   │   ├── session_clock.py
@@ -155,7 +159,7 @@
 │   │   ├── http.py
 │   │   └── normalize.py
 │   └── wiring
-│       ├── telegram.py
+│       ├── __init__.py
 │       └── telegram_router.py
 ├── artifacts
 ├── backtest_AAPL.csv
@@ -237,6 +241,8 @@
     ├── test_config.py
     ├── test_smoke.py
     ├── unit
+    │   ├── test_market_alpaca_client.py
+    │   ├── test_watchlist_builder.py
     │   ├── test_watchlist_route.py
     │   ├── test_watchlist_service.py
     │   └── test_watchlist_utils.py
@@ -245,6 +251,7 @@
     │   ├── test_http.py
     │   └── test_normalize.py
     └── wiring
-        └── test_telegram_router.py
+        ├── test_telegram_router.py
+        └── test_watchlist_telegram.py
 
-58 directories, 190 files
+60 directories, 195 files

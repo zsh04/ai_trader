@@ -8,11 +8,10 @@ from fastapi import FastAPI
 
 from app.api.routes import router as api_router
 from app.config import settings
-from app.wiring import telegram_router
-from app.wiring.telegram_router import TelegramDep, get_telegram
+
+from app.wiring import router as telegram_router, get_telegram, TelegramDep
 
 __all__ = ["app", "TelegramDep"]
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,5 +49,5 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="AI Trader", version=settings.VERSION, lifespan=lifespan)
 
 # Routers (define all endpoints in their own modules; keep main clean)
-app.include_router(telegram_router.router)
+app.include_router(telegram_router)
 app.include_router(api_router)
