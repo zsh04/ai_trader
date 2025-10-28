@@ -20,7 +20,8 @@ env:
   TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
   TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
   TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
-  PYTHON_VERSION: ${{ vars.PYTHON_VERSION || '3.11' }}
+  PYTHON_VERSION: ${{ vars.PYTHON_VERSION || '3.13' }}
+  APP_VERSION: ${{ github.ref_name }}
 
 jobs:
   deploy:

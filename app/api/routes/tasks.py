@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from app.domain.watchlist_service import resolve_watchlist
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+logger = logging.getLogger(__name__)
 
 
 def _send_watchlist(
@@ -61,3 +64,10 @@ def task_watchlist(
             session, items, title=title or "AI Trader • Watchlist", chat_id=chat_id
         )
     return wl
+
+@router.get("/watchlist")
+def get_watchlist() -> Dict[str, Any]:
+    source, symbols = resolve_watchlist()
+    payload = {"source": source, "count": len(symbols), "symbols": symbols}
+    logger.info("[watchlist] source=%s count=%d", source, payload["count"])
+    return payload

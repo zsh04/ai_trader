@@ -53,6 +53,12 @@ async def health_ready() -> Dict[str, str]:
     """Lightweight readiness probe with UTC timestamp."""
     return {"status": "ok", "utc": datetime.now(timezone.utc).isoformat()}
 
+@router.get("/market")
+def health_market():
+    feed = os.getenv("ALPACA_DATA_FEED","").lower()
+    auth = "ok" if valid_alpaca_keys() else "fail"
+    return {"feed": feed or "unknown", "auth": auth}
+
 
 @router.get("/version")
 async def version() -> Dict[str, str]:

@@ -91,3 +91,34 @@ Codex agents integrated, hygiene overhaul complete, and full system now stable a
 **Author:** Zish Malik  
 **Date:** October 26 2025  
 **Version:** `0.1.1`
+
+## [v1.5.0] — 2025-10-28
+
+### 🚀 Features
+
+- Added **Finviz** and **TextList** watchlist sources.
+- Introduced dynamic `WATCHLIST_SOURCE` environment selection.
+- Unified `/tasks/watchlist` and Telegram `/watchlist` behavior.
+- Implemented normalization and deduplication logic for symbols.
+- Enhanced logging for watchlist operations with source and count metadata.
+- Added integration and unit tests for watchlist routes and utilities.
+
+### 🧠 Improvements
+
+- Telegram command responses now include watchlist source.
+- Added better error handling and fallbacks (scanner → textlist).
+- Prepared dynamic versioning hooks for CI/CD tags.
+
+### 🧰 Internal
+
+- Added `watchlist_utils.py` and `watchlist_service.py`.
+- Refactored routes for consistency.
+- Tests: added `test_watchlist_utils.py` and `test_watchlist_route.py`.
+
+### 🔖 Tag
+
+`v1.5.0` — Watchlist service refactor and multi-source support.
+
+**Author:** Zish Malik  
+**Date:** October 28 2025  
+**Version:** `1.5.0`

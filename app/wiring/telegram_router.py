@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Body, Header, HTTPException
 from loguru import logger
-
+from app.domain.watchlist_service import resolve_watchlist
 from app.adapters.notifiers.telegram import TelegramClient, format_watchlist_message
 from app.scanners.watchlist_builder import build_watchlist
 from app.utils import env as ENV
@@ -185,6 +185,16 @@ def _bool_from_text(value: str) -> Optional[bool]:
 
 
 def cmd_watchlist(tg: TelegramClient, chat_id: int, args: List[str]) -> None:
+    if not args:
+        source, symbols = resolve_watchlist()
+        if symbols:
+            body = ", ".join(symbols)
+        else:
+            body = "_No symbols available_"
+        text = f"*Watchlist* (source: {source})\n{body}"
+        _reply(tg, chat_id, text)
+        return
+
     cleaned = normalize_quotes_and_dashes(" ".join(args))
     opts = parse_watchlist_args(cleaned)
     kv_flags = parse_kv_flags(cleaned)
@@ -258,6 +268,21 @@ def _run_command(
     except Exception as exc:
         label = cmd_name or "command"
         _safe_reply(tg, chat_id, f"{label} failed", exc)
+
+def _cmd_watchlist(tg, chat_id: int) -> None:
+    source, symbols = resolve_watchlist()
+    if not symbols:
+        tg.smart_send(chat_id, f"*Watchlist* (source: {source})\n_No symbols available_", parse_mode="Markdown")
+        return
+
+    # Render comma-separated, wrap at ~80-100 chars if you want (optional)
+    body = ", ".join(symbols)
+    tg.smart_send(
+        chat_id,
+        f"*Watchlist* (source: {source})\n{body}",
+        parse_mode="Markdown",
+        disable_web_page_preview=True,
+    )
 
 
 # ------------------------------------------------------------------------------
