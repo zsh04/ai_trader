@@ -58,7 +58,7 @@ def make_client(monkeypatch):
     client = TestClient(main_module.app)
     client.app.dependency_overrides[main_module.TelegramDep] = fake_dep
     client.app.dependency_overrides[telegram_module.TelegramDep] = fake_dep
-    client.app.dependency_overrides[router_module.TelegramDep] = fake_dep
+    client.app.dependency_overrides[router_module.get_telegram] = fake_dep
     return client
 
 
