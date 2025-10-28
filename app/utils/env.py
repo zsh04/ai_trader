@@ -99,6 +99,10 @@ class EnvSettings:
     )
     #: Preferred Alpaca data feed (iex/sip).
     ALPACA_FEED: str = field(default_factory=lambda: get_str("ALPACA_FEED", "iex"))
+    #: Force Yahoo fallback when Alpaca authentication fails.
+    ALPACA_FORCE_YAHOO_ON_AUTH_ERROR: bool = field(
+        default_factory=lambda: get_bool("ALPACA_FORCE_YAHOO_ON_AUTH_ERROR", False)
+    )
 
     #: Ordered preference of upstream price providers.
     PRICE_PROVIDERS: List[str] = field(
@@ -239,6 +243,7 @@ ALPACA_API_SECRET = ENV.ALPACA_API_SECRET
 ALPACA_BASE_URL = ENV.ALPACA_BASE_URL
 ALPACA_DATA_BASE_URL = ENV.ALPACA_DATA_BASE_URL
 ALPACA_FEED = ENV.ALPACA_FEED
+ALPACA_FORCE_YAHOO_ON_AUTH_ERROR = ENV.ALPACA_FORCE_YAHOO_ON_AUTH_ERROR
 PRICE_PROVIDERS = ENV.PRICE_PROVIDERS
 YF_ENABLED = ENV.YF_ENABLED
 

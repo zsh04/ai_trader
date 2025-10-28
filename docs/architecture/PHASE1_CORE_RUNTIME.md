@@ -40,3 +40,8 @@ graph TD
 
     OrderRouter --> Broker
 ```
+
+### Dynamic Watchlist Ingestion
+- The `/watchlist` resolver dynamically selects symbols from either the **Finviz** screener or the curated **TextList** payload.
+- Runtime selection honors the positional syntax `auto|finviz|textlist [scanner] [limit] [sort]`, allowing Telegram and API clients to switch sources without redeploying.
+- Fallback chain: Finviz (default for `auto`) gracefully downgrades to TextList when the screener is unavailable or returns no symbols, ensuring the feature layer maintains a valid symbol universe before feature generation begins.

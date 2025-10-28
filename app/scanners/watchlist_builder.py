@@ -140,8 +140,9 @@ def build_watchlist(
     """
     Build a watchlist payload enriched with latest price/OHLCV data.
 
-    Maintains existing behavior where manual symbols skip scanner lookup,
-    optional Finviz inputs augment the candidate list, and filters apply last.
+    Symbols gathered from manual input, scanner defaults, and optional Finviz
+    presets are merged case-insensitively, sorted alphabetically for stability,
+    and truncated according to the requested limit before enrichment.
     """
     # capture a single timestamp for consistency
     _ts = now_utc()
@@ -171,16 +172,20 @@ def build_watchlist(
             finviz_list = []
 
     log.debug(
-        "watchlist sources: manual=%d scanner=%d finviz=%d include_filters=%s",
+        (
+            "watchlist sources: manual=%d scanner=%d finviz=%d "
+            "include_filters=%s limit=%s"
+        ),
         len(manual),
         len(scanner_default),
         len(finviz_list),
         include_filters,
+        hard_cap,
     )
 
-    candidates = dedupe_merge(manual, scanner_default, finviz_list, limit=hard_cap)
-
-    # Always enforce a cap (even if include_filters is False)
+    # Merge inputs, dedupe case-insensitively (uppercased), then sort for stability.
+    candidates = dedupe_merge(manual, scanner_default, finviz_list)
+    candidates = sorted(candidates)
     candidates = _cap_list(candidates, hard_cap)
 
     if not candidates:
@@ -194,7 +199,7 @@ def build_watchlist(
 
     # 2) optionally apply filters (currently only caps/cleanup)
     if include_filters:
-        candidates = apply_filters(candidates)
+        candidates = apply_filters(candidates, limit=hard_cap)
 
     log.debug("watchlist candidates (post-filters): %d", len(candidates))
 
@@ -241,7 +246,8 @@ def scan_candidates() -> List[str]:
     return get_universe()
 
 
-def apply_filters(symbols: List[str]) -> List[str]:
-    """Primary filter pass (currently only enforces the configured cap)."""
+def apply_filters(symbols: List[str], limit: Optional[int] = None) -> List[str]:
+    """Primary filter pass (currently enforces uppercase + cap)."""
     syms = [s.strip().upper() for s in symbols if s and s.strip()]
-    return _cap_list(syms, DEFAULT_CAP)
+    cap = limit if isinstance(limit, int) and limit > 0 else DEFAULT_CAP
+    return _cap_list(syms, cap)

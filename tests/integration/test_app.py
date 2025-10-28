@@ -4,6 +4,7 @@ import os
 
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
+import app.wiring.telegram_router as telegram_module
 
 load_dotenv(override=True)
 os.environ.setdefault("TELEGRAM_ALLOW_TEST_NO_SECRET", "1")
@@ -51,7 +52,6 @@ def make_client(monkeypatch):
             pass
 
     fake_dep = lambda: FakeTelegram()
-    import app.wiring.telegram as telegram_module
     import app.wiring.telegram_router as router_module
 
     monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", "")

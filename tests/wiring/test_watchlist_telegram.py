@@ -17,13 +17,13 @@ def make_client(monkeypatch: MonkeyPatch) -> TestClient:
 
     # stub telegram
     fake_sent = {"msgs": []}
-    tgmod = types.ModuleType("app.wiring.telegram")
+    tgmod = types.ModuleType("app.wiring.telegram_router")
     class FakeTG:
         def smart_send(self, chat_id, text, **kwargs):
             fake_sent["msgs"].append(text)
     tgmod.get_telegram = lambda: FakeTG()
     tgmod.TelegramClient = FakeTG
-    sys.modules["app.wiring.telegram"] = tgmod
+    sys.modules["app.wiring.telegram_router"] = tgmod
 
     from app.main import app
     c = TestClient(app)

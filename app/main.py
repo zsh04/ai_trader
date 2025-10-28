@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from app.api.routes import router as api_router
 from app.config import settings
 from app.wiring import telegram_router
-from app.wiring.telegram import TelegramDep, get_telegram
+from app.wiring.telegram_router import TelegramDep, get_telegram
 
 __all__ = ["app", "TelegramDep"]
 

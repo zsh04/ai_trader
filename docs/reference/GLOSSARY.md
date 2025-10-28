@@ -47,6 +47,16 @@
 - **Key Vault:** Azure service for managing secrets (API keys, DB passwords).
 - **Managed Identity:** Azure authentication method allowing secure access to other services without credentials.
 
+### Telegram Commands
+| Command | Description | Notes |
+| --- | --- | --- |
+| `/watchlist` | Returns the current symbol universe using dynamic source selection. | Resolves `auto` → Finviz, then falls back to TextList if needed. |
+| `/watchlist auto 30` | Sets `source=auto` with `limit=30`. | Positional order: `source [scanner] [limit] [sort]`. |
+| `/watchlist finviz breakout 20 momentum` | Pulls Finviz symbols for the `breakout` scanner, limiting to 20 and sorting by momentum. | Same resolver logic shared with REST `/tasks/watchlist`. |
+| `/watchlist textlist` | Forces TextList symbols even if Finviz is online. | Useful during Finviz outages or manual overrides. |
+| `/summary` | Displays last watchlist build metadata. | Helps confirm which source and limit were applied. |
+| `/help` | Lists Telegram bot commands and usage tips. | Includes flag-based overrides like `--limit=` when needed. |
+
 ### Strategy & Risk
 - **Kelly Criterion:** Formula for optimal bet sizing based on win probability and payoff ratio.
 - **Risk per Trade:** Percentage of account equity risked on a single trade (1% default).

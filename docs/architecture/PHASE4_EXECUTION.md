@@ -151,6 +151,11 @@ flowchart LR
   MET --> ALR
   ALR --> TG1
 
+### Watchlist Command Routing
+- Telegram `/watchlist` requests flow through the FastAPI router, which resolves sources using positional syntax `auto|finviz|textlist [scanner] [limit] [sort]`.
+- `auto` maps to Finviz by default and will fall back to TextList when the Finviz adapter cannot produce symbols; manual `textlist` requests bypass external dependencies entirely.
+- Responses reuse the shared watchlist resolver, guaranteeing consistent symbol sets across Telegram, REST `/tasks/watchlist`, and scheduled jobs.
+
 %% ------------------------------------------------------------
 %% 6) Deployment & Promotion Flow
 %% ------------------------------------------------------------

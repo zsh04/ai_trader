@@ -21,9 +21,15 @@
 - `limit` (optional): Integer cap on the number of symbols returned. Defaults to 15, maximum 100.
 - `sort` (optional): Sort key for ordered outputs (e.g., `"momentum"`, `"gap_pct"`).
 
+### Telegram Positional Syntax
+- `/watchlist auto 30` → `source=auto`, `limit=30`, default sort.
+- `/watchlist finviz breakout 20 momentum` → `source=finviz`, `scanner=breakout`, `limit=20`, `sort=momentum`.
+- `/watchlist textlist` → forces `source=textlist` with no overrides.
+- Positional order: `source` (auto|finviz|textlist) → `scanner` → `limit` → `sort`; switches back to flag parsing (`--limit=`, `--sort=`) when additional options appear.
+
 ## Auto-Fallback Logic
 1. Attempt to resolve the requested `source`.
-2. If `"finviz"` fails (missing module, import error, or empty result), log a warning and retry with `"textlist"`.
+2. `auto` maps to `"finviz"` first; if Finviz fails (missing module, import error, timeout, or empty result), log a warning and retry with `"textlist"`.
 3. If `"scanner"` is requested but not implemented, emit a single warning and fall back to `"textlist"`.
 4. Unknown values default to `"textlist"` with a warning.
 
