@@ -20,19 +20,19 @@ from app.adapters.db.postgres import ping
 router = APIRouter(tags=["health"]) 
 
 
-@router.get("/health")
+@router.get("")
 async def health() -> Dict[str, Any]:
     """Legacy health endpoint (mirrors /health/live)."""
     return await health_live()
 
 
-@router.get("/health/live")
+@router.get("/live")
 async def health_live() -> Dict[str, Any]:
     """Lightweight liveness probe."""
     return {"ok": True, "service": "ai-trader", "version": APP_VERSION}
 
 
-@router.get("/health/db")
+@router.get("/db")
 async def health_db() -> Dict[str, Any]:
     """Database connectivity probe with simple latency measurement.
     Keeps response compact so it can be used as a readiness probe.
@@ -47,7 +47,7 @@ async def health_db() -> Dict[str, Any]:
     return {"ok": ok, "latency_ms": latency_ms}
 
 
-@router.get("/health/ready")
+@router.get("/ready")
 async def health_ready() -> Dict[str, str]:
     """Lightweight readiness probe with UTC timestamp."""
     return {"status": "ok", "utc": datetime.now(timezone.utc).isoformat()}
