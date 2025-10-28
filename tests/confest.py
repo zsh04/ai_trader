@@ -1,15 +1,18 @@
-import pytest
 import sys
+
+import pytest
 from dotenv import load_dotenv
 
 # Load .env and force a test bypass for webhook secret
 os.environ.setdefault("TELEGRAM_ALLOW_TEST_NO_SECRET", "1")
 load_dotenv(override=True)
 
+
 @pytest.fixture(scope="session", autouse=True)
 def load_env():
     """Ensure .env is loaded for all tests."""
     load_dotenv()
+
 
 @pytest.fixture(scope="session", autouse=True)
 def _reload_env_modules():

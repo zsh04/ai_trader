@@ -5,6 +5,7 @@ These helpers gate entries/exits using probabilistic signals and basic risk rule
 They are deliberately lightweight and have no external deps so they can be used
 from backtests, live execution, or Telegram commands.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,10 +13,10 @@ from math import isnan
 from time import time
 from typing import Optional, Tuple
 
-
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class PolicyConfig:
@@ -42,6 +43,7 @@ DEFAULT = PolicyConfig()
 # Helpers
 # -----------------------------------------------------------------------------
 
+
 def _valid_prob(x: Optional[float]) -> bool:
     return x is not None and 0.0 <= x <= 1.0 and not isnan(x)
 
@@ -49,6 +51,7 @@ def _valid_prob(x: Optional[float]) -> bool:
 # -----------------------------------------------------------------------------
 # Entry / Exit rules
 # -----------------------------------------------------------------------------
+
 
 def should_enter(signal_prob: Optional[float], cfg: PolicyConfig = DEFAULT) -> bool:
     """Gate a long entry by probability.
@@ -93,6 +96,7 @@ def should_exit(
 # -----------------------------------------------------------------------------
 # Cooldown / Risk budget
 # -----------------------------------------------------------------------------
+
 
 def cooldown_active(
     last_exit_ts: Optional[float],

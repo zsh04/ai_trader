@@ -1,10 +1,12 @@
 # app/sources/finviz_source.py
 from __future__ import annotations
-from typing import List, Dict, Any, Optional
+
 import logging
+from typing import List, Optional
 
 try:
     from finvizfinance.screener import Screener
+
     _FINVIZ_OK = True
 except Exception:
     _FINVIZ_OK = False

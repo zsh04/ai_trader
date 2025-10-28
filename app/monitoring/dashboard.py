@@ -15,12 +15,12 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Optional, Tuple, List
+from datetime import datetime, timedelta, timezone
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 import streamlit as st
-from datetime import datetime, timedelta, timezone
 
 # --- Page config & CSS tweaks ---
 st.set_page_config(page_title="AI Trader Dashboard", layout="wide", page_icon="📈")
@@ -43,16 +43,29 @@ DEFAULT_SYMBOLS = os.getenv("DASHBOARD_SYMBOLS", "AAPL,MSFT,NVDA,SPY,QQQ").split
 
 # --- Sidebar controls ---
 st.sidebar.header("Controls")
-lookback_days = st.sidebar.slider("Lookback (days)", min_value=5, max_value=365, value=30, step=5)
-auto_refresh_sec = st.sidebar.number_input("Auto-refresh (sec)", min_value=0, max_value=600, value=60, help="0 disables auto-refresh")
-symbols_input = st.sidebar.text_input("Symbols (comma-separated)", value=",".join(DEFAULT_SYMBOLS)).strip()
+lookback_days = st.sidebar.slider(
+    "Lookback (days)", min_value=5, max_value=365, value=30, step=5
+)
+auto_refresh_sec = st.sidebar.number_input(
+    "Auto-refresh (sec)",
+    min_value=0,
+    max_value=600,
+    value=60,
+    help="0 disables auto-refresh",
+)
+symbols_input = st.sidebar.text_input(
+    "Symbols (comma-separated)", value=",".join(DEFAULT_SYMBOLS)
+).strip()
 symbols: List[str] = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
 
 # Auto refresh (client-side)
 if auto_refresh_sec and auto_refresh_sec > 0:
-    st_autorefresh = st.experimental_rerun  # placeholder to avoid import; we call none here
+    st_autorefresh = (
+        st.experimental_rerun
+    )  # placeholder to avoid import; we call none here
     # Streamlit doesn't have a built-in timer; we provide a manual refresh button instead.
 refresh = st.sidebar.button("🔄 Manual refresh")
+
 
 # --- Helpers -----------------------------------------------------------------
 @dataclass
@@ -60,18 +73,28 @@ class EquitySnapshot:
     timestamp: datetime
     equity: float
 
+
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
 
 @st.cache_data(show_spinner=False, ttl=60)
 def _demo_equity(n_points: int = 120) -> pd.DataFrame:
     """Generate a noisy upward-sloping equity curve for demo."""
     base = 100_000.0
-    timestamps = pd.date_range(_now_utc() - timedelta(minutes=n_points - 1), periods=n_points, freq="min", tz="UTC")
+    timestamps = pd.date_range(
+        _now_utc() - timedelta(minutes=n_points - 1),
+        periods=n_points,
+        freq="min",
+        tz="UTC",
+    )
     drift = np.linspace(0, 1500, n_points)
     noise = np.random.randn(n_points) * 200
     equity = base + drift + noise
-    return pd.DataFrame({"timestamp": timestamps, "equity": equity}).set_index("timestamp")
+    return pd.DataFrame({"timestamp": timestamps, "equity": equity}).set_index(
+        "timestamp"
+    )
+
 
 def _compute_metrics(equity: pd.Series) -> pd.DataFrame:
     """Compute simple performance metrics from equity series (UTC-indexed)."""
@@ -82,7 +105,11 @@ def _compute_metrics(equity: pd.Series) -> pd.DataFrame:
     total_ret = (eq.iloc[-1] / eq.iloc[0]) - 1.0 if len(eq) > 1 else 0.0
     rets = eq.pct_change().dropna()
     ann_factor = 252  # daily-like; if minute-level, this is heuristic. For minute data use 252*390.
-    sharpe = (rets.mean() / (rets.std() + 1e-12)) * np.sqrt(ann_factor) if len(rets) > 1 else 0.0
+    sharpe = (
+        (rets.mean() / (rets.std() + 1e-12)) * np.sqrt(ann_factor)
+        if len(rets) > 1
+        else 0.0
+    )
 
     # Max drawdown
     roll_max = eq.cummax()
@@ -97,6 +124,7 @@ def _compute_metrics(equity: pd.Series) -> pd.DataFrame:
         {"Metric": "Samples", "Value": f"{len(eq):,}"},
     ]
     return pd.DataFrame(rows)
+
 
 @st.cache_data(show_spinner=False, ttl=30)
 def _fetch_equity_from_db(since: datetime) -> Optional[pd.DataFrame]:
@@ -125,8 +153,11 @@ def _fetch_equity_from_db(since: datetime) -> Optional[pd.DataFrame]:
         st.warning(f"DB equity fetch failed: {e}")
         return None
 
+
 @st.cache_data(show_spinner=False, ttl=30)
-def _fetch_trades_from_db(since: datetime, symbols: List[str] | None) -> Optional[pd.DataFrame]:
+def _fetch_trades_from_db(
+    since: datetime, symbols: List[str] | None
+) -> Optional[pd.DataFrame]:
     """Fetch recent trades. Expect a table `trades(symbol TEXT, side TEXT, qty NUMERIC, price NUMERIC, pnl NUMERIC, ts_utc TIMESTAMPTZ)`."""
     if not DB_URL:
         return None
@@ -159,6 +190,7 @@ def _fetch_trades_from_db(since: datetime, symbols: List[str] | None) -> Optiona
         st.warning(f"DB trades fetch failed: {e}")
         return None
 
+
 # --- Header ------------------------------------------------------------------
 st.title("AI Trading Agent — Monitoring Dashboard")
 st.caption("Live strategy diagnostics and telemetry view")
@@ -167,7 +199,9 @@ st.caption("Live strategy diagnostics and telemetry view")
 st.header("📊 Account Equity Overview")
 
 since = _now_utc() - timedelta(days=lookback_days)
-equity_df = _fetch_equity_from_db(since) or _demo_equity(n_points=min(lookback_days * 390, 2000))
+equity_df = _fetch_equity_from_db(since) or _demo_equity(
+    n_points=min(lookback_days * 390, 2000)
+)
 
 # Allow user to view in local timezone
 tz_option = st.selectbox("Display time in", ["UTC", TZ_LOCAL], index=1)

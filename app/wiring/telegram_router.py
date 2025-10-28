@@ -1,15 +1,14 @@
 # app/wiring/telegram_router.py
 from __future__ import annotations
 
-import hmac
-import sys
-import os
-import logging
-import re
-from typing import Any, Callable, Dict, List, Optional, Tuple, Annotated
-from loguru import logger
 import json
-from fastapi import APIRouter, Depends, Header, HTTPException, Body
+import logging
+import os
+import re
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+from fastapi import APIRouter, Body, Header, HTTPException
+from loguru import logger
 
 from app.adapters.notifiers.telegram import TelegramClient, format_watchlist_message
 from app.scanners.watchlist_builder import build_watchlist
@@ -19,7 +18,7 @@ from app.utils.normalize import (
     parse_kv_flags,
     parse_watchlist_args,
 )
-from app.wiring.telegram import TelegramDep, get_telegram
+from app.wiring.telegram import get_telegram
 
 log = logging.getLogger(__name__)
 
@@ -51,8 +50,19 @@ def _mask(s: Optional[str]) -> str:
         return "*" * (len(s) - 2) + s[-2:]
     return s[:2] + "*" * (len(s) - 6) + s[-4:]
 
-def _dump_webhook_debug(where: str, *, payload: Dict[str, Any], hdr_primary: Optional[str], hdr_legacy: Optional[str],
-                        env_secret: Optional[str], test_mode: bool, allow_empty: bool, env_name: str, bot_token_set: bool) -> None:
+
+def _dump_webhook_debug(
+    where: str,
+    *,
+    payload: Dict[str, Any],
+    hdr_primary: Optional[str],
+    hdr_legacy: Optional[str],
+    env_secret: Optional[str],
+    test_mode: bool,
+    allow_empty: bool,
+    env_name: str,
+    bot_token_set: bool,
+) -> None:
     try:
         logger.warning(
             "[tg-webhook:{where}] DEBUG DUMP\n"
@@ -77,6 +87,7 @@ def _dump_webhook_debug(where: str, *, payload: Dict[str, Any], hdr_primary: Opt
     except Exception as e:
         logger.error("[tg-webhook:{where}] debug dump failed: {}", where, e)
 
+
 def _is_authorized(user_id: Optional[int]) -> bool:
     """Allow all if no allowed list configured; else enforce match."""
     allow_list = ENV.TELEGRAM_ALLOWED_USER_IDS or []
@@ -97,7 +108,9 @@ def _reply(tg: TelegramClient, chat_id: int | str, text: str) -> None:
     tg.smart_send(chat_id, text, mode="Markdown", chunk_size=3500, retries=1)
 
 
-def _safe_reply(tg: TelegramClient, chat_id: int | str, msg: str, exc: Exception | None = None) -> None:
+def _safe_reply(
+    tg: TelegramClient, chat_id: int | str, msg: str, exc: Exception | None = None
+) -> None:
     note = f"⚠️ {msg}"
     if exc:
         log.warning("[tg] %s: %s", msg, exc)
@@ -145,7 +158,7 @@ def cmd_start(tg: TelegramClient, chat_id: int, args: List[str]) -> None:
 
 
 def cmd_help(tg: TelegramClient, chat_id: int, args: List[str]) -> None:
-    flags = "`--no-filters`, `--filters`, `--limit=15`, `--session=pre|regular|after`, `--title=\"Custom\"`"
+    flags = '`--no-filters`, `--filters`, `--limit=15`, `--session=pre|regular|after`, `--title="Custom"`'
     text = (
         "*Commands*\n"
         "• `/ping` — health check\n"
@@ -253,13 +266,19 @@ def _run_command(
 @router.post("/webhook")
 def webhook(
     payload: Dict[str, Any] = Body(...),
-    x_secret_primary: Optional[str] = Header(None, alias="X-Telegram-Bot-Api-Secret-Token"),
+    x_secret_primary: Optional[str] = Header(
+        None, alias="X-Telegram-Bot-Api-Secret-Token"
+    ),
     x_secret_legacy: Optional[str] = Header(None, alias="X-Telegram-Secret-Token"),
 ) -> Dict[str, Any]:
     tg: TelegramClient = get_telegram()
 
     # --- read secrets/flags dynamically so pytest monkeypatch works ---
-    env_secret = _quote_trim(os.getenv("TELEGRAM_WEBHOOK_SECRET", getattr(ENV, "TELEGRAM_WEBHOOK_SECRET", "")))
+    env_secret = _quote_trim(
+        os.getenv(
+            "TELEGRAM_WEBHOOK_SECRET", getattr(ENV, "TELEGRAM_WEBHOOK_SECRET", "")
+        )
+    )
     hdr_secret = _quote_trim(x_secret_primary or x_secret_legacy)
     raw_env = os.getenv("ENV") or getattr(ENV, "ENV", "")
     if isinstance(raw_env, str):
@@ -286,7 +305,9 @@ def webhook(
         test_mode=test_mode,
         allow_empty=not require_secret,
         env_name=env_name,
-        bot_token_set=bool(os.getenv("TELEGRAM_BOT_TOKEN", getattr(ENV, "TELEGRAM_BOT_TOKEN", ""))),
+        bot_token_set=bool(
+            os.getenv("TELEGRAM_BOT_TOKEN", getattr(ENV, "TELEGRAM_BOT_TOKEN", ""))
+        ),
     )
 
     if require_secret:

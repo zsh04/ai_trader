@@ -169,13 +169,21 @@ class TelegramClient:
         try:
             resp = requests.get(url, timeout=self.timeout)
             if 200 <= resp.status_code < 300:
-                data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                data = (
+                    resp.json()
+                    if resp.headers.get("content-type", "").startswith(
+                        "application/json"
+                    )
+                    else {}
+                )
                 result = (data or {}).get("result") or {}
                 username = result.get("username") or "unknown"
                 bot_id = result.get("id") or "?"
                 log.info("[Telegram] Bot OK: @%s id=%s", username, bot_id)
                 return True
-            log.warning("[Telegram] Ping failed HTTP %s: %s", resp.status_code, resp.text)
+            log.warning(
+                "[Telegram] Ping failed HTTP %s: %s", resp.status_code, resp.text
+            )
         except Exception as e:
             log.error("[Telegram] Ping error: %s", e)
         return False
@@ -223,9 +231,13 @@ def build_client_from_env() -> TelegramClient:
     timeout = ENV.TELEGRAM_TIMEOUT_SECS
 
     if not token:
-        log.warning("[Telegram] TELEGRAM_BOT_TOKEN is not set — sending will be disabled")
+        log.warning(
+            "[Telegram] TELEGRAM_BOT_TOKEN is not set — sending will be disabled"
+        )
     if not secret:
-        log.info("[Telegram] TELEGRAM_WEBHOOK_SECRET not configured (webhook auth disabled)")
+        log.info(
+            "[Telegram] TELEGRAM_WEBHOOK_SECRET not configured (webhook auth disabled)"
+        )
     if allowed:
         log.info("[Telegram] Allowed users configured: %d", len(allowed))
 
@@ -262,9 +274,15 @@ def send_watchlist(
     title: str = "AI Trader • Watchlist",
 ) -> bool:
     # Prefer explicit chat_id argument; fallback to env default
-    target = _coerce_chat_id(chat_id) if chat_id is not None else _coerce_chat_id(ENV.TELEGRAM_DEFAULT_CHAT_ID)
+    target = (
+        _coerce_chat_id(chat_id)
+        if chat_id is not None
+        else _coerce_chat_id(ENV.TELEGRAM_DEFAULT_CHAT_ID)
+    )
     if target is None:
-        log.warning("[Telegram] No chat_id (arg or TELEGRAM_DEFAULT_CHAT_ID). Skipping send.")
+        log.warning(
+            "[Telegram] No chat_id (arg or TELEGRAM_DEFAULT_CHAT_ID). Skipping send."
+        )
         return False
     client = build_client_from_env()
     msg = format_watchlist_message(session, items, title=title)

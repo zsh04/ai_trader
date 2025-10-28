@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
+import math
 import os
 import sys
 import traceback
-import logging
-import math
 from dataclasses import asdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,8 +16,8 @@ import numpy as np
 import pandas as pd
 from pandas import Timestamp
 
-from app.backtest.engine import Costs, backtest_long_only
 from app.backtest import metrics as bt_metrics
+from app.backtest.engine import Costs, backtest_long_only
 from app.backtest.model import BetaWinrate
 from app.providers.yahoo_provider import get_history_daily
 from app.strats.breakout import BreakoutParams, generate_signals
@@ -26,6 +26,7 @@ from app.strats.breakout import BreakoutParams, generate_signals
 # Logging
 # ------------------------------------------------------------------------------
 log = logging.getLogger(__name__)
+
 
 def _setup_cli_logging(level: int = logging.INFO) -> None:
     """
@@ -41,6 +42,7 @@ def _setup_cli_logging(level: int = logging.INFO) -> None:
     else:
         root.setLevel(level)
 
+
 def _roundish(x, ndigits=4):
     if isinstance(x, (float, np.floating)):
         if math.isfinite(float(x)):
@@ -51,6 +53,7 @@ def _roundish(x, ndigits=4):
     if isinstance(x, Timestamp):
         return x.isoformat()
     return str(x)
+
 
 def _try_backtest(
     engine_fn: Callable[..., Dict[str, Any]],
@@ -106,7 +109,12 @@ def run(
     log.info("Fetching daily history for %s: %s → %s", symbol, start_dt, end_dt)
     df = get_history_daily(symbol, start_dt, end_dt).dropna().copy()
     if df.empty:
-        log.error("No history returned for %s in [%s, %s]. Check data provider/API keys.", symbol, start_dt, end_dt)
+        log.error(
+            "No history returned for %s in [%s, %s]. Check data provider/API keys.",
+            symbol,
+            start_dt,
+            end_dt,
+        )
         return
 
     # Strategy params
@@ -190,9 +198,7 @@ def run(
         try:
             sig.tail(200)[cols_dbg_all].to_csv(f"signals_tail_{symbol}.csv")
             mask = sig.get("long_entry", False) | sig.get("long_exit", False)
-            sig.loc[mask, cols_dbg_all].tail(200).to_csv(
-                f"signals_events_{symbol}.csv"
-            )
+            sig.loc[mask, cols_dbg_all].tail(200).to_csv(f"signals_events_{symbol}.csv")
             log.debug(
                 "Saved signal snapshots: signals_tail_%s.csv, signals_events_%s.csv",
                 symbol,
@@ -217,7 +223,9 @@ def run(
         atr=atr_series,
         entry_price=p.entry_price,
         atr_mult=p.atr_mult,
-        risk_frac=(risk_frac_override if risk_frac_override is not None else default_risk),
+        risk_frac=(
+            risk_frac_override if risk_frac_override is not None else default_risk
+        ),
         costs=Costs(
             slippage_bps=slippage_bps if slippage_bps is not None else 1.0,
             fee_per_share=fee_per_share if fee_per_share is not None else 0.0,
@@ -246,8 +254,10 @@ def run(
         log.debug("result keys: %s", keys)
         eq = res.get("equity")
         if eq is not None and hasattr(eq, "diff"):
-            moved = float(np.nansum(np.abs(eq.diff().to_numpy()))) if hasattr(eq, "to_numpy") else float(
-                np.nansum(np.abs(eq.diff().values))
+            moved = (
+                float(np.nansum(np.abs(eq.diff().to_numpy())))
+                if hasattr(eq, "to_numpy")
+                else float(np.nansum(np.abs(eq.diff().values)))
             )
             log.debug("equity moved (abs sum diffs): %.6f", moved)
     except Exception as e_keys:
@@ -579,7 +589,14 @@ if __name__ == "__main__":
             if os.path.exists(out):
                 eq = pd.read_csv(out, index_col=0, parse_dates=True).iloc[:, 0]
                 m = bt_metrics.equity_stats(eq, use_mtm=True)
-                print(json.dumps({k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in asdict(m).items()}))
+                print(
+                    json.dumps(
+                        {
+                            k: (v.isoformat() if hasattr(v, "isoformat") else v)
+                            for k, v in asdict(m).items()
+                        }
+                    )
+                )
     except Exception as e:
         log.error("Backtest run failed: %s", e)
         log.debug("Traceback:\n%s", traceback.format_exc())

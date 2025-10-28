@@ -73,21 +73,29 @@ class EnvSettings:
     #: IANA timezone used for scheduling/logging.
     TZ: str = field(default_factory=lambda: get_str("TZ", "America/Los_Angeles"))
     #: Enables live trading hooks when true.
-    TRADING_ENABLED: bool = field(default_factory=lambda: get_bool("TRADING_ENABLED", False))
+    TRADING_ENABLED: bool = field(
+        default_factory=lambda: get_bool("TRADING_ENABLED", False)
+    )
     #: Whether to default to Alpaca paper trading endpoints.
     PAPER_TRADING: bool = field(default_factory=lambda: get_bool("PAPER_TRADING", True))
 
     #: Alpaca REST API key ID.
     ALPACA_API_KEY: str = field(default_factory=lambda: get_str("ALPACA_API_KEY", ""))
     #: Alpaca REST API secret.
-    ALPACA_API_SECRET: str = field(default_factory=lambda: get_str("ALPACA_API_SECRET", ""))
+    ALPACA_API_SECRET: str = field(
+        default_factory=lambda: get_str("ALPACA_API_SECRET", "")
+    )
     #: Base URL for order routing.
     ALPACA_BASE_URL: str = field(
-        default_factory=lambda: get_str("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+        default_factory=lambda: get_str(
+            "ALPACA_BASE_URL", "https://paper-api.alpaca.markets"
+        )
     )
     #: Base URL for Alpaca market data API.
     ALPACA_DATA_BASE_URL: str = field(
-        default_factory=lambda: get_str("ALPACA_DATA_BASE_URL", "https://data.alpaca.markets/v2")
+        default_factory=lambda: get_str(
+            "ALPACA_DATA_BASE_URL", "https://data.alpaca.markets/v2"
+        )
     )
     #: Preferred Alpaca data feed (iex/sip).
     ALPACA_FEED: str = field(default_factory=lambda: get_str("ALPACA_FEED", "iex"))
@@ -113,9 +121,7 @@ class EnvSettings:
     )
     #: Container used for general data artifacts (legacy name support).
     AZURE_STORAGE_CONTAINER_NAME: str = field(
-        default_factory=lambda: get_str(
-            "AZURE_STORAGE_CONTAINER_NAME", "traderdata"
-        )
+        default_factory=lambda: get_str("AZURE_STORAGE_CONTAINER_NAME", "traderdata")
     )
     #: Container used for general data artifacts.
     AZURE_STORAGE_CONTAINER_DATA: str = field(
@@ -123,7 +129,9 @@ class EnvSettings:
     )
     #: Container used for ML/strategy models.
     AZURE_STORAGE_CONTAINER_MODELS: str = field(
-        default_factory=lambda: get_str("AZURE_STORAGE_CONTAINER_MODELS", "trader-models")
+        default_factory=lambda: get_str(
+            "AZURE_STORAGE_CONTAINER_MODELS", "trader-models"
+        )
     )
 
     #: Postgres host name.
@@ -142,7 +150,9 @@ class EnvSettings:
     DATABASE_URL: str = field(default_factory=lambda: get_str("DATABASE_URL", ""))
 
     #: Telegram Bot API token.
-    TELEGRAM_BOT_TOKEN: str = field(default_factory=lambda: get_str("TELEGRAM_BOT_TOKEN", ""))
+    TELEGRAM_BOT_TOKEN: str = field(
+        default_factory=lambda: get_str("TELEGRAM_BOT_TOKEN", "")
+    )
     #: Comma-delimited list of authorized Telegram user IDs.
     TELEGRAM_ALLOWED_USER_IDS: Set[int] = field(
         default_factory=lambda: get_int_set("TELEGRAM_ALLOWED_USER_IDS")
@@ -161,9 +171,13 @@ class EnvSettings:
     )
 
     #: Default HTTP request timeout (seconds).
-    HTTP_TIMEOUT_SECS: int = field(default_factory=lambda: get_int("HTTP_TIMEOUT_SECS", 10))
+    HTTP_TIMEOUT_SECS: int = field(
+        default_factory=lambda: get_int("HTTP_TIMEOUT_SECS", 10)
+    )
     #: Default retry attempts for outbound HTTP.
-    HTTP_RETRY_ATTEMPTS: int = field(default_factory=lambda: get_int("HTTP_RETRY_ATTEMPTS", 2))
+    HTTP_RETRY_ATTEMPTS: int = field(
+        default_factory=lambda: get_int("HTTP_RETRY_ATTEMPTS", 2)
+    )
     #: Default retry backoff for outbound HTTP.
     HTTP_RETRY_BACKOFF_SEC: float = field(
         default_factory=lambda: get_float("HTTP_RETRY_BACKOFF_SEC", 1.5)
@@ -204,7 +218,9 @@ class EnvSettings:
     HTTP_TIMEOUT: int = field(init=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "YF_ENABLED", any(p == "yahoo" for p in self.PRICE_PROVIDERS))
+        object.__setattr__(
+            self, "YF_ENABLED", any(p == "yahoo" for p in self.PRICE_PROVIDERS)
+        )
         object.__setattr__(self, "HTTP_RETRIES", self.HTTP_RETRY_ATTEMPTS)
         object.__setattr__(self, "HTTP_BACKOFF", self.HTTP_RETRY_BACKOFF_SEC)
         object.__setattr__(self, "HTTP_TIMEOUT", self.HTTP_TIMEOUT_SECS)

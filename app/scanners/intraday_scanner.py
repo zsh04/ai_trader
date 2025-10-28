@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
 from datetime import datetime, time, timedelta
+from typing import Dict, Iterable, List, Optional
 from zoneinfo import ZoneInfo
 
 from app.data.data_client import get_universe
 from app.providers.yahoo_provider import (
+    get_history_daily,  # daily history for ADV computation
     intraday_last,
     latest_volume,
-    get_history_daily,  # daily history for ADV computation
 )
-
 
 NY_TZ = ZoneInfo("America/New_York")
 SESSION_OPEN = time(9, 30)
@@ -146,5 +145,8 @@ def scan_intraday(
         out.append(entry)
 
     # Sort by rvol desc, then volume desc
-    out.sort(key=lambda d: (float(d.get("rvol") or 0), int(d.get("volume") or 0)), reverse=True)
+    out.sort(
+        key=lambda d: (float(d.get("rvol") or 0), int(d.get("volume") or 0)),
+        reverse=True,
+    )
     return out

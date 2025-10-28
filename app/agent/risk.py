@@ -1,6 +1,9 @@
 """Risk management primitives: concentration and exposure checks."""
+
 import logging
+
 logger = logging.getLogger(__name__)
+
 
 def exceeds_concentration(
     notional: float, equity: float, threshold: float = 0.5

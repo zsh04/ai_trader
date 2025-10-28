@@ -6,12 +6,13 @@ Mon–Fri weekday check.
 
 Primary market keys: XNYS (NYSE) and XNAS (NASDAQ). You can pass other market codes supported by pmc.
 """
+
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Optional, Tuple
-import datetime as dt
+from typing import Optional
 
 try:  # optional dependency
     import pandas as pd  # type: ignore
@@ -32,6 +33,7 @@ LOCAL_TZ = "America/Los_Angeles"
 
 
 # ----------------------------- helpers ---------------------------------
+
 
 def _tz(tz: Optional[str]) -> dt.tzinfo:
     if tz and ZoneInfo:
@@ -64,7 +66,10 @@ def _today_local() -> dt.date:
 
 # ------------------------------ API ------------------------------------
 
-def is_trading_day(x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET) -> bool:
+
+def is_trading_day(
+    x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET
+) -> bool:
     """Return True if *x* is a trading day for *market*.
 
     Uses `pandas_market_calendars` when available, otherwise falls back to
@@ -82,7 +87,9 @@ def is_trading_day(x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET)
     return len(valid) > 0
 
 
-def next_trading_day(x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET) -> dt.date:
+def next_trading_day(
+    x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET
+) -> dt.date:
     """Return the next trading day on/after *x* (strictly after if *x* is trading).
 
     Supports markets: XNYS, XNAS by default.
@@ -104,7 +111,9 @@ def next_trading_day(x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKE
     return days[0].date()
 
 
-def previous_trading_day(x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET) -> dt.date:
+def previous_trading_day(
+    x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET
+) -> dt.date:
     """Return the previous trading day before *x*.
 
     Supports markets: XNYS, XNAS by default.
@@ -131,7 +140,9 @@ class MarketHours:
     market_close: dt.datetime
 
 
-def market_hours(x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET, tz: str = LOCAL_TZ) -> Optional[MarketHours]:
+def market_hours(
+    x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET, tz: str = LOCAL_TZ
+) -> Optional[MarketHours]:
     """Return local-market open/close datetimes for *x*.
 
     If pmc is not installed, returns None.
@@ -153,13 +164,19 @@ def market_hours(x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET, t
     return MarketHours(market_open=op, market_close=cl)
 
 
-def is_market_open(ts: Optional[dt.datetime] = None, market: str = DEFAULT_MARKET, tz: str = LOCAL_TZ) -> bool:
+def is_market_open(
+    ts: Optional[dt.datetime] = None, market: str = DEFAULT_MARKET, tz: str = LOCAL_TZ
+) -> bool:
     """Return True if the market is open at *ts* (defaults to now in local time).
 
     Supports markets: XNYS, XNAS by default.
     """
     tzinfo = _tz(tz)
-    ts = ts.astimezone(tzinfo) if isinstance(ts, dt.datetime) else dt.datetime.now(tzinfo)
+    ts = (
+        ts.astimezone(tzinfo)
+        if isinstance(ts, dt.datetime)
+        else dt.datetime.now(tzinfo)
+    )
     hours = market_hours(ts.date(), market=market, tz=tz)
     if hours is None:
         # Fallback: between 9:30 and 16:00 local time on weekdays

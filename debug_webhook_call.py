@@ -1,5 +1,6 @@
 # debug_webhook_call.py
 import os
+
 from dotenv import load_dotenv
 from starlette.testclient import TestClient
 
@@ -18,7 +19,7 @@ resp = client.post(
     json=payload,
     headers={
         # Try empty header to use bypass
-        #"X-Telegram-Bot-Api-Secret-Token": "",
+        # "X-Telegram-Bot-Api-Secret-Token": "",
         # Or uncomment to test secret path:
         "X-Telegram-Bot-Api-Secret-Token": os.getenv("TELEGRAM_WEBHOOK_SECRET", ""),
     },

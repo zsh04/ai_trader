@@ -32,6 +32,7 @@ def _cap_list(syms: list[str], n: int | None) -> list[str]:
         return syms[:DEFAULT_CAP]
     return syms[:n]
 
+
 # New: optional external sources
 try:
     from app.sources import dedupe_merge  # type: ignore
@@ -42,7 +43,7 @@ except Exception:
         seen: set[str] = set()
         out: list[str] = []
         for g in groups:
-            for s in (g or []):
+            for s in g or []:
                 u = str(s).strip().upper()
                 if not u or u in seen:
                     continue
@@ -52,12 +53,14 @@ except Exception:
                     return out
         return out
 
+
 try:
     from app.sources.finviz_source import fetch_symbols as finviz_fetch  # type: ignore
 except Exception:
 
     def finviz_fetch(*args, **kwargs):  # type: ignore
         return []  # quiet fallback if finviz source not available
+
 
 # --------------------------------------------------------------------------------------
 # Lightweight helpers (kept for future scanner enrichment)
@@ -155,11 +158,14 @@ def build_watchlist(
     finviz_list: list[str] = []
     if include_finviz:
         try:
-            finviz_list = finviz_fetch(
-                preset=finviz_preset or "Top Gainers",
-                filters=finviz_filters or [],
-                max_symbols=FINVIZ_MAX_SYMBOLS,
-            ) or []
+            finviz_list = (
+                finviz_fetch(
+                    preset=finviz_preset or "Top Gainers",
+                    filters=finviz_filters or [],
+                    max_symbols=FINVIZ_MAX_SYMBOLS,
+                )
+                or []
+            )
         except Exception as e:
             log.warning("finviz fetch failed: %s", e)
             finviz_list = []

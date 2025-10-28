@@ -1,6 +1,7 @@
 from __future__ import annotations
-import os
+
 import importlib
+import os
 from datetime import datetime, timezone
 
 REQUIRED_ENVS = [
@@ -11,9 +12,11 @@ REQUIRED_ENVS = [
     # "DATABASE_URL",
 ]
 
+
 def check_env():
     missing = [k for k in REQUIRED_ENVS if not os.getenv(k)]
     return missing
+
 
 def check_imports():
     modules = [
@@ -31,6 +34,7 @@ def check_imports():
         except Exception as e:
             errors.append((m, repr(e)))
     return errors
+
 
 if __name__ == "__main__":
     print("[sanity] running at", datetime.now(timezone.utc).isoformat())

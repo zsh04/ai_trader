@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 """
 Postgres engine/session helpers with safe DSN building, minimal logging, and
 resilient health checks. Prefers DATABASE_URL when set; otherwise builds from
@@ -73,7 +74,9 @@ _ENGINE: Optional[Engine] = None
 _SESSION_FACTORY: Optional[sessionmaker] = None
 
 
-def make_engine(dsn: Optional[str] = None, pool_size: int = 5, max_overflow: int = 5) -> Engine:
+def make_engine(
+    dsn: Optional[str] = None, pool_size: int = 5, max_overflow: int = 5
+) -> Engine:
     """Create a new Engine (uncached). Prefer `get_engine()` for a singleton."""
     dsn = dsn or _dsn_from_env()
     eng = create_engine(
@@ -100,9 +103,13 @@ def get_engine() -> Engine:
 
 def make_session_factory(engine: Optional[Engine] = None) -> sessionmaker:
     global _SESSION_FACTORY
-    if _SESSION_FACTORY is None or (engine is not None and _SESSION_FACTORY.kw.get("bind") is not engine):
+    if _SESSION_FACTORY is None or (
+        engine is not None and _SESSION_FACTORY.kw.get("bind") is not engine
+    ):
         eng = engine or get_engine()
-        _SESSION_FACTORY = sessionmaker(bind=eng, expire_on_commit=False, autoflush=False, future=True)
+        _SESSION_FACTORY = sessionmaker(
+            bind=eng, expire_on_commit=False, autoflush=False, future=True
+        )
     return _SESSION_FACTORY
 
 
@@ -116,7 +123,12 @@ def get_session() -> Session:
 # ----------------------------------------------------------------------------
 
 
-def ping(engine: Optional[Engine] = None, timeout_sec: float = 2.0, retries: int = 0, backoff: float = 0.75) -> bool:
+def ping(
+    engine: Optional[Engine] = None,
+    timeout_sec: float = 2.0,
+    retries: int = 0,
+    backoff: float = 0.75,
+) -> bool:
     """Try a lightweight query with optional retries.
 
     For Postgres we also set a per-statement timeout for the connection where possible.
@@ -137,7 +149,9 @@ def ping(engine: Optional[Engine] = None, timeout_sec: float = 2.0, retries: int
                 cx.execute(text("SELECT 1"))
             return True
         except Exception as e:
-            log.warning("[postgres] ping failed (attempt %s/%s): %s", attempts, retries + 1, e)
+            log.warning(
+                "[postgres] ping failed (attempt %s/%s): %s", attempts, retries + 1, e
+            )
             if attempts > retries:
                 return False
             time.sleep(backoff * attempts)

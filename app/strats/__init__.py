@@ -8,12 +8,14 @@ try:
     from .breakout import generate_signals as breakout_signals  # type: ignore
 except Exception:  # breakout exists in your tree; this keeps imports resilient
     BreakoutParams = object  # fallback type
+
     def breakout_signals(*args, **kwargs):  # type: ignore
         raise RuntimeError("breakout strategy not available")
 
+
 # Momentum strategy
-from .params import MomentumParams
 from .momentum import generate_signals as momentum_signals
+from .params import MomentumParams
 
 __all__ = [
     "BreakoutParams",

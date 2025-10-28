@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from dataclasses import is_dataclass
-from typing import Any, Iterable, Mapping
 import re
+from dataclasses import is_dataclass
+from typing import Any, Mapping
+
 import numpy as np
 import pandas as pd
 
+
 def _normalize_name(s: str) -> str:
     return re.sub(r"[\s\-]+", "_", s).lower()
+
 
 # -------- Param helpers --------
 def get_param(p: Any, key: str, default: Any) -> Any:

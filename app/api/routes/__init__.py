@@ -11,17 +11,23 @@ Usage in app.main:
 All imports are lazy/optional: missing modules are skipped so you
 can iterate incrementally.
 """
+
 from __future__ import annotations
+
 from typing import Any
-from .health import router as health_router
-#from .telegram import router as telegram_router
-from .tasks import router as tasks_router
+
 from fastapi import APIRouter, FastAPI
+
+from .health import router as health_router
+
+# from .telegram import router as telegram_router
+from .tasks import router as tasks_router
 
 router = APIRouter()
 router.include_router(health_router, prefix="/health", tags=["health"])
-#router.include_router(telegram_router, prefix="/telegram", tags=["telegram"])
+# router.include_router(telegram_router, prefix="/telegram", tags=["telegram"])
 router.include_router(tasks_router, prefix="/tasks", tags=["tasks"])
+
 
 def _include_optional(module_path: str, attr: str = "router") -> None:
     """Try to import a module and include its router if present.
@@ -41,7 +47,7 @@ def _include_optional(module_path: str, attr: str = "router") -> None:
 
 # Try to aggregate sibling routers. Only include what exists.
 _include_optional("app.api.routes.health")
-#_include_optional("app.api.routes.telegram")
+# _include_optional("app.api.routes.telegram")
 _include_optional("app.api.routes.tasks")
 
 

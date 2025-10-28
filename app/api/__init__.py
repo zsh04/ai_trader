@@ -1,5 +1,3 @@
-
-
 """
 Top-level API router factory.
 
@@ -12,6 +10,7 @@ You can optionally mount under a prefix:
 
     app.include_router(get_api_router(), prefix="/api")
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter
@@ -43,7 +42,9 @@ def get_api_router() -> APIRouter:
     api.include_router(health_router, tags=["health"])  # /health, /health/db, /version
 
     if telegram_router is not None:
-        api.include_router(telegram_router, prefix="/telegram", tags=["telegram"])  # /telegram/*
+        api.include_router(
+            telegram_router, prefix="/telegram", tags=["telegram"]
+        )  # /telegram/*
 
     if tasks_router is not None:
         api.include_router(tasks_router, prefix="/tasks", tags=["tasks"])  # /tasks/*

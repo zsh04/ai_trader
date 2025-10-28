@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import json
@@ -79,7 +78,10 @@ class AlpacaClient:
                     **kwargs,
                 )
                 # Retry on 429/5xx (except 501/505 etc — handled generically)
-                if resp.status_code in (429, 500, 502, 503, 504) and attempt < self.retries:
+                if (
+                    resp.status_code in (429, 500, 502, 503, 504)
+                    and attempt < self.retries
+                ):
                     delay = self.backoff * (attempt + 1)
                     self.log.warning(
                         "HTTP %s %s -> %s; retrying in %.1fs (attempt %s/%s)",
@@ -124,7 +126,9 @@ class AlpacaClient:
             r = self._request("GET", url)
             ok = 200 <= r.status_code < 300
             if not ok:
-                self.log.error("Alpaca health_check failed: %s %s", r.status_code, r.text)
+                self.log.error(
+                    "Alpaca health_check failed: %s %s", r.status_code, r.text
+                )
             return ok
         except Exception as e:  # pragma: no cover - defensive
             self.log.exception("Alpaca health_check exception: %s", e)
@@ -137,12 +141,16 @@ class AlpacaClient:
         url = f"{self.data_url}/v2/stocks/{symbol}/trades/latest"
         r = self._request("GET", url)
         if not (200 <= r.status_code < 300):
-            raise ExecutionError(f"Failed to fetch last price for {symbol}: {r.status_code} {r.text}")
+            raise ExecutionError(
+                f"Failed to fetch last price for {symbol}: {r.status_code} {r.text}"
+            )
         payload = r.json()
         trade = (payload or {}).get("trade") or {}
         p = trade.get("p")
         if p is None:
-            raise ExecutionError(f"Missing trade price for {symbol}: {json.dumps(payload)[:200]}")
+            raise ExecutionError(
+                f"Missing trade price for {symbol}: {json.dumps(payload)[:200]}"
+            )
         return float(p)
 
     def place_bracket_order(
@@ -211,10 +219,14 @@ class AlpacaClient:
             if sl_pct is not None:
                 if side == "buy":
                     sl_price = entry_price * (1.0 - sl_pct)
-                    sl_limit_price = sl_price - sl_limit_offset if sl_limit_offset > 0 else None
+                    sl_limit_price = (
+                        sl_price - sl_limit_offset if sl_limit_offset > 0 else None
+                    )
                 else:
                     sl_price = entry_price * (1.0 + sl_pct)
-                    sl_limit_price = sl_price + sl_limit_offset if sl_limit_offset > 0 else None
+                    sl_limit_price = (
+                        sl_price + sl_limit_offset if sl_limit_offset > 0 else None
+                    )
 
         payload: Dict[str, Any] = {
             "symbol": symbol,
@@ -248,7 +260,9 @@ class AlpacaClient:
         res = r.json()
         order_id = (res or {}).get("id")
         if not order_id:
-            raise ExecutionError(f"Missing order id in response: {json.dumps(res)[:200]}")
+            raise ExecutionError(
+                f"Missing order id in response: {json.dumps(res)[:200]}"
+            )
         self.log.info(
             "Placed %s %s x%s (bracket=%s) → id=%s",
             side,

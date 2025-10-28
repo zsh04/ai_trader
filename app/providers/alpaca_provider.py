@@ -17,6 +17,7 @@ __all__ = [
 
 log = logging.getLogger(__name__)
 
+
 def _normalize_symbols(symbols: List[str]) -> List[str]:
     """Uppercase, trim, and de-duplicate while preserving order."""
     seen = set()
@@ -30,6 +31,7 @@ def _normalize_symbols(symbols: List[str]) -> List[str]:
         seen.add(u)
         out.append(u)
     return out
+
 
 # Alpaca multi-symbol endpoints have practical payload/throughput limits.
 # Keep batches conservative to avoid HTTP 413/timeout issues.
@@ -201,8 +203,8 @@ def latest_trades_from_snapshots(snaps: Dict[str, Dict[str, Any]]) -> Dict[str, 
         if not s:
             continue
         try:
-            trade = (s.get("latestTrade") or {})
-            quote = (s.get("latestQuote") or {})
+            trade = s.get("latestTrade") or {}
+            quote = s.get("latestQuote") or {}
             p = float(trade.get("p") or quote.get("bp") or 0)
             if p > 0:
                 out[sym.upper()] = p

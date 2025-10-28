@@ -1,12 +1,13 @@
 # app/backtest/metrics.py
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-from typing import Any, Dict, List, Tuple
+import logging
 import math
+from dataclasses import asdict, dataclass
+from typing import Any, Dict, List, Tuple
+
 import numpy as np
 import pandas as pd
-import logging
 
 TRADING_DAYS = 252
 logger = logging.getLogger(__name__)
@@ -48,15 +49,12 @@ def _to_returns(curve: pd.Series) -> pd.Series:
     s = curve.astype(float).dropna()
     if s.empty:
         return pd.Series(dtype=float)
-    return (
-        s.pct_change()
-        .replace([np.inf, -np.inf], np.nan)
-        .fillna(0.0)
-        .astype(float)
-    )
+    return s.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0.0).astype(float)
 
 
-def _annualize_returns(mean_ret: float, std_ret: float, periods_per_year: int) -> Tuple[float, float]:
+def _annualize_returns(
+    mean_ret: float, std_ret: float, periods_per_year: int
+) -> Tuple[float, float]:
     return mean_ret * periods_per_year, std_ret * math.sqrt(periods_per_year)
 
 
@@ -114,9 +112,13 @@ def equity_stats(
         logger.warning("[metrics] equity index not monotonic; sorting by index")
         curve = curve.sort_index()
     if len(curve) < 50:
-        logger.debug("[metrics] short series (n=%d) — stats may be unstable", len(curve))
+        logger.debug(
+            "[metrics] short series (n=%d) — stats may be unstable", len(curve)
+        )
     if curve.empty:
-        return EquityMetrics(pd.Timestamp(0), pd.Timestamp(0), 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        return EquityMetrics(
+            pd.Timestamp(0), pd.Timestamp(0), 0, 0, 0, 0, 0, 0, 0, 0, 0
+        )
 
     rets = _to_returns(curve)
     # convert annual risk-free to per-period (simple) and subtract from returns

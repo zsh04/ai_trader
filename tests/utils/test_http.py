@@ -7,7 +7,12 @@ from app.utils import http
 
 
 class DummyResponse:
-    def __init__(self, status: int, payload: Dict[str, Any], headers: Dict[str, Any] | None = None):
+    def __init__(
+        self,
+        status: int,
+        payload: Dict[str, Any],
+        headers: Dict[str, Any] | None = None,
+    ):
         self.status_code = status
         self._payload = payload
         self.headers = headers or {}
@@ -49,4 +54,7 @@ def test_http_get_retries_and_backoff(monkeypatch, caplog):
     assert data == {"ok": True}
     assert len(fake_requests.calls) == 2
     assert sleeps == [1.5]
-    assert any("method=GET url=https://example.com/api status=500" in record.message for record in caplog.records)
+    assert any(
+        "method=GET url=https://example.com/api status=500" in record.message
+        for record in caplog.records
+    )

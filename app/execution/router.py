@@ -4,7 +4,10 @@ from typing import Tuple
 
 log = logging.getLogger(__name__)
 
-def bracket_for_entry(entry_px: float, atr: float, tp_mult: float = 1.5, sl_mult: float = 1.0) -> Tuple[float, float]:
+
+def bracket_for_entry(
+    entry_px: float, atr: float, tp_mult: float = 1.5, sl_mult: float = 1.0
+) -> Tuple[float, float]:
     """
     Compute take-profit and stop-loss price levels for an entry.
 
@@ -35,5 +38,7 @@ def bracket_for_entry(entry_px: float, atr: float, tp_mult: float = 1.5, sl_mult
         log.debug("Sanity correction: tp=%s sl=%s entry=%s", tp, sl, entry_px)
         tp, sl = entry_px * 1.01, entry_px * 0.99
 
-    log.info("Bracket computed: entry=%.2f atr=%.2f → tp=%.2f sl=%.2f", entry_px, atr, tp, sl)
+    log.info(
+        "Bracket computed: entry=%.2f atr=%.2f → tp=%.2f sl=%.2f", entry_px, atr, tp, sl
+    )
     return round(tp, 2), round(sl, 2)

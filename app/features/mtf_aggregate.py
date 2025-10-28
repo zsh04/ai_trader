@@ -43,6 +43,7 @@ def _standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
 # Resampling / aggregation
 # --------------------------------------------------------------------------------------
 
+
 def aggregate_ohlcv(
     df: pd.DataFrame,
     rule: str,
@@ -69,7 +70,9 @@ def aggregate_ohlcv(
     idx = df_std.index
     if tz:
         if idx.tz is None:
-            df_std = df_std.tz_localize(tz, nonexistent="shift_forward", ambiguous="NaT")
+            df_std = df_std.tz_localize(
+                tz, nonexistent="shift_forward", ambiguous="NaT"
+            )
         else:
             df_std = df_std.tz_convert(tz)
 
@@ -82,9 +85,7 @@ def aggregate_ohlcv(
     }
 
     available = {k: v for k, v in agg.items() if k in df_std.columns}
-    res = (
-        df_std.resample(rule, label=label, closed=closed).agg(available)
-    )
+    res = df_std.resample(rule, label=label, closed=closed).agg(available)
 
     # Drop empty bars (can happen at session boundaries)
     res = res.dropna(how="all")
@@ -110,6 +111,7 @@ def mtf_aggregate(
 # --------------------------------------------------------------------------------------
 # Basic RSI (EMA/ Wilder style) so we don't depend on external TA libs
 # --------------------------------------------------------------------------------------
+
 
 def rsi(series: pd.Series, period: int = 14) -> pd.Series:
     """Compute RSI on a price series using Wilder's smoothing via EMA.
@@ -163,6 +165,7 @@ def mtf_rsi(
 # Convenience: build a single wide feature table
 # --------------------------------------------------------------------------------------
 
+
 def build_mtf_features(
     df_1m: pd.DataFrame,
     rules: Iterable[str] = ("5min", "15min", "1H", "1D"),
@@ -182,7 +185,9 @@ def build_mtf_features(
     # Prices & volumes per timeframe
     if include_prices:
         for tf, bar in buckets.items():
-            part = bar[[c for c in ["o", "h", "lo", "c", "v"] if c in bar.columns]].copy()
+            part = bar[
+                [c for c in ["o", "h", "lo", "c", "v"] if c in bar.columns]
+            ].copy()
             part = part.add_suffix(f"@{tf}")
             frames.append(part)
 

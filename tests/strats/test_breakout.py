@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pandas as pd
-
 from app.strats.breakout import BreakoutParams, generate_signals
 
 

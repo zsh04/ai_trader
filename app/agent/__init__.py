@@ -1,4 +1,3 @@
-
 """
 High-level trade agent primitives.
 

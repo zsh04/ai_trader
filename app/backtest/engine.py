@@ -36,7 +36,9 @@ def _as_series(x: pd.Series | pd.DataFrame) -> pd.Series:
     return x.iloc[:, 0] if isinstance(x, pd.DataFrame) else x
 
 
-def _align_series(s: pd.Series | pd.DataFrame, index: pd.Index, *, fill: Any = 0) -> pd.Series:
+def _align_series(
+    s: pd.Series | pd.DataFrame, index: pd.Index, *, fill: Any = 0
+) -> pd.Series:
     """Coerce to a Series aligned to *index*.
 
     Ensures safe element access with `.iat` and avoids misalignment errors when
@@ -51,6 +53,7 @@ def _align_series(s: pd.Series | pd.DataFrame, index: pd.Index, *, fill: Any = 0
 # --------------------------------------------------------------------------------------
 # Backtest engine (long-only, 1 position)
 # --------------------------------------------------------------------------------------
+
 
 def backtest_long_only(
     df: pd.DataFrame,
@@ -192,7 +195,11 @@ def backtest_long_only(
         # Entry if flat
         # --------------
         if (not in_pos) and bool(entry.iat[i]):
-            model_ok = (model is None) or getattr(model, "allow", lambda: True)() or (len(trades) == 0)
+            model_ok = (
+                (model is None)
+                or getattr(model, "allow", lambda: True)()
+                or (len(trades) == 0)
+            )
             if model_ok:
                 # Determine entry fill
                 if entry_price == "close":
@@ -200,7 +207,9 @@ def backtest_long_only(
                 else:  # next_open
                     next_i = i + 1
                     fill_px = (
-                        float(px_open.iat[next_i]) if next_i < len(idx) else float(px_close.iat[i])
+                        float(px_open.iat[next_i])
+                        if next_i < len(idx)
+                        else float(px_close.iat[i])
                     )
                 # Entry slippage and entry fee
                 fill_px *= 1 + costs.slippage_bps / 1e4
@@ -213,8 +222,12 @@ def backtest_long_only(
                 raw_shares = risk_dollar / risk_per_share
 
                 if fractional_ok:
-                    min_shares_by_notional = float(min_notional) / max(_DEF_MIN_EPS, float(fill_px))
-                    shares = max(float(raw_shares), float(min_shares), min_shares_by_notional)
+                    min_shares_by_notional = float(min_notional) / max(
+                        _DEF_MIN_EPS, float(fill_px)
+                    )
+                    shares = max(
+                        float(raw_shares), float(min_shares), min_shares_by_notional
+                    )
                 else:
                     shares = float(int(max(0.0, raw_shares)))
 
@@ -235,7 +248,12 @@ def backtest_long_only(
         # ----------------------
         # Post-trade model update
         # ----------------------
-        if model and trades and ("pnl" in trades[-1]) and trades[-1].get("_accounted") is not True:
+        if (
+            model
+            and trades
+            and ("pnl" in trades[-1])
+            and trades[-1].get("_accounted") is not True
+        ):
             try:
                 model.update(trades[-1]["pnl"] > 0)
             finally:
@@ -255,5 +273,7 @@ def backtest_long_only(
             equity_mtm = float(equity)
         equity_curve.append((date, float(equity), float(equity_mtm)))
 
-    curve = pd.DataFrame(equity_curve, columns=["date", "equity", "equity_mtm"]).set_index("date")
+    curve = pd.DataFrame(
+        equity_curve, columns=["date", "equity", "equity_mtm"]
+    ).set_index("date")
     return {"equity": curve, "trades": trades}

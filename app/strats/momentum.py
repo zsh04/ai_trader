@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -12,12 +13,12 @@ except Exception:
     pass
 
 from .common import (
-    ensure_flat_ohlcv,
-    pick_col,
     as_series,
     ema,
-    rank_percentile,
+    ensure_flat_ohlcv,
     get_param,
+    pick_col,
+    rank_percentile,
 )
 
 
@@ -33,7 +34,7 @@ def generate_signals(df: pd.DataFrame, p: Any) -> pd.DataFrame:
     # Resolve columns
     close = pick_col(out, "close", "adj_close", "close_price", "c", "ohlc_close")
     high = pick_col(out, "high", "ohlc_high", "h")  # for future use
-    low = pick_col(out, "low", "ohlc_low", "l")     # for future use
+    low = pick_col(out, "low", "ohlc_low", "l")  # for future use
 
     # Params
     roc_lb = int(get_param(p, "roc_lookback", 60))

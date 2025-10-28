@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import os
-
-import pytest
 
 
 def _reload_config(monkeypatch, env: dict[str, str] | None = None):

@@ -3,9 +3,8 @@ from __future__ import annotations
 
 import argparse
 import logging
-from datetime import date, datetime, timedelta, UTC
+from datetime import date
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -18,8 +17,8 @@ except Exception:
 
 from app.strats import (
     BreakoutParams,
-    breakout_signals,
     MomentumParams,
+    breakout_signals,
     momentum_signals,
 )
 
@@ -34,7 +33,9 @@ def _load_data(symbol: str, start: str | None, end: str | None) -> pd.DataFrame:
     try:
         import yfinance as yf  # type: ignore
 
-        df = yf.download(symbol, start=start, end=end, auto_adjust=False, progress=False)
+        df = yf.download(
+            symbol, start=start, end=end, auto_adjust=False, progress=False
+        )
         df = df.rename(
             columns={
                 "Open": "open",
@@ -53,7 +54,9 @@ def _load_data(symbol: str, start: str | None, end: str | None) -> pd.DataFrame:
 
     # Final synthetic fallback
     idx = pd.date_range(start or "2021-01-01", end or date.today(), freq="B")
-    price = pd.Series(np.cumprod(1 + np.random.normal(0.0006, 0.01, len(idx))) * 100, index=idx)
+    price = pd.Series(
+        np.cumprod(1 + np.random.normal(0.0006, 0.01, len(idx))) * 100, index=idx
+    )
     high = price * (1 + np.random.uniform(0.0, 0.01, len(idx)))
     low = price * (1 - np.random.uniform(0.0, 0.01, len(idx)))
     open_ = price.shift(1).fillna(price.iloc[0])

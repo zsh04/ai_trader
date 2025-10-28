@@ -1,7 +1,9 @@
 """Position sizing logic — calculates shares/contracts per trade based on risk budget and volatility."""
+
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 def position_size(
     equity: float,
@@ -24,7 +26,12 @@ def position_size(
         logger.warning("Invalid equity (<=0) for sizing.")
         return 0
     if risk_pct <= 0 or atr <= 0 or stop_atr_mult <= 0:
-        logger.debug("Sizing inputs below threshold: risk_pct=%s atr=%s stop_mult=%s", risk_pct, atr, stop_atr_mult)
+        logger.debug(
+            "Sizing inputs below threshold: risk_pct=%s atr=%s stop_mult=%s",
+            risk_pct,
+            atr,
+            stop_atr_mult,
+        )
         return 0
 
     risk_amt = equity * risk_pct
@@ -33,7 +40,11 @@ def position_size(
 
     logger.info(
         "Position size computed: equity=%.2f risk_pct=%.3f atr=%.4f stop_mult=%.2f size=%d",
-        equity, risk_pct, atr, stop_atr_mult, size,
+        equity,
+        risk_pct,
+        atr,
+        stop_atr_mult,
+        size,
     )
 
     return size

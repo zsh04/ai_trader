@@ -35,6 +35,7 @@ def today_key(prefix: str, suffix: str = "json") -> str:
     d = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return f"{prefix}/{d}.{suffix}"
 
+
 # app/adapters/storage/blob.py
 """
 Thin helpers around Azure Blob Storage for simple app data persistence.
@@ -53,15 +54,10 @@ Notes:
 
 from __future__ import annotations
 
-import json
-import os
-from datetime import datetime, timezone
 from typing import List, Optional
 
 from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError
-from azure.storage.blob import BlobServiceClient, ContainerClient, BlobClient
-
-from app.config import settings
+from azure.storage.blob import BlobClient, BlobServiceClient, ContainerClient
 
 _BSC: Optional[BlobServiceClient] = None
 
@@ -87,7 +83,8 @@ def _client() -> BlobServiceClient:
             "or settings.blob_account/settings.blob_key"
         )
     _BSC = BlobServiceClient(
-        f"https://{settings.blob_account}.blob.core.windows.net", credential=settings.blob_key
+        f"https://{settings.blob_account}.blob.core.windows.net",
+        credential=settings.blob_key,
     )
     return _BSC
 

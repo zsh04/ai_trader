@@ -28,6 +28,8 @@ def test_telegram_webhook_ping_smoke(client):
     resp = client.post(
         "/telegram/webhook",
         json=payload,
-        headers={"X-Telegram-Bot-Api-Secret-Token": os.getenv("TELEGRAM_WEBHOOK_SECRET", "")},
+        headers={
+            "X-Telegram-Bot-Api-Secret-Token": os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
+        },
     )
     assert resp.status_code == 200

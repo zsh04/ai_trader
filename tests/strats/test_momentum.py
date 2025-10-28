@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import pandas as pd
-import re
-from app.strats.params import MomentumParams
 from app.strats.momentum import generate_signals
+from app.strats.params import MomentumParams
 
 
 def test_momentum_outputs(toy_ohlcv):
     p = MomentumParams(
         roc_lookback=60,
         ema_fast=50,
-        rank_window=120,   # smaller for quicker non-NaN
+        rank_window=120,  # smaller for quicker non-NaN
         min_rank=0.6,
         min_roc=-0.01,
     )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Iterable, Mapping
+from typing import Dict, Iterable, List, Mapping
 
 # Canonical session labels we use across the app
 PRE = "PRE"
@@ -99,8 +99,14 @@ class SessionMetrics:
         total_pnl = float(sum(v["pnl"] for v in s.values()))
         # Weighted averages (by trade count) for slippage/spread
         if total_trades:
-            w_slip = sum(v["avg_slippage_bp"] * v["trades"] for v in s.values()) / total_trades
-            w_spread = sum(v["avg_spread_pct"] * v["trades"] for v in s.values()) / total_trades
+            w_slip = (
+                sum(v["avg_slippage_bp"] * v["trades"] for v in s.values())
+                / total_trades
+            )
+            w_spread = (
+                sum(v["avg_spread_pct"] * v["trades"] for v in s.values())
+                / total_trades
+            )
         else:
             w_slip = 0.0
             w_spread = 0.0

@@ -6,12 +6,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.config import settings
-from app.wiring.telegram import get_telegram, TelegramDep
-from app.wiring import telegram_router
 from app.api.routes import router as api_router
+from app.config import settings
+from app.wiring import telegram_router
+from app.wiring.telegram import TelegramDep, get_telegram
 
 __all__ = ["app", "TelegramDep"]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

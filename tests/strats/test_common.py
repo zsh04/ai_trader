@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import pandas as pd
-import re
-from app.strats.common import ensure_flat_ohlcv, pick_col, ema, rolling_max, rank_percentile
+
+from app.strats.common import ensure_flat_ohlcv, pick_col, rank_percentile
 
 
 def test_ensure_flat_ohlcv_handles_multiindex():

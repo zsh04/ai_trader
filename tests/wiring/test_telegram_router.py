@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, List
 import sys
 import types
+from typing import Any, List
 
 # Provide stub for optional notifier module imported inside telegram_router.
 if "app.adapters.notifiers.telegram_notifier" not in sys.modules:
@@ -79,16 +79,22 @@ def test_cmd_watchlist_uses_kv_flags(monkeypatch):
     def fake_build_watchlist(**kwargs):
         build_calls.append(kwargs)
         return {
-            "items": [{"symbol": "AAPL", "last": 1.0, "price_source": "trade", "ohlcv": {}}],
+            "items": [
+                {"symbol": "AAPL", "last": 1.0, "price_source": "trade", "ohlcv": {}}
+            ],
             "session": "regular",
             "asof_utc": "2024-01-01T00:00:00Z",
         }
 
     monkeypatch.setattr(router, "build_watchlist", fake_build_watchlist)
-    monkeypatch.setattr(router, "format_watchlist_message", lambda session, items, title: f"{title}:{len(items)}")
+    monkeypatch.setattr(
+        router,
+        "format_watchlist_message",
+        lambda session, items, title: f"{title}:{len(items)}",
+    )
 
     fake = FakeTelegram()
-    args = ["AAPL", "—limit=“2”", "--filters=false", '--title=“Edge”']
+    args = ["AAPL", "—limit=“2”", "--filters=false", "--title=“Edge”"]
 
     router.cmd_watchlist(fake, chat_id=1, args=args)
 

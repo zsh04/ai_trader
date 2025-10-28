@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
-
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
 from pydantic.fields import AliasChoices
-
 
 # NOTE: We standardize on `low` for readability (avoid linter E741 on `l`).
 #       We also accept multiple inbound aliases (e.g., "l", "lo", "low")

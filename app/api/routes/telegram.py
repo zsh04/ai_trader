@@ -7,25 +7,32 @@ from fastapi.responses import JSONResponse
 
 router = APIRouter(tags=["telegram"])
 
+
 def _env():
     try:
         from app.utils import env as ENV  # type: ignore
+
         return ENV
     except Exception:
+
         class F:
             TELEGRAM_WEBHOOK_SECRET = ""
             TELEGRAM_BOT_TOKEN = ""
+
         return F()
+
 
 def _telegram_client():
     # Preferred: dependency wrapper if present
     try:
         from app.wiring.telegram_router import TelegramDep  # type: ignore
+
         return TelegramDep()
     except Exception:
         # Fallback to direct client
         try:
             from app.adapters.notifiers.telegram import TelegramClient  # type: ignore
+
             ENV = _env()
             if getattr(ENV, "TELEGRAM_BOT_TOKEN", None):
                 return TelegramClient(ENV.TELEGRAM_BOT_TOKEN)
@@ -33,10 +40,13 @@ def _telegram_client():
             pass
     return None
 
+
 @router.post("/telegram/webhook")
 def telegram_webhook(
     payload: Dict[str, Any] = Body(...),
-    x_telegram_secret: Optional[str] = Header(None, alias="X-Telegram-Bot-Api-Secret-Token"),
+    x_telegram_secret: Optional[str] = Header(
+        None, alias="X-Telegram-Bot-Api-Secret-Token"
+    ),
 ):
     ENV = _env()
     expected = getattr(ENV, "TELEGRAM_WEBHOOK_SECRET", "") or ""
@@ -46,9 +56,12 @@ def telegram_webhook(
     # Delegate to wiring if available
     try:
         from app.wiring.telegram_router import process_update  # type: ignore
+
         tg = _telegram_client()
         result = process_update(tg, payload)  # type: ignore
-        return JSONResponse({"ok": True, "result": result} if result is not None else {"ok": True})
+        return JSONResponse(
+            {"ok": True, "result": result} if result is not None else {"ok": True}
+        )
     except Exception:
         # Simple built-in ping for smoke-test
         msg = (payload or {}).get("message") or {}

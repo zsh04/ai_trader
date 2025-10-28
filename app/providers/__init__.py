@@ -16,13 +16,14 @@ from __future__ import annotations
 # Only import if the module exists and its env is configured by the caller.
 try:
     from .alpaca_provider import (  # type: ignore
-        snapshots_last,        # Dict[str, float] best-effort last (trade/nbbo/1m)
-        intraday_bars,         # Dict[str, List[bar]] intraday OHLCV
-        daily_bars,            # Dict[str, List[bar]] daily OHLCV
-        ensure_feed,           # Tuple(feed_name, is_enabled)
-        is_sip_enabled,        # bool
-        is_iex_enabled,        # bool
+        daily_bars,  # Dict[str, List[bar]] daily OHLCV
+        ensure_feed,  # Tuple(feed_name, is_enabled)
+        intraday_bars,  # Dict[str, List[bar]] intraday OHLCV
+        is_iex_enabled,  # bool
+        is_sip_enabled,  # bool
+        snapshots_last,  # Dict[str, float] best-effort last (trade/nbbo/1m)
     )
+
     _ALPACA_AVAILABLE = True
 except Exception:  # pragma: no cover - keep import failure non-fatal
     _ALPACA_AVAILABLE = False
@@ -30,11 +31,12 @@ except Exception:  # pragma: no cover - keep import failure non-fatal
 # --- Yahoo ------------------------------------------------------------------
 try:
     from .yahoo_provider import (  # type: ignore
-        intraday_last,         # Dict[str, float]
-        latest_close,          # Dict[str, float]
-        latest_volume,         # Dict[str, int]
-        get_history_daily,     # pd.DataFrame[open,high,low,close,volume]
+        get_history_daily,  # pd.DataFrame[open,high,low,close,volume]
+        intraday_last,  # Dict[str, float]
+        latest_close,  # Dict[str, float]
+        latest_volume,  # Dict[str, int]
     )
+
     _YAHOO_AVAILABLE = True
 except Exception:  # pragma: no cover
     _YAHOO_AVAILABLE = False

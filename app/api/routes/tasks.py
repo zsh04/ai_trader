@@ -6,12 +6,17 @@ from fastapi import APIRouter, HTTPException, Query
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
-def _send_watchlist(session: str, items: List[dict], *, title: str, chat_id: Optional[int | str] = None) -> bool:
+
+def _send_watchlist(
+    session: str, items: List[dict], *, title: str, chat_id: Optional[int | str] = None
+) -> bool:
     try:
         from app.adapters.notifiers.telegram import send_watchlist  # type: ignore
+
         return send_watchlist(session, items, chat_id=chat_id, title=title)
     except Exception:
         return False
+
 
 def _build_watchlist(
     symbols: Optional[List[str]],
@@ -22,6 +27,7 @@ def _build_watchlist(
 ) -> Dict[str, Any]:
     try:
         from app.scanners.watchlist_builder import build_watchlist  # type: ignore
+
         return build_watchlist(
             symbols=symbols,
             include_filters=include_filters,
@@ -30,6 +36,7 @@ def _build_watchlist(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"watchlist error: {e!s}") from e
+
 
 @router.post("/watchlist", tags=["watchlist"])
 def task_watchlist(
@@ -50,5 +57,7 @@ def task_watchlist(
     if notify and isinstance(wl, dict):
         session = wl.get("session", "regular")
         items = wl.get("items", [])
-        _send_watchlist(session, items, title=title or "AI Trader • Watchlist", chat_id=chat_id)
+        _send_watchlist(
+            session, items, title=title or "AI Trader • Watchlist", chat_id=chat_id
+        )
     return wl

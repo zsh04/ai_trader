@@ -11,13 +11,14 @@ try:
 except Exception:  # pragma: no cover
     try:
         from app.utils import env as ENV  # fallback to env var if present
+
         APP_VERSION = getattr(ENV, "APP_VERSION", "0.1.0")
     except Exception:
         APP_VERSION = "0.1.0"
 
 from app.adapters.db.postgres import ping
 
-router = APIRouter(tags=["health"]) 
+router = APIRouter(tags=["health"])
 
 
 @router.get("")

@@ -3,8 +3,7 @@ from __future__ import annotations
 import logging
 import math
 from datetime import date, datetime, timedelta, timezone
-from typing import TYPE_CHECKING
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
 
 from app.utils import env as ENV
 from app.utils.http import http_get
@@ -23,9 +22,12 @@ if TYPE_CHECKING:
 def _try_import_yf():
     try:
         import yfinance as yf  # type: ignore
+
         return yf
     except Exception as e:
-        log.warning("yahoo_provider: yfinance not available (%s); returning empty results", e)
+        log.warning(
+            "yahoo_provider: yfinance not available (%s); returning empty results", e
+        )
         return None
 
 
@@ -52,7 +54,9 @@ def _coerce_date(value: str | date | datetime | None) -> date:
 
 
 def _epoch_for_day(value: date) -> int:
-    return int(datetime(value.year, value.month, value.day, tzinfo=timezone.utc).timestamp())
+    return int(
+        datetime(value.year, value.month, value.day, tzinfo=timezone.utc).timestamp()
+    )
 
 
 def _safe_float(seq: Any, idx: int) -> Optional[float]:
@@ -143,8 +147,8 @@ def _chart_to_dataframe(payload: Dict[str, Any], auto_adjust: bool) -> "DataFram
     import pandas as pd  # local import to avoid hard dependency at module load
 
     cols = ["open", "high", "low", "close", "volume"]
-    chart = (payload.get("chart") or {})
-    result = (chart.get("result") or [])
+    chart = payload.get("chart") or {}
+    result = chart.get("result") or []
     if not result:
         return pd.DataFrame(columns=cols)
 
@@ -208,6 +212,7 @@ def _chart_to_dataframe(payload: Dict[str, Any], auto_adjust: bool) -> "DataFram
 # Public API
 # ---------------------------------------------------------------------
 
+
 def intraday_last(symbols: List[str]) -> Dict[str, float]:
     """
     Best-effort last price using Yahoo fast_info when available, falling back to a
@@ -222,7 +227,9 @@ def intraday_last(symbols: List[str]) -> Dict[str, float]:
         try:
             tkrs = yf.Tickers(" ".join(batch))
         except Exception as e:
-            log.warning("yahoo intraday_last: failed to build Tickers for %s: %s", batch, e)
+            log.warning(
+                "yahoo intraday_last: failed to build Tickers for %s: %s", batch, e
+            )
             continue
 
         # First pass: fast_info (cheap)
@@ -251,7 +258,9 @@ def intraday_last(symbols: List[str]) -> Dict[str, float]:
             try:
                 t = tkrs.tickers[sym]
                 # Small download; 1d/1m includes today’s intraday bars
-                df = t.history(period="1d", interval="1m", prepost=True, auto_adjust=False)
+                df = t.history(
+                    period="1d", interval="1m", prepost=True, auto_adjust=False
+                )
                 if not df.empty and "Close" in df.columns:
                     last = float(df["Close"].iloc[-1])
                     if last > 0:
@@ -276,13 +285,17 @@ def latest_close(symbols: List[str]) -> Dict[str, float]:
         try:
             tkrs = yf.Tickers(" ".join(batch))
         except Exception as e:
-            log.warning("yahoo latest_close: failed to build Tickers for %s: %s", batch, e)
+            log.warning(
+                "yahoo latest_close: failed to build Tickers for %s: %s", batch, e
+            )
             continue
 
         for sym in batch:
             try:
                 t = tkrs.tickers[sym]
-                df = t.history(period="5d", interval="1d", prepost=False, auto_adjust=False)
+                df = t.history(
+                    period="5d", interval="1d", prepost=False, auto_adjust=False
+                )
                 if not df.empty and "Close" in df.columns:
                     c = float(df["Close"].iloc[-1])
                     if c > 0:
@@ -306,7 +319,9 @@ def latest_volume(symbols: List[str]) -> Dict[str, int]:
         try:
             tkrs = yf.Tickers(" ".join(batch))
         except Exception as e:
-            log.warning("yahoo latest_volume: failed to build Tickers for %s: %s", batch, e)
+            log.warning(
+                "yahoo latest_volume: failed to build Tickers for %s: %s", batch, e
+            )
             continue
 
         # fast_info volume (can be daily)
@@ -335,7 +350,9 @@ def latest_volume(symbols: List[str]) -> Dict[str, int]:
         for sym in missing:
             try:
                 t = tkrs.tickers[sym]
-                df = t.history(period="1d", interval="1m", prepost=True, auto_adjust=False)
+                df = t.history(
+                    period="1d", interval="1m", prepost=True, auto_adjust=False
+                )
                 if not df.empty and "Volume" in df.columns:
                     v = int(df["Volume"].iloc[-1] or 0)
                     if v > 0:
@@ -348,18 +365,23 @@ def latest_volume(symbols: List[str]) -> Dict[str, int]:
         for sym in missing:
             try:
                 t = tkrs.tickers[sym]
-                df = t.history(period="5d", interval="1d", prepost=False, auto_adjust=False)
+                df = t.history(
+                    period="5d", interval="1d", prepost=False, auto_adjust=False
+                )
                 if not df.empty and "Volume" in df.columns:
                     v = int(df["Volume"].iloc[-1] or 0)
                     if v > 0:
                         out[sym] = v
             except Exception as e:
-                log.debug("yahoo latest_volume: daily fallback failed for %s: %s", sym, e)
+                log.debug(
+                    "yahoo latest_volume: daily fallback failed for %s: %s", sym, e
+                )
 
     return out
 
 
 # --- History helpers for backtests ----------------------------------------------------
+
 
 def get_history_daily(
     symbol: str,
@@ -387,12 +409,15 @@ def get_history_daily(
     yf = _try_import_yf()
     if not yf:
         import pandas as pd  # local import to keep module importable without pandas
+
         return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
 
     import pandas as pd
 
     t = yf.Ticker(symbol.upper())
-    df = t.history(start=start, end=end, interval="1d", prepost=False, auto_adjust=auto_adjust)
+    df = t.history(
+        start=start, end=end, interval="1d", prepost=False, auto_adjust=auto_adjust
+    )
     if df.empty:
         return df
 
@@ -419,5 +444,6 @@ def get_history_daily(
 
     # Build a plain Date index
     import pandas as pd  # local import
+
     out.index = pd.Index([d.date() for d in pd.to_datetime(idx)], name="date")
     return out

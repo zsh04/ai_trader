@@ -5,9 +5,10 @@ Contains vectorized indicator calculations built on pandas.
 Designed for extensibility and unit testing.
 """
 
-import pandas as pd
-import numpy as np
 import logging
+
+import numpy as np
+import pandas as pd
 
 log = logging.getLogger(__name__)
 
@@ -29,15 +30,19 @@ def rsi(series: pd.Series, period: int = 14) -> pd.Series:
         RSI values scaled 0–100.
     """
     if series is None or len(series) < period:
-        log.warning("RSI input too short (len=%s < period=%s)", len(series) if series is not None else None, period)
+        log.warning(
+            "RSI input too short (len=%s < period=%s)",
+            len(series) if series is not None else None,
+            period,
+        )
         return pd.Series(dtype=float)
 
     delta = series.diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
 
-    avg_gain = gain.ewm(alpha=1/period, min_periods=period, adjust=False).mean()
-    avg_loss = loss.ewm(alpha=1/period, min_periods=period, adjust=False).mean()
+    avg_gain = gain.ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
 
     rs = avg_gain / avg_loss.replace(0, np.nan)
     rsi_val = 100 - (100 / (1 + rs))
@@ -69,7 +74,7 @@ def atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     tr["h-cp"] = (tr["high"] - tr["close"].shift()).abs()
     tr["l-cp"] = (tr["low"] - tr["close"].shift()).abs()
     tr["tr"] = tr[["h-l", "h-cp", "l-cp"]].max(axis=1)
-    return tr["tr"].ewm(alpha=1/period, min_periods=period, adjust=False).mean()
+    return tr["tr"].ewm(alpha=1 / period, min_periods=period, adjust=False).mean()
 
 
 __all__ = ["rsi", "sma", "ema", "atr"]
