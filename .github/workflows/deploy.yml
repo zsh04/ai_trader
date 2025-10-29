@@ -5,6 +5,11 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      override_url:
+        description: "Override webhook URL (optional)"
+        required: false
+        type: string
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -53,46 +58,23 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ env.AZURE_PUBLISH_PROFILE }}
           package: .
-
-      - name: post-deploy telegram webhook
-        if: ${{ env.TELEGRAM_TOKEN != '' }}
-        shell: bash
+  set-webhook:
+    name: set-telegram-webhook
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: compute webhook url
+        id: url
         run: |
-          set -euo pipefail
-
-          # Build default URL if override not provided (treat empty as unset)
-          URL="${TELEGRAM_WEBHOOK_URL:-https://${AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook}"
-
-          # Trim whitespace/newlines
-          URL="$(printf '%s' "$URL" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-
-          if [[ -z "$URL" ]]; then
-            echo "ERROR: Webhook URL resolved empty" >&2
-            exit 1
-          fi
-          if [[ "$URL" != https://* ]]; then
-            echo "ERROR: Webhook URL must start with https://  Got: $URL" >&2
-            exit 1
-          fi
-
-          echo "Using Telegram webhook URL: $URL"
-
-          # Clean previous webhook (ignore result)
-          curl -sS "https://api.telegram.org/bot${TELEGRAM_TOKEN}/deleteWebhook" \
-            -H "Content-Type: application/json" \
-            -d '{"drop_pending_updates": true}' >/dev/null || true
-
-          # Build payload with optional secret
-          if [[ -n "${TELEGRAM_WEBHOOK_SECRET:-}" ]]; then
-            DATA=$(printf '{"url":"%s","secret_token":"%s"}' "$URL" "$TELEGRAM_WEBHOOK_SECRET")
+          if [ -n "${{ github.event.inputs.override_url }}" ]; then
+            echo "url=${{ github.event.inputs.override_url }}" >> $GITHUB_OUTPUT
           else
-            DATA=$(printf '{"url":"%s"}' "$URL")
+            echo "url=https://${AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook" >> $GITHUB_OUTPUT
           fi
-
-          # Set webhook
-          RESP=$(curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
+      - name: setWebhook
+        if: env.TELEGRAM_TOKEN && env.TELEGRAM_WEBHOOK_SECRET
+        run: |
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
             -H "Content-Type: application/json" \
-            -d "$DATA")
-
-          echo "Telegram response: $RESP"
-          echo "$RESP" | grep -q '"ok":true' || { echo "ERROR: setWebhook failed" >&2; exit 1; }
+            -d "{\"url\":\"${{ steps.url.outputs.url }}\",\"secret_token\":\"${TELEGRAM_WEBHOOK_SECRET}\"}"
+          echo "Webhook set to: ${{ steps.url.outputs.url }}"
