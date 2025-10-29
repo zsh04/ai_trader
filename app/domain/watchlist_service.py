@@ -1,4 +1,3 @@
-# app/domain/watchlist_service.py
 from __future__ import annotations
 
 import importlib
@@ -21,9 +20,9 @@ def _warn_once(key: str, message: str, *args: object) -> None:
     _WARNED_KEYS.add(key)
 
 
-def _import_source(module_stub: str):
-    primary = f"app.source.{module_stub}"
-    fallback = f"app.sources.{module_stub}"
+def _import_source(module_name: str):
+    primary = f"app.source.{module_name}"
+    fallback = f"app.sources.{module_name}"
     try:
         return importlib.import_module(primary)
     except ModuleNotFoundError as exc:

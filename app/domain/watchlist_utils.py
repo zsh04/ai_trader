@@ -1,4 +1,3 @@
-# app/domain/watchlist_utils.py
 from __future__ import annotations
 
 from typing import List

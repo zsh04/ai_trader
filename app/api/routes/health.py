@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict
@@ -45,7 +45,7 @@ async def health_db() -> Dict[str, Any]:
     except Exception:
         ok = False
     latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
-    return {"ok": ok, "latency_ms": latency_ms}
+    return {"status": "ok" if ok else "degraded", "latency_ms": latency_ms}
 
 
 @router.get("/ready")
@@ -54,10 +54,18 @@ async def health_ready() -> Dict[str, str]:
     return {"status": "ok", "utc": datetime.now(timezone.utc).isoformat()}
 
 @router.get("/market")
-def health_market():
-    feed = os.getenv("ALPACA_DATA_FEED","").lower()
-    auth = "ok" if valid_alpaca_keys() else "fail"
-    return {"feed": feed or "unknown", "auth": auth}
+async def health_market():
+    import logging
+    from app.adapters.market.alpaca_client import ping_alpaca, AlpacaPingError
+
+    feed = os.getenv("ALPACA_DATA_FEED", "").lower() or "iex"  # default
+    try:
+        ok, meta = ping_alpaca(feed=feed, timeout_sec=2.0)
+        return {"status": "ok" if ok else "degraded", "feed": feed, "meta": meta}
+    except AlpacaPingError as e:
+        logging.warning("market ping failed: %s", e)
+        # Do NOT raise; return HTTP 200 with degraded status for observability
+        return {"status": "degraded", "feed": feed, "reason": str(e)}
 
 
 @router.get("/version")

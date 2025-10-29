@@ -18,12 +18,6 @@ from sqlalchemy.orm import Session, sessionmaker, declarative_base
 
 from app.utils import env as ENV
 
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL not set in environment")
-
-engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 Base = declarative_base()
 
 # ----------------------------------------------------------------------------
@@ -36,8 +30,9 @@ log = logging.getLogger(__name__)
 # ----------------------------------------------------------------------------
 
 
-def _dsn_from_env() -> str:
-    return os.getenv("DATABASE_URL")
+def _dsn_from_env() -> Optional[str]:
+    # Prefer production DSN; fall back to TEST_DATABASE_URL (e.g., CI) if present
+    return os.getenv("DATABASE_URL") or os.getenv("TEST_DATABASE_URL")
 
 
 def _sanitize_dsn(dsn: str) -> str:
@@ -66,9 +61,18 @@ _SESSION_FACTORY: Optional[sessionmaker] = None
 
 def make_engine(
     dsn: Optional[str] = None, pool_size: int = 5, max_overflow: int = 5
-) -> Engine:
-    """Create a new Engine (uncached). Prefer `get_engine()` for a singleton."""
+) -> Optional[Engine]:
+    """Create a new Engine (uncached). Prefer `get_engine()` for a singleton.
+
+    Returns None when no DSN is configured so callers can degrade gracefully.
+    """
     dsn = dsn or _dsn_from_env()
+    if not dsn:
+        try:
+            log.warning("[postgres] no DSN in env; engine not created")
+        except Exception:
+            pass
+        return None
     eng = create_engine(
         dsn,
         pool_size=pool_size,
@@ -84,19 +88,21 @@ def make_engine(
     return eng
 
 
-def get_engine() -> Engine:
+def get_engine() -> Optional[Engine]:
     global _ENGINE
     if _ENGINE is None:
         _ENGINE = make_engine()
     return _ENGINE
 
 
-def make_session_factory(engine: Optional[Engine] = None) -> sessionmaker:
+def make_session_factory(engine: Optional[Engine] = None) -> Optional[sessionmaker]:
     global _SESSION_FACTORY
+    eng = engine if engine is not None else get_engine()
+    if eng is None:
+        return None
     if _SESSION_FACTORY is None or (
-        engine is not None and _SESSION_FACTORY.kw.get("bind") is not engine
+        engine is not None and _SESSION_FACTORY.kw.get("bind") is not eng
     ):
-        eng = engine or get_engine()
         _SESSION_FACTORY = sessionmaker(
             bind=eng, expire_on_commit=False, autoflush=False, future=True
         )
@@ -104,8 +110,10 @@ def make_session_factory(engine: Optional[Engine] = None) -> sessionmaker:
 
 
 def get_session() -> Session:
-    """Convenience: get a Session from the cached factory."""
-    return make_session_factory()()
+    factory = make_session_factory()
+    if factory is None:
+        raise RuntimeError("Database engine not configured (no DSN in env)")
+    return factory()
 
 
 # ----------------------------------------------------------------------------
@@ -124,6 +132,9 @@ def ping(
     For Postgres we also set a per-statement timeout for the connection where possible.
     """
     eng = engine or get_engine()
+    if eng is None:
+        log.warning("[postgres] ping: no engine available (no DSN)")
+        return False
 
     attempts = 0
     while True:
@@ -147,7 +158,10 @@ def ping(
             time.sleep(backoff * attempts)
 
 def get_db():
-    db = SessionLocal()
+    factory = make_session_factory()
+    if factory is None:
+        raise RuntimeError("Database engine not configured (no DSN in env)")
+    db = factory()
     try:
         yield db
     finally:
