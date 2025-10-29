@@ -1,114 +1,101 @@
-# AI Trader — v0.1.0
-> Modular trading intelligence platform for scanning, watchlists, and strategy orchestration.
+# AI Trader — v1.5.5
+> Modular trading intelligence platform for watchlists, signal orchestration, and risk-aware execution.
 
-**Version:** 0.1.0  
-**Python:** 3.13.x  
-**Environment:** FastAPI + Alpaca + PostgreSQL + Telegram  
+**Python:** 3.12.x  
+**Stack:** FastAPI • Alpaca • PostgreSQL • Telegram  
+**Deploy Target:** Azure App Service (Python)  
 **Author:** Zishan Malik
 
+## Overview
+- Multi-timeframe signal generation (5m → 1D) covering equities and ETFs via Alpaca.
+- Autonomous session-aware agents for watchlists, sizing, journaling, and guardrails.
+- Cloud-native deployment with GitHub Actions and Azure App Service.
+- Structured observability and Telegram notifications for trade and system health.
 
+## Platform Capabilities
+- **Scanning & Watchlists:** Premarket gap/RVOL scans with continuous refresh windows.
+- **Trading Agent Suite:** Policy, sizing, execution, and journaling agents with PDT & drawdown gates.
+- **Backtesting:** Breakout strategy engine with metrics, CSV exports, and debug snapshots.
+- **Integrations:** Alpaca market/execution data, PostgreSQL persistence, Azure Blob storage, Telegram bot.
 
-# Personal AI Trading Agent (Equities/ETFs, Alpaca, MTF)
+## Architecture
+```
+app/
+ ├── adapters/         # Data persistence and integration (Postgres, Blob)
+ ├── agent/            # Risk, sizing, and trading logic modules
+ ├── api/              # FastAPI endpoints and webhooks
+ ├── backtest/         # Engine, metrics, strategy evaluation
+ ├── core/             # Models, exceptions, utilities, time/calendar logic
+ ├── features/         # Derived signals, multi-timeframe indicators
+ ├── monitoring/       # Logging, telemetry, dashboards
+ ├── notifiers/        # Telegram, alerts, webhooks
+ ├── providers/        # Market data sources (Alpaca, Yahoo, Finviz)
+ ├── scanners/         # Signal and watchlist generation
+ ├── strats/           # Strategy implementations (breakout, momentum, etc.)
+ ├── storage/          # Azure Blob, local caching
+ ├── telemetry/        # Unified observability hooks
+ └── tests/            # Unit, integration, and smoke tests
+```
 
-**Goal:** Fully autonomous, session-aware retail trading agent with multi-timeframe signals (5m, 15m, 1h, 4h, 1D), daily watchlist generation, pre/regular/after-hours operation, and continuous learning. Broker: **Alpaca**.
+All modules are import-safe, follow snake_case for files/functions, and use structured logging via `logging.getLogger(__name__)`.
 
-### TL;DR
-- 🧠 AI for signals + reasoning + journaling + sizing + P/L mgmt
-- ⏱ Sessions: PRE (04:00–09:30), REG-AM (09:30–11:30), REG-MID (11:30–14:00), REG-PM (14:00–16:00), AFT (16:00–20:00) — **America/Los_Angeles**
-- 🕵️ Daily **watchlist** via premarket scans (price $1–$10, RVOL, gap%, spread checks)
-- 🛡 Guardrails: ≤1% per-trade risk, **5% daily DD halt**, manual approval if order >50% of account value
-- 🚢 Cloud deploy via GitHub Actions → Azure App Service or AWS ECS (container)
+## Getting Started
+1. Install Python 3.12 (see `.python-version`).
+2. Create a virtual environment and install deps:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   export PYTHONPATH=.
+   ```
+3. Create a `.env` file in the repo root with broker, storage, database, and Telegram credentials (see `app/config.py` for required keys). Never check secrets into source control.
+4. Launch the FastAPI app locally:
+   ```bash
+   uvicorn app.main:app --reload --port 8000
+   # or
+   make run
+   ```
 
-### Quick Start
-1. Copy `.env.example` → `.env` and fill secrets.
-2. `make dev` (or `python -m venv .venv && pip install -r requirements.txt`)
-3. `python -m app.main --mode paper --symbol-list config/universe.yaml`
-4. Open **Streamlit dashboard**: `streamlit run app/monitoring/dashboard.py`
+## Development Workflow
+- **Lint:** `ruff check .`
+- **Auto-fix style issues:** `ruff --fix .`
+- **Tests:** `pytest -v` or `make test`
+- **Formatted build:** `make format`
+- **Scripted helpers:** `./scripts/dev.sh lint|fmt|test|run|pm2-up|webhook-set`
 
-### PM2 Runtime
-Use the provided `ecosystem.config.cjs` to keep the API and log rotation online:
+Always add type hints, avoid circular imports, and keep modules composable. New features must include matching tests under `tests/`.
 
+## Backtesting
+Run the breakout engine with optional risk guardrails and debug exports:
 ```bash
-# first time
+python3 -m app.backtest.run_breakout --symbol AAPL --start 2021-01-01 --debug
+# optional
+#   --min-notional <USD>
+#   --debug-entries   # emit CSV snapshots for inspection
+```
+
+## Operations & Observability
+Use PM2 (via `ecosystem.config.cjs`) to manage the API and log rotation:
+```bash
 LOG_DIR=$HOME/ai_trader_logs pm2 start ecosystem.config.cjs --only ai_trader,pm2-logrotate
-
-# subsequent deployments
 pm2 restart ai_trader
-
-# logs (rotated daily, 7 day retention)
 pm2 logs ai_trader
-ls ${LOG_DIR:-$HOME/ai_trader_logs}
 ```
+Logs rotate daily and retain seven days by default.
 
-The PM2 config runs `python -m uvicorn app.main:app --workers 1` via `.venv/bin/python`, binds to `PORT` (default 8000), and writes logs to `${LOG_DIR:-$HOME/ai_trader_logs}`. Rotation happens nightly via `pm2-logrotate`.
+## Deployment (Azure App Service)
+- GitHub Actions (`.github/workflows/ci-deploy.yml`) build, test, and deploy to the configured App Service.
+- App configuration lives in Azure App Settings—no `.env` files in production.
+- After every deployment, reset the Telegram webhook:
+  ```bash
+  curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
+       -H "Content-Type: application/json" \
+       -d '{"url":"<APP_SERVICE_URL>/telegram/webhook","secret_token":"<TELEGRAM_WEBHOOK_SECRET>"}'
+  ```
 
-### Dev Helpers
-Common workflows are wrapped in `./scripts/dev.sh`:
+## Additional Docs
+- `ARCHITECTURE.md` — design deep dive
+- `RUNBOOK.md` — operational checklists and incident flows
+- `AGENTS.md` — coding conventions and agent collaboration guide
 
-```bash
-# 1) Create venv + install
-./scripts/dev.sh mkvenv
-
-# 2) Install after requirements change
-./scripts/dev.sh install
-
-# 3) Format / lint / test
-./scripts/dev.sh fmt
-./scripts/dev.sh lint
-./scripts/dev.sh test
-
-# 4) Run FastAPI locally
-./scripts/dev.sh run
-
-# 5) Production helpers
-./scripts/dev.sh pm2-up
-./scripts/dev.sh ngrok-up
-./scripts/dev.sh webhook-set
-```
-
-### Core Components
-- **scanners/**: premarket & intraday scanners for watchlists
-- **sessions/**: session clock + per-session metrics
-- **models/**: signal + regime + trainer
-- **agent/**: policy rules, sizing, risk (halts, PDT, 50% AV gate), meta-agent journaling
-- **execution/**: Alpaca client, order router (brackets by default)
-- **monitoring/**: Streamlit dashboard + metrics exporters
-
-### Agents
-
-ScannerAgent: builds watchlist at 04:00 and 06:15, refreshes 09:35 / 11:30 / 13:30 / 16:05.
-
-UniverseAgent: merges core large-caps with dynamic small-caps ($1–$10) with ADV/spread caps.
-
-SignalAgent: MTF features (5m…1D), classification/regression outputs + confidence.
-
-RiskAgent: enforces ≤1% risk/trade, 5% daily DD, PDT rule, 50% AV manual gate, session throttles.
-
-ExecutionAgent: limit+bracket in PRE/AFT; marketable limits in REG; slippage monitor.
-
-JournalAgent / EvalAgent: per-session tagging; AI summaries + weekly retros.
-
-### Data Flow
-
-1. Scan → create/refresh watchlist.
-
-2. Ingest → pull/calc features per symbol per timeframe (aligned timestamps).
-
-3. Infer → models emit intents with confidence.
-
-4. Decide → policy checks regime, risk, and session gates.
-
-5. Execute → route via Alpaca; attach brackets.
-
-6. Record → trade/journal logs; metrics into dashboard.
-
-### Storage
-
-Data: Parquet in data/warehouse/ + cloud bucket.
-
-Models: models/registry/ with MLflow/W&B tracking.
-
-Logs: SQLite (storage/trader.db) + rotated text logs.
-
-
-See `ARCHITECTURE.md` and `RUNBOOK.md` for details.
+Future roadmap: expand strategy coverage (momentum, mean reversion, risk parity), integrate Finviz/Discord watchlists, add probabilistic backtest metrics, and onboard Azure Application Insights for unified telemetry.
