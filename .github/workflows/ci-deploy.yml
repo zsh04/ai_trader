@@ -1,0 +1,191 @@
+name: ci-deploy
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      override_url:
+        description: "Override Telegram webhook URL (optional)"
+        required: false
+        type: string
+
+concurrency:
+  group: ci-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  deployments: write
+
+env:
+  AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
+  AZURE_PUBLISH_PROFILE: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+  TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+  TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
+  TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+  PYTHON_VERSION: ${{ vars.PYTHON_VERSION || '3.12.6' }}
+  APP_VERSION: ${{ github.ref_name }}
+  # Production DB (used by the app at runtime, NOT in tests)
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+  # Test DB (keeps CI hermetic)
+  TEST_DATABASE_URL: "sqlite:///:memory:"
+  # Make tests tolerant to missing Telegram secret in CI
+  TELEGRAM_ALLOW_TEST_NO_SECRET: "1"
+
+jobs:
+  prebuild:
+    name: pre-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+      - name: echo context
+        run: |
+          echo "APP_VERSION=${APP_VERSION}"
+          echo "Using Python ${{ env.PYTHON_VERSION }}"
+          echo "Target App Service: ${AZURE_WEBAPP_NAME}"
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    needs: prebuild
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+      - name: install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: sanity import (optional)
+        run: |
+          python - <<'PY'
+          import importlib
+          for m in ["app.main", "app.api", "app.adapters.db.postgres"]:
+              try:
+                  importlib.import_module(m)
+                  print("OK:", m)
+              except Exception as e:
+                  print("WARN:", m, e)
+          PY
+
+  tests:
+    name: test
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: setup python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+      - name: install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: run pytest
+        env:
+          TEST_DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
+          TELEGRAM_ALLOW_TEST_NO_SECRET: ${{ env.TELEGRAM_ALLOW_TEST_NO_SECRET }}
+        run: |
+          pytest -q
+
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+      url: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net
+    needs: tests
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: publish to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ env.AZURE_PUBLISH_PROFILE }}
+          package: .
+
+  patch:
+    name: patch-webhook (only if needed)
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: compute desired URL
+        id: url
+        if: env.TELEGRAM_TOKEN && env.TELEGRAM_WEBHOOK_SECRET
+        run: |
+          if [ -n "${{ github.event.inputs.override_url }}" ]; then
+            echo "url=${{ github.event.inputs.override_url }}" >> $GITHUB_OUTPUT
+          elif [ -n "${TELEGRAM_WEBHOOK_URL}" ]; then
+            echo "url=${TELEGRAM_WEBHOOK_URL}" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://${AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook" >> $GITHUB_OUTPUT
+          fi
+          echo "Desired URL: ${{ steps.url.outputs.url }}"
+      - name: get current webhook
+        id: current
+        if: env.TELEGRAM_TOKEN && env.TELEGRAM_WEBHOOK_SECRET
+        run: |
+          set -e
+          curl -sS "https://api.telegram.org/bot${TELEGRAM_TOKEN}/getWebhookInfo" | tee webhook.json
+          CURRENT=$(jq -r '.result.url // ""' webhook.json)
+          echo "current=${CURRENT}" >> $GITHUB_OUTPUT
+          echo "Current URL: ${CURRENT}"
+      - name: set webhook (only if changed or override provided)
+        if: ${{ (env.TELEGRAM_TOKEN != '' && env.TELEGRAM_WEBHOOK_SECRET != '' || inputs.override_url != '') && (steps.current.outputs.current != steps.url.outputs.url || inputs.override_url != '') }}
+        run: |
+          echo "Updating Telegram webhook to: ${{ steps.url.outputs.url }}"
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
+            -H "Content-Type: application/json" \
+            -d "{\"url\":\"${{ steps.url.outputs.url }}\",\"secret_token\":\"${TELEGRAM_WEBHOOK_SECRET}\"}" \
+            | tee set_result.json
+          jq '.' set_result.json || true
+      - name: noop (already correct)
+        if: ${{ env.TELEGRAM_TOKEN != '' && env.TELEGRAM_WEBHOOK_SECRET != '' && inputs.override_url == '' && steps.current.outputs.current == steps.url.outputs.url }}
+        run: echo "Webhook already up-to-date."
+
+  verify:
+    name: verify health
+    runs-on: ubuntu-latest
+    needs: [deploy, patch]
+    steps:
+      - name: wait for warmup
+        run: sleep 15
+      - name: check /health
+        run: |
+          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health" | tee health.json
+          STATUS=$(jq -r '.status // empty' health.json)
+          echo "status=${STATUS}"
+      - name: check /health/db
+        run: |
+          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/db" | tee health_db.json
+          OK=$(jq -r '.ok // empty' health_db.json)
+          test "${OK}" = "true"
+      - name: check /health/market
+        run: |
+          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
+          # Accept ok or degraded; fail only on outright errors
+          STATUS=$(jq -r '.status // empty' health_market.json)
+          if [ "${STATUS}" != "ok" ] && [ "${STATUS}" != "degraded" ]; then
+            echo "Unexpected market status: ${STATUS}"
+            exit 1
+          fi
