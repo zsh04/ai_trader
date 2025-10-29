@@ -220,6 +220,14 @@ class TelegramClient:
             if 200 <= resp.status_code < 300:
                 log.debug("[Telegram] Sent %d chars to %s", len(text), chat_id)
                 return True
+            if resp.status_code == 429:
+                try:
+                    retry_after = int(resp.headers.get("Retry-After", "2"))
+                except Exception:
+                    retry_after = 2
+                log.warning("[Telegram] Rate-limited (429). Sleeping %ss", retry_after)
+                time.sleep(retry_after)
+                return False
             log.warning("[Telegram] HTTP %s: %s", resp.status_code, resp.text)
         except Exception as e:
             log.error("[Telegram] Send error: %s", e)

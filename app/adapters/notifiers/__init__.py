@@ -1,14 +1,5 @@
 # app/adapters/notifiers/__init__.py
 """
-Notifier adapters package.
-
-Exports Telegram notifier utilities without pulling in non-existent modules.
+Notifier adapters for outbound integrations (Telegram, Email, Slack, etc.)
 """
-
-from .telegram import TelegramClient, format_watchlist_message, send_watchlist
-
-__all__ = [
-    "TelegramClient",
-    "format_watchlist_message",
-    "send_watchlist",
-]
+from .telegram import TelegramClient, build_client_from_env
