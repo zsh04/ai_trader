@@ -7,9 +7,33 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 from app.utils import env as ENV
 from app.utils.http import request_json
 
-__all__ = ["AlpacaMarketClient", "AlpacaAuthError"]
+__all__ = ["AlpacaMarketClient", "AlpacaAuthError", "ping_alpaca", "AlpacaPingError"]
+
 
 _ALLOWED_FEEDS = {"iex", "sip"}
+
+
+# --- Alpaca trading API ping helpers ---
+class AlpacaPingError(Exception):
+    """Raised when the Alpaca trading API ping fails."""
+    pass
+
+def _trading_base_url() -> str:
+    # Prefer explicit trading base URL if present; fallback to paper trading.
+    from app.utils import env as ENV
+    return (
+        getattr(ENV, "ALPACA_TRADING_BASE_URL", None)
+        or getattr(ENV, "ALPACA_BASE_URL", None)
+        or "https://paper-api.alpaca.markets"
+    ).rstrip("/")
+
+def _api_headers() -> Dict[str, str]:
+    from app.utils import env as ENV
+    key = getattr(ENV, "ALPACA_API_KEY", None) or getattr(ENV, "ALPACA_API_KEY_ID", None)
+    secret = getattr(ENV, "ALPACA_API_SECRET", None) or getattr(ENV, "ALPACA_API_SECRET_KEY", None)
+    if not key or not secret:
+        raise AlpacaPingError("Missing ALPACA_API_KEY / ALPACA_API_SECRET in environment")
+    return {"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret}
 
 
 def _normalize_symbols(symbols: Iterable[str]) -> List[str]:
@@ -186,3 +210,41 @@ class AlpacaMarketClient:
             f"Alpaca authentication failed: {guidance}",
             fallback_to_yahoo=self.force_yahoo_on_auth_error,
         )
+
+
+# --- Alpaca trading API ping endpoint ---
+def ping_alpaca(*, timeout: float = 4.0) -> Dict[str, Any]:
+    """Ping Alpaca trading API via `/v2/account` to validate auth/connectivity.
+
+    Returns a minimal dict on success; raises `AlpacaPingError` otherwise.
+    """
+    url = f"{_trading_base_url()}/v2/account"
+    try:
+        status, data = request_json(
+            "GET",
+            url,
+            headers=_api_headers(),
+            timeout=timeout,
+            retries=1,
+            backoff=1.0,
+            params=None,
+            session=None,
+        )
+    except Exception as e:  # transport-level error
+        raise AlpacaPingError(f"network/transport error: {e}") from e
+
+    if status != 200:
+        snippet = ""
+        try:
+            snippet = (data or {}).get("message") or (data or {}).get("error") or str(data)[:200]
+        except Exception:
+            snippet = str(data)[:200]
+        raise AlpacaPingError(f"http {status}: {snippet}")
+
+    # Normalize a tiny health payload
+    return {
+        "status": "ok",
+        "status_text": (data or {}).get("status"),
+        "trading_blocked": (data or {}).get("trading_blocked"),
+        "account_blocked": (data or {}).get("account_blocked"),
+    }

@@ -55,9 +55,44 @@ jobs:
           package: .
 
       - name: post-deploy telegram webhook
-        if: env.TELEGRAM_TOKEN
+        if: ${{ env.TELEGRAM_TOKEN != '' }}
+        shell: bash
         run: |
-          URL="https://${AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook"
-          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
+          set -euo pipefail
+
+          # Build default URL if override not provided (treat empty as unset)
+          URL="${TELEGRAM_WEBHOOK_URL:-https://${AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook}"
+
+          # Trim whitespace/newlines
+          URL="$(printf '%s' "$URL" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+
+          if [[ -z "$URL" ]]; then
+            echo "ERROR: Webhook URL resolved empty" >&2
+            exit 1
+          fi
+          if [[ "$URL" != https://* ]]; then
+            echo "ERROR: Webhook URL must start with https://  Got: $URL" >&2
+            exit 1
+          fi
+
+          echo "Using Telegram webhook URL: $URL"
+
+          # Clean previous webhook (ignore result)
+          curl -sS "https://api.telegram.org/bot${TELEGRAM_TOKEN}/deleteWebhook" \
             -H "Content-Type: application/json" \
-            -d "{\"url\":\"${URL}\",\"secret_token\":\"${TELEGRAM_WEBHOOK_SECRET}\"}"
+            -d '{"drop_pending_updates": true}' >/dev/null || true
+
+          # Build payload with optional secret
+          if [[ -n "${TELEGRAM_WEBHOOK_SECRET:-}" ]]; then
+            DATA=$(printf '{"url":"%s","secret_token":"%s"}' "$URL" "$TELEGRAM_WEBHOOK_SECRET")
+          else
+            DATA=$(printf '{"url":"%s"}' "$URL")
+          fi
+
+          # Set webhook
+          RESP=$(curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
+            -H "Content-Type: application/json" \
+            -d "$DATA")
+
+          echo "Telegram response: $RESP"
+          echo "$RESP" | grep -q '"ok":true' || { echo "ERROR: setWebhook failed" >&2; exit 1; }

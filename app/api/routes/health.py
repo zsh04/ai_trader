@@ -55,16 +55,15 @@ async def health_ready() -> Dict[str, str]:
 
 @router.get("/market")
 async def health_market():
-    import logging
+    import os, logging
     from app.adapters.market.alpaca_client import ping_alpaca, AlpacaPingError
 
     feed = os.getenv("ALPACA_DATA_FEED", "").lower() or "iex"  # default
     try:
-        ok, meta = ping_alpaca(feed=feed, timeout_sec=2.0)
-        return {"status": "ok" if ok else "degraded", "feed": feed, "meta": meta}
+        meta = await to_thread.run_sync(ping_alpaca, timeout=4.0)
+        return {"status": "ok", "feed": feed, "meta": meta}
     except AlpacaPingError as e:
         logging.warning("market ping failed: %s", e)
-        # Do NOT raise; return HTTP 200 with degraded status for observability
         return {"status": "degraded", "feed": feed, "reason": str(e)}
 
 
