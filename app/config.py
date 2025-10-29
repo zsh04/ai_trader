@@ -47,6 +47,7 @@ class Settings:
     pg_password: str = ENV.PGPASSWORD
     #: Postgres SSL mode.
     pg_sslmode: str = ENV.PGSSLMODE
+    database_url: str = ENV.DATABASE_URL
 
     #: Minimum symbol price accepted by scanners.
     price_min: float = ENV.PRICE_MIN
