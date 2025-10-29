@@ -1,19 +1,24 @@
-FROM python:3.11-slim
+# Dockerfile
+FROM python:3.12-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1     PYTHONUNBUFFERED=1
+# System deps (psycopg2, uvicorn, etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libpq-dev curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# System deps for psycopg2 and build tools
-RUN apt-get update && apt-get install -y --no-install-recommends     build-essential gcc libpq-dev &&     rm -rf /var/lib/apt/lists/*
+# Leverage Docker cache
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy app
+COPY . .
 
-COPY . ./
-
-# Default to FastAPI app exposing webhook endpoints (can be overridden)
+# App Service for Containers looks at WEBSITES_PORT; we’ll expose 8000.
 ENV PORT=8000
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Gunicorn + Uvicorn worker is fine; keep it simple & prod-ish.
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "2", "-t", "90", "app.main:app", "--bind=0.0.0.0:8000"]
