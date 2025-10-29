@@ -20,36 +20,6 @@
 │           ├── lastfailed
 │           └── nodeids
 ├── .python-version
-├── .ruff_cache
-│   ├── .gitignore
-│   ├── 0.14.1
-│   │   ├── 10258570341471723871
-│   │   ├── 10486183155051560162
-│   │   ├── 12605824034182755426
-│   │   ├── 13550397209905555738
-│   │   ├── 14869619965677357052
-│   │   ├── 1698239122138351823
-│   │   ├── 1991831123163736903
-│   │   ├── 3478357461063673823
-│   │   ├── 3612617521532981895
-│   │   ├── 4008802351846913986
-│   │   ├── 4836435401913291590
-│   │   ├── 5554663617146642700
-│   │   ├── 6196146346336915265
-│   │   ├── 6609332381232176211
-│   │   ├── 7257490627620402856
-│   │   ├── 7859535693268906562
-│   │   ├── 808555346153905197
-│   │   ├── 8956772993836721803
-│   │   └── 9347343161986382066
-│   ├── 0.6.9
-│   │   ├── 11616652495782845620
-│   │   ├── 11909376975843444499
-│   │   ├── 2129281394722531643
-│   │   ├── 3686330244126402553
-│   │   ├── 5980450677978365344
-│   │   └── 6708508427490885201
-│   └── CACHEDIR.TAG
 ├── .streamlit
 │   └── config.toml
 ├── .tool-versions
@@ -61,6 +31,7 @@
 ├── README.md
 ├── ai_trader_logs
 ├── ai_trader_snapshot.zip
+├── alembic.ini
 ├── app
 │   ├── __init__.py
 │   ├── adapters
@@ -109,6 +80,7 @@
 │   │   ├── __init__.py
 │   │   └── data_client.py
 │   ├── domain
+│   │   ├── __init__.py
 │   │   ├── watchlist_service.py
 │   │   └── watchlist_utils.py
 │   ├── execution
@@ -132,6 +104,7 @@
 │   │   ├── intraday_scanner.py
 │   │   └── watchlist_builder.py
 │   ├── services
+│   │   ├── __init__.py
 │   │   └── watchlist_service.py
 │   ├── sessions
 │   │   ├── __init__.py
@@ -159,12 +132,13 @@
 │   │   ├── http.py
 │   │   └── normalize.py
 │   └── wiring
-│       ├── __init__.py
-│       └── telegram_router.py
+│       └── __init__.py
 ├── artifacts
+│   └── __init__.py
 ├── backtest_AAPL.csv
 ├── backtest_OKLO.csv
 ├── config
+│   ├── __init__.py
 │   ├── config.yaml
 │   └── watchlist_source.yaml
 ├── connect.py
@@ -196,13 +170,22 @@
 ├── dump_json
 ├── ecosystem.config.cjs
 ├── infra
-│   └── README.md
+│   ├── README.md
+│   └── __init__.py
+├── migrations
+│   ├── README
+│   ├── __init__.py
+│   ├── env.py
+│   ├── script.py.mako
+│   └── versions
+│       └── 337e81e1d35c_initial_schema.py
 ├── pm2-logrotate.config.js
 ├── project_structure.txt
 ├── pyproject.toml
 ├── pytest.ini
 ├── requirements.txt
 ├── scripts
+│   ├── __init__.py
 │   ├── check_alpaca_entitlement.py
 │   ├── dev.sh
 │   ├── sanity_check.py
@@ -219,6 +202,7 @@
 ├── signals_tail_OKLO.csv
 ├── test_format.py
 └── tests
+    ├── __init__.py
     ├── api
     ├── backtest
     │   └── test_metrics.py
@@ -251,7 +235,5 @@
     │   ├── test_http.py
     │   └── test_normalize.py
     └── wiring
-        ├── test_telegram_router.py
-        └── test_watchlist_telegram.py
 
-60 directories, 195 files
+59 directories, 178 files
