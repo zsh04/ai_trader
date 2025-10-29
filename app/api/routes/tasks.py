@@ -6,7 +6,8 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query
 from app.domain.watchlist_service import resolve_watchlist
 
-router = APIRouter(prefix="/tasks", tags=["tasks"])
+tasks_router = APIRouter(prefix="/tasks", tags=["tasks"])
+public_router = APIRouter(tags=["watchlist"])
 logger = logging.getLogger(__name__)
 
 
@@ -41,7 +42,7 @@ def _build_watchlist(
         raise HTTPException(status_code=500, detail=f"watchlist error: {e!s}") from e
 
 
-@router.post("/watchlist", tags=["watchlist"])
+@tasks_router.post("/watchlist", tags=["watchlist"])
 def task_watchlist(
     symbols: Optional[List[str]] = Query(None),
     include_filters: bool = Query(True),
@@ -65,9 +66,18 @@ def task_watchlist(
         )
     return wl
 
-@router.get("/watchlist")
-def get_watchlist() -> Dict[str, Any]:
+def _get_watchlist_payload() -> Dict[str, Any]:
     source, symbols = resolve_watchlist()
     payload = {"source": source, "count": len(symbols), "symbols": symbols}
     logger.info("[watchlist] source=%s count=%d", source, payload["count"])
     return payload
+
+@tasks_router.get("/watchlist")
+def get_watchlist_tasks() -> Dict[str, Any]:
+    return _get_watchlist_payload()
+
+@public_router.get("/watchlist")
+def get_watchlist_public() -> Dict[str, Any]:
+    return _get_watchlist_payload()
+
+__all__ = ["tasks_router", "public_router"]

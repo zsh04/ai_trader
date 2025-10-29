@@ -8,7 +8,7 @@ from app.config import settings
 
 # bring routers in explicitly
 from app.api.routes.health import router as health_router
-from app.api.routes.tasks import router as tasks_router
+from app.api.routes.tasks import tasks_router, public_router
 from app.api.routes.telegram import router as telegram_router
 
 __all__ = ["app"]
@@ -37,5 +37,6 @@ app = FastAPI(title="AI Trader", version=settings.VERSION, lifespan=lifespan)
 
 # Give each router a non-empty prefix to avoid “Prefix and path cannot be both empty”
 app.include_router(health_router,   prefix="/health",   tags=["health"])
-app.include_router(tasks_router,    prefix="/tasks",    tags=["tasks"])
 app.include_router(telegram_router)
+app.include_router(tasks_router)
+app.include_router(public_router)
