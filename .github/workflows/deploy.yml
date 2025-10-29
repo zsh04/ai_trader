@@ -57,7 +57,7 @@ jobs:
       - name: post-deploy telegram webhook
         if: env.TELEGRAM_TOKEN
         run: |
-          URL="${TELEGRAM_WEBHOOK_URL:-https://${AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook}"
+          URL="https://${AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook"
           curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
             -H "Content-Type: application/json" \
             -d "{\"url\":\"${URL}\",\"secret_token\":\"${TELEGRAM_WEBHOOK_SECRET}\"}"
