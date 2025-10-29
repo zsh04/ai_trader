@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  PYTHON_VERSION: ${{ vars.PYTHON_VERSION || '3.13' }}
+  PYTHON_VERSION: ${{ vars.PYTHON_VERSION || '3.12.6' }}
   TEST_DATABASE_URL: "sqlite:///:memory:"
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
