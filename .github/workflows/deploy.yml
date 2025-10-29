@@ -25,7 +25,7 @@ env:
   TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
   TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
   TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
-  PYTHON_VERSION: ${{ vars.PYTHON_VERSION || '3.13' }}
+  PYTHON_VERSION: ${{ vars.PYTHON_VERSION || '3.12.6' }}
   APP_VERSION: ${{ github.ref_name }}
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
@@ -58,6 +58,16 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ env.AZURE_PUBLISH_PROFILE }}
           package: .
+
+      - name: Set App Service settings
+        uses: azure/appservice-settings@v1
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          app-settings-json: |
+            [
+              { "name": "WEBSITE_PYTHON_VERSION", "value": "3.12", "slotSetting": false },
+              { "name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "true", "slotSetting": false }
+            ]
   set-webhook:
     name: set-telegram-webhook
     needs: deploy
