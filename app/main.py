@@ -38,4 +38,4 @@ app = FastAPI(title="AI Trader", version=settings.VERSION, lifespan=lifespan)
 # Give each router a non-empty prefix to avoid “Prefix and path cannot be both empty”
 app.include_router(health_router,   prefix="/health",   tags=["health"])
 app.include_router(tasks_router,    prefix="/tasks",    tags=["tasks"])
-app.include_router(telegram_router, prefix="/telegram", tags=["telegram"])
+app.include_router(telegram_router)

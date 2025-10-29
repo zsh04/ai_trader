@@ -6,8 +6,7 @@
 ├── .env.example
 ├── .github
 │   └── workflows
-│       ├── ci.yml
-│       ├── deploy.yml
+│       ├── ci-deploy.yml
 │       ├── lint.yml
 │       └── set_webhook.yml
 ├── .gitignore
@@ -110,10 +109,6 @@
 │   │   ├── __init__.py
 │   │   ├── session_clock.py
 │   │   └── session_metrics.py
-│   ├── source
-│   │   ├── __init__.py
-│   │   ├── finviz_source.py
-│   │   └── textlist_source.py
 │   ├── sources
 │   │   ├── __init__.py
 │   │   ├── finviz_source.py
@@ -184,6 +179,7 @@
 ├── pyproject.toml
 ├── pytest.ini
 ├── requirements.txt
+├── runtime.txt
 ├── scripts
 │   ├── __init__.py
 │   ├── check_alpaca_entitlement.py
@@ -236,4 +232,4 @@
     │   └── test_normalize.py
     └── wiring
 
-59 directories, 178 files
+58 directories, 175 files

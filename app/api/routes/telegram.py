@@ -13,6 +13,7 @@ def TelegramDep():
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/telegram", tags=["telegram"])
+ALLOW_NO_SECRET = os.getenv("TELEGRAM_ALLOW_TEST_NO_SECRET") == "1"
 
 def _env():
     try:
