@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import logging
+import time, ssl, socket
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
-
+from contextlib import closing
 from app.utils import env as ENV
 from app.utils.http import request_json
 
@@ -213,38 +214,36 @@ class AlpacaMarketClient:
 
 
 # --- Alpaca trading API ping endpoint ---
-def ping_alpaca(*, timeout: float = 4.0) -> Dict[str, Any]:
-    """Ping Alpaca trading API via `/v2/account` to validate auth/connectivity.
-
-    Returns a minimal dict on success; raises `AlpacaPingError` otherwise.
+def ping_alpaca(feed: str | None = None, timeout_sec: float = 4.0) -> tuple[bool, dict]:
     """
-    url = f"{_trading_base_url()}/v2/account"
+    Connectivity check to Alpaca market data edge.
+    We do a DNS + TCP + TLS handshake to data.alpaca.markets:443 (no creds required).
+
+    Returns:
+        (ok, meta) where ok is bool, meta has diagnostics (host, port, feed, latency_ms).
+    """
+    host = "data.alpaca.markets"
+    port = 443
+    feed = (feed or "iex").lower()
+
+    start = time.perf_counter()
     try:
-        status, data = request_json(
-            "GET",
-            url,
-            headers=_api_headers(),
-            timeout=timeout,
-            retries=1,
-            backoff=1.0,
-            params=None,
-            session=None,
-        )
-    except Exception as e:  # transport-level error
-        raise AlpacaPingError(f"network/transport error: {e}") from e
+        # DNS + TCP connect
+        with closing(socket.create_connection((host, port), timeout=timeout_sec)) as sock:
+            # TLS handshake
+            ctx = ssl.create_default_context()
+            with closing(ctx.wrap_socket(sock, server_hostname=host)) as ssock:
+                # Optional: send minimal data or just handshake and close
+                pass
 
-    if status != 200:
-        snippet = ""
-        try:
-            snippet = (data or {}).get("message") or (data or {}).get("error") or str(data)[:200]
-        except Exception:
-            snippet = str(data)[:200]
-        raise AlpacaPingError(f"http {status}: {snippet}")
-
-    # Normalize a tiny health payload
-    return {
-        "status": "ok",
-        "status_text": (data or {}).get("status"),
-        "trading_blocked": (data or {}).get("trading_blocked"),
-        "account_blocked": (data or {}).get("account_blocked"),
-    }
+        elapsed_ms = int((time.perf_counter() - start) * 1000)
+        return True, {
+            "host": host,
+            "port": port,
+            "feed": feed,
+            "latency_ms": elapsed_ms,
+            "method": "tcp+tls",
+        }
+    except Exception as e:
+        # Normalize into our domain error so caller can mark degraded
+        raise AlpacaPingError(f"network/transport error: {e!s}")

@@ -3,7 +3,7 @@ import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict
-from anyio import to_thread
+from starlette.concurrency import run_in_threadpool
 
 from fastapi import APIRouter
 
@@ -61,8 +61,8 @@ async def health_market():
 
     feed = os.getenv("ALPACA_DATA_FEED", "").lower() or "iex"  # default
     try:
-        meta = await to_thread.run_sync(ping_alpaca, timeout=4.0)
-        return {"status": "ok", "feed": feed, "meta": meta}
+        ok, meta = await run_in_threadpool(lambda: ping_alpaca(feed=feed, timeout_sec=4.0))
+        return {"status": "ok" if ok else "degraded", "feed": feed, "meta": meta}
     except AlpacaPingError as e:
         logging.warning("market ping failed: %s", e)
         return {"status": "degraded", "feed": feed, "reason": str(e)}
