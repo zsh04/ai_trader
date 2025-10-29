@@ -4,7 +4,8 @@ import os
 
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
-import app.wiring.telegram_router as telegram_module
+from app.wiring import TelegramDep as WiringTelegramDep, get_telegram as wiring_get_telegram
+from app.wiring import router as wiring_router
 
 load_dotenv(override=True)
 os.environ.setdefault("TELEGRAM_ALLOW_TEST_NO_SECRET", "1")
@@ -52,13 +53,19 @@ def make_client(monkeypatch):
             pass
 
     fake_dep = lambda: FakeTelegram()
-    import app.wiring.telegram_router as router_module
 
     monkeypatch.setenv("TELEGRAM_WEBHOOK_SECRET", "")
     client = TestClient(main_module.app)
-    client.app.dependency_overrides[main_module.TelegramDep] = fake_dep
-    client.app.dependency_overrides[telegram_module.TelegramDep] = fake_dep
-    client.app.dependency_overrides[router_module.get_telegram] = fake_dep
+
+    # Robust dependency overrides: work whether main re-exports TelegramDep or not
+    main_dep = getattr(main_module, "TelegramDep", None)
+    if main_dep is not None:
+        client.app.dependency_overrides[main_dep] = fake_dep
+
+    # Always override wiring deps used by the router
+    client.app.dependency_overrides[WiringTelegramDep] = fake_dep
+    client.app.dependency_overrides[wiring_get_telegram] = fake_dep
+
     return client
 
 

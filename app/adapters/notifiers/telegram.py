@@ -138,14 +138,19 @@ class TelegramClient:
         self,
         chat_id: int | str,
         text: str,
-        mode: str = "Markdown",
+        *,
+        parse_mode: Optional[str] = None,
+        mode: Optional[str] = None,
         chunk_size: int = 3500,
         retries: int = 2,
+        **_ignore,  # tolerate extra kwargs from callers
     ) -> bool:
+        """Send long messages in chunks. Accepts either parse_mode or mode."""
+        eff_mode = parse_mode or mode or "Markdown"
         ok = True
         for part in _split_chunks(text, limit=chunk_size):
             for attempt in range(retries + 1):
-                if self._send(chat_id, part, parse_mode=mode):
+                if self._send(chat_id, part, parse_mode=eff_mode):
                     break
                 if attempt < retries:
                     delay = 1.5 * (attempt + 1)

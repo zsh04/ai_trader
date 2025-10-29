@@ -6,12 +6,19 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.wiring import (
+    router as telegram_router,
+    get_telegram,
+    TelegramDep as _WiringTelegramDep,
+)
 from app.api.routes import router as api_router
 from app.config import settings
 
-from app.wiring import router as telegram_router, get_telegram, TelegramDep
-
 __all__ = ["app", "TelegramDep"]
+
+# Re-export for tests: they do main.TelegramDep to override dependency
+TelegramDep = _WiringTelegramDep
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
