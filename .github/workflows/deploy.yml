@@ -51,23 +51,17 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Set App Service settings
-        uses: azure/appservice-settings@v1
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          app-settings-json: |
-            [
-              { "name": "WEBSITE_PYTHON_VERSION", "value": "3.12", "slotSetting": false },
-              { "name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "true", "slotSetting": false }
-            ]
-
       - name: publish to azure
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ env.AZURE_PUBLISH_PROFILE }}
           package: .
+          app-settings-json: |
+            [
+              { "name": "WEBSITE_PYTHON_VERSION", "value": "3.12", "slotSetting": false },
+              { "name": "SCM_DO_BUILD_DURING_DEPLOYMENT", "value": "true", "slotSetting": false }
+            ]
 
   set-webhook:
     name: set-telegram-webhook
