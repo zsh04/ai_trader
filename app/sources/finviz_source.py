@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import List, Optional
 
 try:
@@ -70,4 +71,18 @@ def fetch_symbols(
         return []
 
 
-__all__ = ["is_ready", "fetch_symbols"]
+# --- Compatibility wrapper for unified watchlist interface ---
+def get_symbols(preferred: bool = False, max_symbols: int = 100) -> list[str]:
+    """
+    Unified API: returns top tickers from Finviz screener.
+    `preferred` flag reserved for future use (e.g., preferred presets).
+    """
+    preset = os.getenv("FINVIZ_PRESET", "most-active")
+    filters = os.getenv("FINVIZ_FILTERS", "cap_large,sh_avgvol_o1000")
+    try:
+        return fetch_symbols(preset=preset, filters=filters, max_symbols=max_symbols)
+    except Exception as exc:
+        logger.warning(f"[FinvizSource] Failed to fetch symbols: {exc}")
+        return []
+
+__all__ = ["fetch_symbols", "get_symbols"]

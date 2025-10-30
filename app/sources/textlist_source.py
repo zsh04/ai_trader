@@ -1,31 +1,12 @@
 from __future__ import annotations
-
+import logging
 import re
 from typing import List
 
-_TICKER_RE = re.compile(r"\b[A-Z]{1,5}(?:[.-][A-Z0-9]{1,3})?\b")
-
-
-def extract_symbols(raw: str, max_symbols: int = 100) -> List[str]:
-    # accept AAPL, TSLA, NVDA or comma/space separated lines
-    syms = [m.group(0) for m in _TICKER_RE.finditer(raw)]
-    # basic clean: exclude common words accidentally matching (e.g., “FOR”, “AND”)
-    blacklist = {"FOR", "AND", "THE", "ALL", "WITH"}
-    out = [s for s in syms if s not in blacklist]
-    return out[:max_symbols]
-
-
-# app/sources/textlist_source.py
-from __future__ import annotations
-
-import logging
-import re
-
 log = logging.getLogger(__name__)
 
-_TICKER_RE = re.compile(r"\b[A-Z]{1,5}\b")
+_TICKER_RE = re.compile(r"\b[A-Z]{1,5}(?:[.-][A-Z0-9]{1,3})?\b")
 _BLACKLIST = {"FOR", "AND", "THE", "ALL", "WITH", "USA", "CEO", "ETF"}
-
 
 def extract_symbols(raw: str, max_symbols: int = 100) -> List[str]:
     """
@@ -61,5 +42,13 @@ def extract_symbols(raw: str, max_symbols: int = 100) -> List[str]:
     log.info("Extracted %d symbols: %s", len(unique), unique[:10])
     return unique[:max_symbols]
 
+# --- Compatibility wrapper for unified watchlist interface ---
+def get_symbols(preferred: bool = False, max_symbols: int = 100) -> list[str]:
+    """
+    Returns a normalized list of tickers from textlist source.
+    The `preferred` flag is ignored (present for interface consistency).
+    """
+    raw = os.getenv("TEXTLIST_SYMBOLS", "")
+    return extract_symbols(raw, max_symbols=max_symbols)
 
-__all__ = ["extract_symbols"]
+__all__ = ["extract_symbols", "get_symbols"]
