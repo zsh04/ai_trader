@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from typing import List
+from loguru import logger
 
 from app.sources.textlist_source import extract_symbols
 
@@ -22,10 +23,14 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
     """
     raw = os.getenv("SIGNAL_SAMPLE_SYMBOLS", "")
     if not raw:
+        logger.warning("[signal_text] SIGNAL_SAMPLE_SYMBOLS is empty or undefined.")
         return []
+
+    logger.debug(f"[signal_text] Raw SIGNAL_SAMPLE_SYMBOLS: {raw}")
 
     limit = max_symbols if isinstance(max_symbols, int) and max_symbols > 0 else None
     symbols = extract_symbols(raw, max_symbols=limit or 1000)
+    logger.debug(f"[signal_text] Extracted {len(symbols)} symbols before deduplication.")
 
     seen: set[str] = set()
     deduped: List[str] = []
@@ -38,6 +43,7 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
         if limit is not None and len(deduped) >= limit:
             break
 
+    logger.info(f"[signal_text] Returning {len(deduped)} unique symbols after deduplication.")
     if limit is not None and len(deduped) > limit:
         return deduped[:limit]
     return deduped

@@ -4,12 +4,15 @@ import importlib
 import logging
 import os
 import re
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 log = logging.getLogger(__name__)
 
-_TICKER_RE = re.compile(r"\b[A-Z]{1,5}(?:[.-][A-Z0-9]{1,3})?\b")
+_TICKER_RE = re.compile(r"\b[A-Z0-9]{1,7}(?:[.-][A-Z0-9]{1,6})?\b")
 _BLACKLIST = {"FOR", "AND", "THE", "ALL", "WITH", "USA", "CEO", "ETF"}
+
+# Final stricter validation (allow letters, digits, dot, dash; 1-7 chars plus optional compound parts)
+_VALID_TICKER_FINAL_RE = re.compile(r"^[A-Z0-9](?:[A-Z0-9\.-]{0,6})$")
 
 
 def extract_symbols(raw: str, max_symbols: int = 100) -> List[str]:
@@ -27,11 +30,17 @@ def extract_symbols(raw: str, max_symbols: int = 100) -> List[str]:
     raw_clean = raw.replace(",", " ").upper().strip()
     syms = [m.group(0) for m in _TICKER_RE.finditer(raw_clean)]
 
+    # Remove explicit blacklisted tokens
     out = [s for s in syms if s not in _BLACKLIST]
-    out = [s for s in out if 1 <= len(s) <= 5 and s.isalpha()]
 
-    unique = list(dict.fromkeys(out))  # preserve order, dedupe
-    log.info("Extracted %d symbols: %s", len(unique), unique[:10])
+    # Final validation — allow alphanumeric and '.' or '-' characters
+    out = [s for s in out if _VALID_TICKER_FINAL_RE.fullmatch(s)]
+
+    # Preserve order and dedupe
+    unique = list(dict.fromkeys(out))
+    # Keep detailed listing to debug only; keep count at info level
+    log.debug("Extracted %d symbols: %s", len(unique), unique[:50])
+    log.info("Extracted %d symbols", len(unique))
     return unique[:max_symbols]
 
 
@@ -46,7 +55,7 @@ def _load_backend(name: str):
     return None
 
 
-def _iter_symbols(symbols: Iterable[str], *, limit: int | None, seen: set[str]) -> List[str]:
+def _iter_symbols(symbols: Iterable[str], *, limit: Optional[int], seen: set[str]) -> List[str]:
     out: List[str] = []
     for sym in symbols or []:
         ticker = (sym or "").strip().upper()
@@ -63,7 +72,7 @@ def _split_csv(s: str) -> List[str]:
     return [p.strip() for p in s.replace(";", ",").split(",") if p.strip()]
 
 
-def _env_int(name: str) -> int | None:
+def _env_int(name: str) -> Optional[int]:
     try:
         val = int(os.getenv(name, "").strip())
         return val if val > 0 else None
@@ -85,7 +94,7 @@ def _from_env_textlist() -> List[str]:
     return base
 
 
-def get_symbols(*, max_symbols: int | None = None) -> List[str]:
+def get_symbols(*, max_symbols: Optional[int] = None) -> List[str]:
     """
     Aggregate symbols from configured text backends.
 
@@ -124,20 +133,18 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
             log.warning("Textlist backend %s missing get_symbols()", name)
             continue
 
-        remaining = None
+        remaining: Optional[int] = None
         if limit is not None:
             remaining = max(limit - len(aggregated), 0)
             if remaining == 0:
                 break
 
+        # Prefer keyword invocation but fallback to positional where necessary
         try:
-            if remaining is not None:
-                symbols = getter(max_symbols=remaining)
-            else:
-                symbols = getter(max_symbols=None)
+            symbols = getter(max_symbols=remaining)
         except TypeError:
             try:
-                symbols = getter(remaining if remaining is not None else limit)
+                symbols = getter(remaining)
             except Exception as exc:
                 log.warning("Textlist backend %s get_symbols error: %s", name, exc)
                 continue
@@ -155,8 +162,8 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
         if limit is not None and len(aggregated) >= limit:
             return aggregated[:limit]
 
-    # Optional env fallback when enabled OR when backends exist but returned nothing and flag is on
-    if use_env_fallback and (not aggregated):
+    # Optional env fallback when enabled — use it to fill up to the limit (not only when empty)
+    if use_env_fallback and (limit is None or len(aggregated) < limit):
         env_syms = _from_env_textlist()
         aggregated.extend(
             _iter_symbols(

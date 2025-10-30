@@ -48,10 +48,16 @@ def fetch_symbols(
     try:
         s = Screener(filters=filters or [], tickers=[], order="price")
         if preset:
-            s.set_filter(signal=preset)
+            # Use set_filter if supported by this Screener wrapper
+            try:
+                s.set_filter(signal=preset)
+            except Exception:
+                # Older/newer wrappers may differ; fall back silently
+                pass
+
         df = s.get_screen_df()
 
-        # Support both DataFrame and list-of-dicts returns
+        # Support both DataFrame-like and list-of-dicts returns
         if hasattr(df, "get"):
             tickers = df.get("Ticker", [])
         elif isinstance(df, list):
@@ -62,28 +68,55 @@ def fetch_symbols(
 
         # Normalize and filter symbols
         symbols = [str(t).upper().strip() for t in tickers if t]
-        symbols = [s for s in symbols if s.isalpha() and 1 <= len(s) <= 5]
+        # Keep alphanumeric plus dot/dash (e.g., BRK.B) but drop obviously invalid tokens
+        norm_symbols: List[str] = []
+        for s in symbols:
+            # allow letters, numbers, dot and dash; collapse whitespace
+            tok = s.replace(" ", "")
+            if not tok:
+                continue
+            # reject tokens that are purely numeric or too long
+            if tok.isnumeric() or len(tok) > 10:
+                continue
+            norm_symbols.append(tok)
 
-        log.info("Finviz returned %d tickers for preset='%s'", len(symbols), preset)
-        return symbols[:max_symbols]
+        log.info("Finviz returned %d tickers for preset='%s'", len(norm_symbols), preset)
+        return norm_symbols[:max_symbols]
     except Exception as e:
         log.exception("Finviz fetch failed: %s", e)
         return []
 
 
 # --- Compatibility wrapper for unified watchlist interface ---
-def get_symbols(*, max_symbols: int | None = None) -> List[str]:
+def get_symbols(*, limit: int | None = None, max_symbols: int | None = None) -> List[str]:
     """
     Unified API: returns top tickers from Finviz screener.
 
-    max_symbols limits the final deduplicated list if provided.
+    Parameters
+    ----------
+    limit : int | None
+        Preferred argument name to limit number of returned symbols.
+    max_symbols : int | None
+        Legacy parameter alias; will be used if `limit` is not provided.
+
+    Returns
+    -------
+    list[str]
+        Deduplicated, normalized list of tickers in uppercase.
     """
+    # Backwards compatibility: prefer `limit`, fall back to `max_symbols`.
+    requested_limit = None
+    if isinstance(limit, int) and limit > 0:
+        requested_limit = limit
+    elif isinstance(max_symbols, int) and max_symbols > 0:
+        requested_limit = max_symbols
+
     preset = os.getenv("FINVIZ_PRESET", "most-active")
     filters_raw = os.getenv("FINVIZ_FILTERS", "cap_large,sh_avgvol_o1000")
     filter_list = [f.strip() for f in filters_raw.split(",") if f.strip()] or None
 
-    limit = max_symbols if isinstance(max_symbols, int) and max_symbols > 0 else None
-    fetch_limit = limit if limit is not None else 100
+    # choose a safe fetch size; if no limit is given, fetch up to 100
+    fetch_limit = requested_limit if requested_limit is not None else 100
 
     try:
         symbols = fetch_symbols(preset=preset, filters=filter_list, max_symbols=fetch_limit)
@@ -99,11 +132,12 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
             continue
         seen.add(ticker)
         result.append(ticker)
-        if limit is not None and len(result) >= limit:
+        if requested_limit is not None and len(result) >= requested_limit:
             break
 
-    if limit is not None and len(result) > limit:
-        return result[:limit]
+    if requested_limit is not None and len(result) > requested_limit:
+        return result[:requested_limit]
     return result
 
-__all__ = ["fetch_symbols", "get_symbols"]
+
+__all__ = ["fetch_symbols", "get_symbols", "is_ready"]
