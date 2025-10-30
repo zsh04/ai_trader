@@ -51,36 +51,41 @@ def _reply(tg: Any, chat_id: int | str, text: str) -> None:
         elif hasattr(tg, "send_message"):
             tg.send_message(chat_id, text)
 
-def _handle_watchlist(tg: Any, chat_id: int | str, args: list[str]) -> None:
-    source = "manual"
-    if args and args[0].lower() in {"auto", "finviz", "textlist"}:
-        source = args[0].lower()
+_WATCHLIST_SOURCES = {"manual", "textlist", "finviz"}
 
-    symbols = []
+
+def _resolve_watchlist(source_override: str | None) -> tuple[str, list[str]]:
+    from app.domain.watchlist_service import resolve_watchlist
+
+    if not source_override:
+        return resolve_watchlist()
+
+    env_var = "WATCHLIST_SOURCE"
+    previous = os.environ.get(env_var)
     try:
-        # Try to resolve the watchlist using your domain service
-        from app.domain.watchlist_service import resolve_watchlist  # type: ignore
-        try:
-            # Be compatible with both signatures (with/without 'preferred')
-            from inspect import signature
-            if "preferred" in signature(resolve_watchlist).parameters:
-                resolved_source, symbols = resolve_watchlist(preferred=source)
-            else:
-                resolved_source, symbols = resolve_watchlist()
-            if resolved_source:
-                source = resolved_source
-        except TypeError:
-            # Fallback in case of unexpected signature issues
-            resolved_source, symbols = resolve_watchlist()
-            if resolved_source:
-                source = resolved_source
-    except Exception as e:
-        logger.warning("watchlist resolve failed: %s", e)
-        symbols = []
+        os.environ[env_var] = source_override
+        return resolve_watchlist()
+    finally:
+        if previous is None:
+            os.environ.pop(env_var, None)
+        else:
+            os.environ[env_var] = previous
 
-    # Render symbols if any; otherwise the default message
+
+def _handle_watchlist(tg: Any, chat_id: int | str, args: list[str]) -> None:
+    source_arg = args[0].lower() if args else None
+    if source_arg not in _WATCHLIST_SOURCES:
+        source_arg = None
+
+    resolved_source = source_arg or "textlist"
+    symbols: list[str] = []
+    try:
+        resolved_source, symbols = _resolve_watchlist(source_arg)
+    except Exception as exc:
+        logger.warning("watchlist resolve failed: %s", exc)
+
     body = "\n".join(symbols) if symbols else "_No symbols available_"
-    _reply(tg, chat_id, f"*Watchlist* (source: {source})\n{body}")
+    _reply(tg, chat_id, f"*Watchlist* (source: {resolved_source})\n{body}")
 
 
 def _handle_ping(tg: Any, chat_id: int | str, _args: list[str]) -> None:
@@ -96,7 +101,7 @@ def _handle_help(tg: Any, chat_id: int | str, _args: list[str]) -> None:
                 "*AI Trader — Commands*",
                 "/help — show this help",
                 "/ping — liveness check",
-                "/watchlist [manual|auto|finviz|textlist] — show watchlist",
+                "/watchlist [manual|textlist|finviz] — show watchlist",
             ]
         ),
     )

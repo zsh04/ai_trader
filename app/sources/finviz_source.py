@@ -72,17 +72,38 @@ def fetch_symbols(
 
 
 # --- Compatibility wrapper for unified watchlist interface ---
-def get_symbols(preferred: bool = False, max_symbols: int = 100) -> list[str]:
+def get_symbols(*, max_symbols: int | None = None) -> List[str]:
     """
     Unified API: returns top tickers from Finviz screener.
-    `preferred` flag reserved for future use (e.g., preferred presets).
+
+    max_symbols limits the final deduplicated list if provided.
     """
     preset = os.getenv("FINVIZ_PRESET", "most-active")
-    filters = os.getenv("FINVIZ_FILTERS", "cap_large,sh_avgvol_o1000")
+    filters_raw = os.getenv("FINVIZ_FILTERS", "cap_large,sh_avgvol_o1000")
+    filter_list = [f.strip() for f in filters_raw.split(",") if f.strip()] or None
+
+    limit = max_symbols if isinstance(max_symbols, int) and max_symbols > 0 else None
+    fetch_limit = limit if limit is not None else 100
+
     try:
-        return fetch_symbols(preset=preset, filters=filters, max_symbols=max_symbols)
+        symbols = fetch_symbols(preset=preset, filters=filter_list, max_symbols=fetch_limit)
     except Exception as exc:
-        logger.warning(f"[FinvizSource] Failed to fetch symbols: {exc}")
+        log.warning("[FinvizSource] Failed to fetch symbols: %s", exc)
         return []
+
+    seen: set[str] = set()
+    result: List[str] = []
+    for sym in symbols or []:
+        ticker = (sym or "").strip().upper()
+        if not ticker or ticker in seen:
+            continue
+        seen.add(ticker)
+        result.append(ticker)
+        if limit is not None and len(result) >= limit:
+            break
+
+    if limit is not None and len(result) > limit:
+        return result[:limit]
+    return result
 
 __all__ = ["fetch_symbols", "get_symbols"]

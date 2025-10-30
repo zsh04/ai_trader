@@ -130,6 +130,21 @@ pm2 logs ai_trader   # rotated daily, 7 days retained
 - Add probabilistic model evaluation to `backtest.metrics`.
 - Add Azure Application Insights for unified telemetry.
 
+### Watchlist Source Summary
+- `manual` → reads `WATCHLIST_TEXT` for a user-defined list.
+- `textlist` → aggregates backends declared in `TEXTLIST_BACKENDS` (e.g., `discord,signal`).
+- `finviz` → uses the Finviz adapter `get_symbols`.
+- `scanner` → not yet implemented; warns and falls back to `textlist`.
+
+Example configuration:
+```
+WATCHLIST_SOURCE=manual
+WATCHLIST_TEXT="AAPL, MSFT, NVDA"
+TEXTLIST_BACKENDS=discord
+DISCORD_SAMPLE_SYMBOLS="TSLA, SPY"
+MAX_WATCHLIST=25
+```
+
 ---
 
 ## 🧾 References

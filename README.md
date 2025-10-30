@@ -98,4 +98,19 @@ Logs rotate daily and retain seven days by default.
 - `RUNBOOK.md` — operational checklists and incident flows
 - `AGENTS.md` — coding conventions and agent collaboration guide
 
+### Watchlist Sources
+- `manual` → parses `WATCHLIST_TEXT` (comma-separated user symbols).
+- `textlist` → aggregates from backends listed in `TEXTLIST_BACKENDS` (e.g., `discord,signal`).
+- `finviz` → pulls via the Finviz screener wrapper.
+- `scanner` → reserved; currently warns and falls back to `textlist`.
+
+Example env:
+```
+WATCHLIST_SOURCE=manual
+WATCHLIST_TEXT="AAPL, MSFT, NVDA"
+TEXTLIST_BACKENDS=discord
+DISCORD_SAMPLE_SYMBOLS="TSLA, SPY"
+MAX_WATCHLIST=25
+```
+
 Future roadmap: expand strategy coverage (momentum, mean reversion, risk parity), integrate Finviz/Discord watchlists, add probabilistic backtest metrics, and onboard Azure Application Insights for unified telemetry.
