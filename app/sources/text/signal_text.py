@@ -7,11 +7,14 @@ of ticker symbols respecting the caller's max_symbols limit.
 """
 from __future__ import annotations
 
+import logging
 import os
 from typing import List
-from loguru import logger
 
 from app.sources.textlist_source import extract_symbols
+
+# replace any non-logger/simple-namespace logger with a proper logger:
+logger = logging.getLogger(__name__)
 
 
 def get_symbols(*, max_symbols: int | None = None) -> List[str]:

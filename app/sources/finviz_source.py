@@ -105,7 +105,8 @@ def get_symbols(*, limit: int | None = None, max_symbols: int | None = None) -> 
         Deduplicated, normalized list of tickers in uppercase.
     """
     # Backwards compatibility: prefer `limit`, fall back to `max_symbols`.
-    requested_limit = None
+    requested_limit = limit if isinstance(limit, int) and limit > 0 else max_symbols
+    fetch_limit = requested_limit
     if isinstance(limit, int) and limit > 0:
         requested_limit = limit
     elif isinstance(max_symbols, int) and max_symbols > 0:
