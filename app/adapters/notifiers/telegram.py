@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
-from typing import Any, Dict, Iterable, Optional, Set
+from typing import Any, Dict, Iterable, Optional, Set, List
 
 import requests
 
@@ -11,6 +12,65 @@ from app.utils import env as ENV
 log = logging.getLogger(__name__)
 API_BASE = "https://api.telegram.org"
 
+# ---------------------------
+# Test-only in-memory outbox
+# ---------------------------
+_TEST_OUTBOX: List[Dict[str, Any]] = []
+
+def test_outbox() -> List[Dict[str, Any]]:
+    """Return a shallow copy of the in-memory outbox (for tests)."""
+    return list(_TEST_OUTBOX)
+
+def test_outbox_clear() -> None:
+    """Clear the in-memory outbox (for tests)."""
+    _TEST_OUTBOX.clear()
+
+class FakeTelegramClient:
+    """Test double used during pytest runs (or when TELEGRAM_FAKE=1).
+
+    Captures messages into _TEST_OUTBOX so tests can assert on replies
+    without making real HTTP calls.
+    """
+    def __init__(self) -> None:
+        self.allowed: Set[int] = set()
+        self.secret = ""
+        self.timeout = 1
+
+    # Keep the same surface as the real client
+    def smart_send(
+        self,
+        chat_id: int | str,
+        text: str,
+        *,
+        parse_mode: Optional[str] = None,
+        mode: Optional[str] = None,
+        chunk_size: int = 3500,
+        retries: int = 0,
+        **_ignore,
+    ) -> bool:
+        # For tests, split into conservative chunks like real client does
+        for part in _split_chunks(text, limit=chunk_size):
+            _TEST_OUTBOX.append(
+                {
+                    "chat_id": chat_id,
+                    "text": part,
+                    "parse_mode": parse_mode or mode or "Markdown",
+                }
+            )
+        return True
+
+    # Common aliases used by _reply fallback sequence
+    def send_message(self, chat_id: int | str, text: str, parse_mode: Optional[str] = None) -> bool:
+        return self.smart_send(chat_id, text, parse_mode=parse_mode)
+
+    def send_text(self, chat_id: int | str, text: str, parse_mode: Optional[str] = None) -> bool:
+        return self.smart_send(chat_id, text, parse_mode=parse_mode)
+
+    def send(self, chat_id: int | str, text: str) -> bool:
+        return self.smart_send(chat_id, text)
+
+    def ping(self) -> bool:
+        return True
 
 def _coerce_chat_id(cid: Optional[str | int]) -> Optional[str | int]:
     if cid is None:
@@ -20,7 +80,6 @@ def _coerce_chat_id(cid: Optional[str | int]) -> Optional[str | int]:
         return int(str(cid))
     except Exception:
         return str(cid)
-
 
 def _split_chunks(text: str, limit: int = 3500) -> list[str]:
     """Split text conservatively under Telegram's 4096 cap (room for formatting).
@@ -236,8 +295,18 @@ class TelegramClient:
 
 # --- Module-level helpers -------------------------------------------------------
 
+def build_client_from_env() -> TelegramClient | FakeTelegramClient:
+    """Factory that returns a real client in production, but a Fake client during tests.
 
-def build_client_from_env() -> TelegramClient:
+    Conditions for fake:
+      - Running under pytest (PYTEST_CURRENT_TEST is set), OR
+      - TELEGRAM_FAKE=1 is set in environment.
+    """
+    if os.getenv("PYTEST_CURRENT_TEST") or os.getenv("TELEGRAM_FAKE") == "1":
+        # Ensure a clean outbox at test start if desired; tests can also call test_outbox_clear()
+        log.debug("[Telegram] Using FakeTelegramClient (test mode)")
+        return FakeTelegramClient()
+
     token = ENV.TELEGRAM_BOT_TOKEN
     allowed = ENV.TELEGRAM_ALLOWED_USER_IDS
     secret = ENV.TELEGRAM_WEBHOOK_SECRET
@@ -299,4 +368,5 @@ def send_watchlist(
         return False
     client = build_client_from_env()
     msg = format_watchlist_message(session, items, title=title)
+    # Fake client also supports smart_send, so this path works in tests too
     return client.smart_send(target, msg, mode="Markdown", chunk_size=3500, retries=2)

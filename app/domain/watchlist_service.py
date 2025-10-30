@@ -5,9 +5,21 @@ import importlib
 import logging
 import os
 import sys
-from typing import Iterable, List, Tuple
+import time
+from typing import Dict, Iterable, List, Tuple
 
 from app.domain.watchlist_utils import normalize_symbols
+
+_COUNTERS: Dict[str, Dict[str, int]] = {}
+
+
+def _get_counter(name: str) -> Dict[str, int]:
+    bucket = _COUNTERS.setdefault(name, {"ok": 0, "error": 0})
+    return bucket
+
+
+def get_counters() -> Dict[str, Dict[str, int]]:
+    return {k: v.copy() for k, v in _COUNTERS.items()}
 
 logger = logging.getLogger(__name__)
 
@@ -160,10 +172,18 @@ def resolve_watchlist() -> Tuple[str, List[str]]:
         source = _DEFAULT_SOURCE
 
     # Gather symbols by source
-    if source == "manual":
-        symbols = _parse_manual_from_env()
-    else:
-        symbols = _fetch_symbols(source)
+    symbols = []
+    error = None
+    start = time.perf_counter()
+    try:
+        if source == "manual":
+            symbols = _parse_manual_from_env()
+        else:
+            symbols = _fetch_symbols(source)
+    except Exception as exc:
+        error = str(exc)
+        logger.exception("[watchlist:resolve] source=%s error=%s", source, exc)
+    duration_ms = (time.perf_counter() - start) * 1000.0
 
     # Normalize and cap
     normalized = normalize_symbols(symbols)
@@ -181,6 +201,18 @@ def resolve_watchlist() -> Tuple[str, List[str]]:
         )
 
     capped = _apply_max_cap(normalized)
+    success = not error
+    carry = _get_counter(source)
+    carry["ok" if success else "error"] += 1
+    log_payload = {
+        "source": source,
+        "count": len(capped),
+        "duration_ms": round(duration_ms, 2),
+        "ok": success,
+    }
+    if error:
+        log_payload["error"] = error
+    logger.info("[watchlist:resolve] %s", log_payload)
     return source, capped
 
 

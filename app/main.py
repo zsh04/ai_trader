@@ -1,9 +1,14 @@
 # app/main.py
 from __future__ import annotations
 
+import logging
 import os
+import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from uuid import uuid4
+
+from fastapi import FastAPI, Request
+
 from app.config import settings
 
 # bring routers in explicitly
@@ -40,3 +45,35 @@ app.include_router(health_router,   prefix="/health",   tags=["health"])
 app.include_router(telegram_router)
 app.include_router(tasks_router)
 app.include_router(public_router)
+
+_request_logger = logging.getLogger("request")
+
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    start = time.perf_counter()
+    request_id = request.headers.get("X-Request-ID") or uuid4().hex
+    try:
+        response = await call_next(request)
+    except Exception:
+        duration_ms = (time.perf_counter() - start) * 1000.0
+        _request_logger.exception(
+            "request method=%s path=%s status=500 duration_ms=%.2f request_id=%s",
+            request.method,
+            request.url.path,
+            duration_ms,
+            request_id,
+        )
+        raise
+
+    duration_ms = (time.perf_counter() - start) * 1000.0
+    response.headers["X-Request-ID"] = request_id
+    _request_logger.info(
+        "request method=%s path=%s status=%s duration_ms=%.2f request_id=%s",
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+        request_id,
+    )
+    return response

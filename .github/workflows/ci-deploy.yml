@@ -80,11 +80,40 @@ jobs:
           import importlib
           for m in ["app.main", "app.api", "app.adapters.db.postgres"]:
               try:
-                  importlib.import_module(m)
-                  print("OK:", m)
-              except Exception as e:
-                  print("WARN:", m, e)
-          PY
+          importlib.import_module(m)
+          print("OK:", m)
+      except Exception as e:
+          print("WARN:", m, e)
+      PY
+  smoke:
+    name: smoke
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: docker build
+        run: docker build -t ai-trader:test .
+      - name: docker run
+        run: docker run -d -p 8000:8000 --name ai-smoke --env-file .env ai-trader:test
+      - name: wait for app
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:8000/health/live >/tmp/live.json; then
+              if curl -fsS http://localhost:8000/health/config >/tmp/config.json; then
+                exit 0
+              fi
+            fi
+            sleep 1
+          done
+          echo "Smoke check failed"
+          exit 1
+      - name: docker logs
+        if: failure()
+        run: docker logs ai-smoke
+      - name: cleanup
+        if: always()
+        run: docker rm -f ai-smoke || true
 
   tests:
     name: test

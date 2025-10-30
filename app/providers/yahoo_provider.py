@@ -2,17 +2,120 @@ from __future__ import annotations
 
 import logging
 import math
+import random
+import threading
+import time
 from datetime import date, datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
-from app.utils import env as ENV
+import requests
 from app.utils.http import http_get
+from app.utils import env as ENV
 
 # yfinance is optional at runtime; we guard imports and degrade gracefully.
 log = logging.getLogger(__name__)
 
 _CHUNK_SIZE = 50  # keep multi-symbol batches reasonable
 _YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+_YAHOO_BACKOFF = [0.5, 1.0, 2.0]
+
+_breaker_lock = threading.Lock()
+_breaker_failures = 0
+_breaker_open_until = 0.0
+
+
+def yahoo_is_degraded() -> bool:
+    """Return True if the Yahoo provider circuit breaker is open."""
+    with _breaker_lock:
+        return _breaker_open_until > time.monotonic()
+
+
+def _breaker_allow_request() -> Tuple[bool, float]:
+    with _breaker_lock:
+        remaining = _breaker_open_until - time.monotonic()
+        if remaining > 0:
+            return False, remaining
+        return True, 0.0
+
+
+def _breaker_record_throttle() -> None:
+    global _breaker_failures, _breaker_open_until
+    with _breaker_lock:
+        _breaker_failures += 1
+        if _breaker_failures >= 5:
+            _breaker_open_until = time.monotonic() + 60.0
+            _breaker_failures = 0
+            log.warning("yahoo provider circuit opened for 60s due to throttling")
+
+
+def _breaker_record_success() -> None:
+    global _breaker_failures, _breaker_open_until
+    with _breaker_lock:
+        _breaker_failures = 0
+        _breaker_open_until = 0.0
+
+
+def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[int, Dict[str, Any]]:
+    allowed, remaining = _breaker_allow_request()
+    if not allowed:
+        log.debug(
+            "yahoo provider circuit open; skipping request (%.1fs remaining)",
+            remaining,
+        )
+        return 503, {"error": "yahoo_circuit_open"}
+
+    timeout = getattr(ENV, "HTTP_TIMEOUT_SECS", 10)
+    headers = {"User-Agent": getattr(ENV, "HTTP_USER_AGENT", "ai-trader/1.0")}
+
+    for attempt in range(len(_YAHOO_BACKOFF) + 1):
+        try:
+            resp = requests.get(
+                url,
+                params=params or {},
+                headers=headers,
+                timeout=timeout,
+            )
+        except requests.RequestException as exc:
+            log.warning("yahoo request error attempt=%s url=%s error=%s", attempt + 1, url, exc)
+            if attempt < len(_YAHOO_BACKOFF):
+                sleep = _YAHOO_BACKOFF[attempt] * random.uniform(0.75, 1.25)
+                time.sleep(sleep)
+                continue
+            return 599, {}
+
+        text = resp.text or ""
+        throttled = resp.status_code == 429 or "Edge: Too Many Requests" in text
+
+        if throttled:
+            log.warning(
+                "yahoo throttled status=%s attempt=%s url=%s",
+                resp.status_code,
+                attempt + 1,
+                url,
+            )
+            if attempt < len(_YAHOO_BACKOFF):
+                sleep = _YAHOO_BACKOFF[attempt] * random.uniform(0.75, 1.25)
+                time.sleep(sleep)
+                continue
+            _breaker_record_throttle()
+            return resp.status_code or 429, {"error": "yahoo_throttled"}
+
+        _breaker_record_success()
+
+        if 200 <= resp.status_code < 300:
+            try:
+                return resp.status_code, resp.json()
+            except Exception:
+                log.debug("yahoo JSON decode failed for %s", url)
+                return resp.status_code, {}
+
+        try:
+            return resp.status_code, resp.json()
+        except Exception:
+            return resp.status_code, {}
+
+    _breaker_record_throttle()
+    return 429, {"error": "yahoo_throttled"}
 
 if TYPE_CHECKING:
     # for type hints without importing pandas at runtime
@@ -116,13 +219,16 @@ def _fetch_chart_history(
         "period1": str(period1),
         "period2": str(period2),
     }
+
     status, data = http_get(
         _YAHOO_CHART_URL.format(symbol=symbol.upper()),
         params=params,
-        timeout=ENV.HTTP_TIMEOUT,
-        retries=ENV.HTTP_RETRIES,
-        backoff=ENV.HTTP_BACKOFF,
+        timeout=getattr(ENV, "HTTP_TIMEOUT_SECS", 10),
+        retries=getattr(ENV, "HTTP_RETRIES", 2),
+        backoff=getattr(ENV, "HTTP_BACKOFF", [0.5, 1.0, 2.0]),
+        headers={"User-Agent": getattr(ENV, "HTTP_USER_AGENT", "ai-trader/1.0")},
     )
+
     if status != 200:
         chart_err = ((data or {}).get("chart") or {}).get("error")
         log.warning(

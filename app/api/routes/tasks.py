@@ -4,6 +4,9 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+import json
+import time
+
 from app.domain.watchlist_service import resolve_watchlist
 
 tasks_router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -22,6 +25,18 @@ def _send_watchlist(
         return False
 
 
+_build_counters: dict[str, dict[str, int]] = {}
+
+
+def _increment_build_counter(source: str, ok: bool) -> None:
+    bucket = _build_counters.setdefault(source, {"ok": 0, "error": 0})
+    bucket["ok" if ok else "error"] += 1
+
+
+def get_build_counters() -> dict[str, dict[str, int]]:
+    return {k: v.copy() for k, v in _build_counters.items()}
+
+
 def _build_watchlist(
     symbols: Optional[List[str]],
     *,
@@ -29,16 +44,44 @@ def _build_watchlist(
     include_ohlcv: bool,
     limit: int,
 ) -> Dict[str, Any]:
+    start = time.perf_counter()
+    source = "manual"
     try:
         from app.scanners.watchlist_builder import build_watchlist  # type: ignore
 
-        return build_watchlist(
+        result = build_watchlist(
             symbols=symbols,
             include_filters=include_filters,
             include_ohlcv=include_ohlcv,
             limit=limit,
         )
+        if isinstance(result, dict):
+            source = result.get("source", "scanner")
+        duration_ms = (time.perf_counter() - start) * 1000.0
+        _increment_build_counter(source, True)
+        logger.info(
+            "[watchlist:build] %s",
+            {
+                "source": source,
+                "count": result.get("count", 0) if isinstance(result, dict) else 0,
+                "duration_ms": round(duration_ms, 2),
+                "ok": True,
+            },
+        )
+        return result
     except Exception as e:
+        duration_ms = (time.perf_counter() - start) * 1000.0
+        _increment_build_counter(source, False)
+        logger.warning(
+            "[watchlist:build] %s",
+            {
+                "source": source,
+                "count": 0,
+                "duration_ms": round(duration_ms, 2),
+                "ok": False,
+                "error": str(e),
+            },
+        )
         raise HTTPException(status_code=500, detail=f"watchlist error: {e!s}") from e
 
 

@@ -5,6 +5,8 @@ import types
 import pytest
 
 from app.sources import textlist_source
+from fastapi.testclient import TestClient
+from tests.conftest import _outbox, _clear_outbox, client
 
 
 @pytest.fixture(autouse=True)

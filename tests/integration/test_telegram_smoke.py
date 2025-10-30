@@ -1,12 +1,5 @@
 import os
-from fastapi.testclient import TestClient
-from tests.conftest import _outbox, _clear_outbox
-
-os.environ.setdefault("TELEGRAM_ALLOW_TEST_NO_SECRET", "1")
-
-from app.main import app  # noqa
-
-client = TestClient(app)
+from tests.conftest import _outbox, _clear_outbox, client
 
 def _tg_update(text: str):
     return {
@@ -20,6 +13,16 @@ def _tg_update(text: str):
         },
     }
 
-def test_webhook_endpoint_exists():
-    r = client.post("/telegram/webhook", json=_tg_update("/ping"))
+def test_webhook_endpoint_exists(client):
+    r = client.post("/telegram/webhook", json={
+        "update_id": 1001,
+        "message": {
+            "message_id": 111,
+            "from": {"id": 999, "is_bot": False, "first_name": "Test"},
+            "chat": {"id": 42, "type": "private"},
+            "date": 1700000000,
+            "text": "/ping",
+        },
+    })
     assert r.status_code == 200
+    assert "ok" in r.json()

@@ -1,8 +1,9 @@
 from __future__ import annotations
-import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict
+import os
+from urllib.parse import urlparse
 from starlette.concurrency import run_in_threadpool
 
 from fastapi import APIRouter
@@ -18,6 +19,8 @@ except Exception:  # pragma: no cover
         APP_VERSION = "0.1.0"
 
 from app.adapters.db.postgres import ping
+from app.api.routes.tasks import get_build_counters
+from app.domain.watchlist_service import get_counters as get_watchlist_counters
 
 router = APIRouter(tags=["health"])
 
@@ -72,3 +75,88 @@ async def health_market():
 async def version() -> Dict[str, str]:
     """Expose application version for diagnostics and CI smoke tests."""
     return {"version": APP_VERSION}
+
+
+def _mask(value: str | None) -> str:
+    if not value:
+        return ""
+    prefix = 2
+    suffix = 4
+    stripped = value.strip()
+    if len(stripped) <= prefix + suffix:
+        if len(stripped) <= 2:
+            return stripped[:1] + "*" * max(len(stripped) - 1, 0)
+        return stripped[:prefix] + "*" * (len(stripped) - prefix)
+    return stripped[:prefix] + "*" * (len(stripped) - prefix - suffix) + stripped[-suffix:]
+
+
+@router.get("/config")
+async def health_config() -> Dict[str, Any]:
+    env = os.getenv("ENV", "dev").lower()
+
+    telegram_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    telegram_chat = os.getenv("TELEGRAM_DEFAULT_CHAT_ID", "")
+    database_url = os.getenv("DATABASE_URL", "")
+    alpaca_key = os.getenv("ALPACA_API_KEY", "")
+    alpaca_secret = os.getenv("ALPACA_API_SECRET", "")
+    alpaca_feed = os.getenv("ALPACA_FEED", "iex")
+    watchlist_source = os.getenv("WATCHLIST_SOURCE", "")
+    textlist_backends = os.getenv("TEXTLIST_BACKENDS", "")
+
+    has_telegram = bool(telegram_token)
+    has_db = bool(database_url)
+    has_alpaca = bool(alpaca_key and alpaca_secret)
+
+    parsed = urlparse(database_url) if database_url else None
+    db_host = parsed.hostname if parsed else ""
+    db_name = parsed.path.lstrip("/") if parsed else ""
+    masked_db = ""
+    if db_host or db_name:
+        masked_db = f"{_mask(db_host)}/{_mask(db_name)}".strip("/")
+
+    config = {
+        "telegram_bot_token": _mask(telegram_token),
+        "telegram_default_chat_id": telegram_chat,
+        "database_url": masked_db or _mask(database_url),
+        "alpaca_api_key": _mask(alpaca_key),
+        "alpaca_feed": alpaca_feed,
+        "watchlist_source": watchlist_source or "textlist",
+        "textlist_backends": textlist_backends,
+    }
+
+    checks = {
+        "has_telegram_token": has_telegram,
+        "has_db_url": has_db,
+        "has_alpaca_keys": has_alpaca,
+    }
+
+    # Determine overall status
+    required_ok = has_telegram and has_db and has_alpaca
+    status = "ok"
+    if env == "prod" and not required_ok:
+        status = "degraded"
+
+    env_dump = {
+        "ENV": env,
+        "TELEGRAM_BOT_TOKEN": _mask(telegram_token),
+        "TELEGRAM_DEFAULT_CHAT_ID": telegram_chat,
+        "DATABASE_URL": _mask(database_url) or masked_db,
+        "ALPACA_API_KEY": _mask(alpaca_key),
+        "ALPACA_API_SECRET": _mask(alpaca_secret),
+        "ALPACA_FEED": alpaca_feed,
+        "WATCHLIST_SOURCE": watchlist_source or "textlist",
+        "TEXTLIST_BACKENDS": textlist_backends,
+    }
+
+    return {
+        "status": status,
+        "environment": env,
+        "env": env_dump,
+        "checks": checks,
+        "validation": checks,
+        "config": config,
+        "counters": {
+            "watchlist_sources": get_watchlist_counters(),
+            "watchlist_builds": get_build_counters(),
+        },
+    }
