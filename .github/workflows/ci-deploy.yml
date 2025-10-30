@@ -150,39 +150,21 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy
     steps:
-      - name: compute desired URL
+      - name: compute webhook url
         id: url
-        if: env.TELEGRAM_TOKEN && env.TELEGRAM_WEBHOOK_SECRET
         run: |
           if [ -n "${{ github.event.inputs.override_url }}" ]; then
             echo "url=${{ github.event.inputs.override_url }}" >> $GITHUB_OUTPUT
-          elif [ -n "${TELEGRAM_WEBHOOK_URL}" ]; then
-            echo "url=${TELEGRAM_WEBHOOK_URL}" >> $GITHUB_OUTPUT
           else
             echo "url=https://${AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook" >> $GITHUB_OUTPUT
           fi
-          echo "Desired URL: ${{ steps.url.outputs.url }}"
-      - name: get current webhook
-        id: current
+      - name: setWebhook
         if: env.TELEGRAM_TOKEN && env.TELEGRAM_WEBHOOK_SECRET
         run: |
-          set -e
-          curl -sS "https://api.telegram.org/bot${TELEGRAM_TOKEN}/getWebhookInfo" | tee webhook.json
-          CURRENT=$(jq -r '.result.url // ""' webhook.json)
-          echo "current=${CURRENT}" >> $GITHUB_OUTPUT
-          echo "Current URL: ${CURRENT}"
-      - name: set webhook (only if changed or override provided)
-        if: ${{ (env.TELEGRAM_TOKEN != '' && env.TELEGRAM_WEBHOOK_SECRET != '' || inputs.override_url != '') && (steps.current.outputs.current != steps.url.outputs.url || inputs.override_url != '') }}
-        run: |
-          echo "Updating Telegram webhook to: ${{ steps.url.outputs.url }}"
           curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
             -H "Content-Type: application/json" \
-            -d "{\"url\":\"${{ steps.url.outputs.url }}\",\"secret_token\":\"${TELEGRAM_WEBHOOK_SECRET}\"}" \
-            | tee set_result.json
-          jq '.' set_result.json || true
-      - name: noop (already correct)
-        if: ${{ env.TELEGRAM_TOKEN != '' && env.TELEGRAM_WEBHOOK_SECRET != '' && inputs.override_url == '' && steps.current.outputs.current == steps.url.outputs.url }}
-        run: echo "Webhook already up-to-date."
+            -d "{\"url\":\"${{ steps.url.outputs.url }}\",\"secret_token\":\"${TELEGRAM_WEBHOOK_SECRET}\"}"
+          echo "Webhook set to: ${{ steps.url.outputs.url }}"
 
   verify:
     name: verify health
@@ -199,8 +181,8 @@ jobs:
       - name: check /health/db
         run: |
           curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/db" | tee health_db.json
-          OK=$(jq -r '.ok // empty' health_db.json)
-          test "${OK}" = "true"
+          OK=$(jq -r '.ok // .status // empty' health_db.json)
+          test "$OK" = "ok"
       - name: check /health/market
         run: |
           curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
