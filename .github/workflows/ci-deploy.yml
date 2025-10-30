@@ -2,11 +2,11 @@ name: ci-deploy
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     tags:
       - "v*"
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
     inputs:
       override_url:
@@ -33,7 +33,7 @@ env:
   # Production DB (used by the app at runtime, NOT in tests)
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
   # Test DB (keeps CI hermetic)
-  TEST_DATABASE_URL: sqlite:///:memory:
+  TEST_DATABASE_URL: "sqlite:///:memory:"
   # Make tests tolerant to missing Telegram secret in CI
   TELEGRAM_ALLOW_TEST_NO_SECRET: "1"
   ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
