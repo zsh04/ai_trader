@@ -2,11 +2,11 @@ name: ci-deploy
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
     tags:
       - "v*"
   pull_request:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       override_url:
@@ -33,7 +33,7 @@ env:
   # Production DB (used by the app at runtime, NOT in tests)
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
   # Test DB (keeps CI hermetic)
-  TEST_DATABASE_URL: "sqlite:///:memory:"
+  TEST_DATABASE_URL: sqlite:///:memory:
   # Make tests tolerant to missing Telegram secret in CI
   TELEGRAM_ALLOW_TEST_NO_SECRET: "1"
   ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
@@ -51,7 +51,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: "pip"
+          cache: pip
       - name: echo context
         run: |
           echo "APP_VERSION=${APP_VERSION}"
@@ -69,22 +69,25 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: "pip"
+          cache: pip
       - name: install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: sanity import (optional)
         run: |
-          python - <<'PY'
-          import importlib
-          for m in ["app.main", "app.api", "app.adapters.db.postgres"]:
-              try:
-          importlib.import_module(m)
-          print("OK:", m)
-      except Exception as e:
-          print("WARN:", m, e)
-      PY
+          printf '%s\n' \
+            'import importlib, sys' \
+            'mods = ["app.main","app.api","app.adapters.db.postgres"]' \
+            'for m in mods:' \
+            '    try:' \
+            '        importlib.import_module(m)' \
+            '        print("OK:", m)' \
+            '    except Exception as e:' \
+            '        print("WARN:", m, e, file=sys.stderr)' \
+            > sanity.py
+          python sanity.py || true
+
   smoke:
     name: smoke
     runs-on: ubuntu-latest
@@ -95,7 +98,12 @@ jobs:
       - name: docker build
         run: docker build -t ai-trader:test .
       - name: docker run
-        run: docker run -d -p 8000:8000 --name ai-smoke --env-file .env ai-trader:test
+        run: |
+          docker run -d -p 8000:8000 --name ai-smoke \
+            -e ENV=ci \
+            -e TELEGRAM_FAKE=1 \
+            -e TELEGRAM_ALLOW_TEST_NO_SECRET=1 \
+            ai-trader:test
       - name: wait for app
         run: |
           for i in {1..30}; do
@@ -126,7 +134,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: "pip"
+          cache: pip
       - name: install deps
         run: |
           python -m pip install --upgrade pip
@@ -135,6 +143,7 @@ jobs:
         env:
           TEST_DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
           TELEGRAM_ALLOW_TEST_NO_SECRET: ${{ env.TELEGRAM_ALLOW_TEST_NO_SECRET }}
+          TELEGRAM_FAKE: "1"
         run: |
           pytest -q
 
@@ -188,7 +197,7 @@ jobs:
             echo "url=https://${AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook" >> $GITHUB_OUTPUT
           fi
       - name: setWebhook
-        if: env.TELEGRAM_TOKEN && env.TELEGRAM_WEBHOOK_SECRET
+        if: ${{ env.TELEGRAM_TOKEN && env.TELEGRAM_WEBHOOK_SECRET }}
         run: |
           curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
             -H "Content-Type: application/json" \
@@ -215,7 +224,6 @@ jobs:
       - name: check /health/market
         run: |
           curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
-          # Accept ok or degraded; fail only on outright errors
           STATUS=$(jq -r '.status // empty' health_market.json)
           if [ "${STATUS}" != "ok" ] && [ "${STATUS}" != "degraded" ]; then
             echo "Unexpected market status: ${STATUS}"
