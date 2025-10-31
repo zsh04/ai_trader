@@ -7,9 +7,11 @@
 ├── .github
 │   └── workflows
 │       ├── ci-deploy.yml
+│       ├── ci-smoke.yml
 │       ├── lint.yml
 │       └── set_webhook.yml
 ├── .gitignore
+├── .pytest.ini
 ├── .pytest_cache
 │   ├── .gitignore
 │   ├── CACHEDIR.TAG
@@ -29,7 +31,6 @@
 ├── Makefile
 ├── README.md
 ├── ai_trader_logs
-├── ai_trader_snapshot.zip
 ├── alembic.ini
 ├── app
 │   ├── __init__.py
@@ -46,7 +47,7 @@
 │   │   │   └── telegram.py
 │   │   ├── storage
 │   │   │   ├── __init__.py
-│   │   │   └── blob.py
+│   │   │   └── azure_blob.py
 │   │   └── telemetry
 │   │       ├── __init__.py
 │   │       └── logging.py
@@ -61,7 +62,8 @@
 │   │       ├── __init__.py
 │   │       ├── health.py
 │   │       ├── tasks.py
-│   │       └── telegram.py
+│   │       ├── telegram.py
+│   │       └── watchlists.py
 │   ├── backtest
 │   │   ├── __init__.py
 │   │   ├── engine.py
@@ -80,6 +82,8 @@
 │   │   └── data_client.py
 │   ├── domain
 │   │   ├── __init__.py
+│   │   ├── watchlist_models.py
+│   │   ├── watchlist_repo.py
 │   │   ├── watchlist_service.py
 │   │   └── watchlist_utils.py
 │   ├── execution
@@ -90,14 +94,22 @@
 │   │   ├── __init__.py
 │   │   ├── indicators.py
 │   │   └── mtf_aggregate.py
+│   ├── filters
+│   │   ├── __init__.py
+│   │   ├── base.py
+│   │   └── volatility.py
 │   ├── main.py
 │   ├── monitoring
 │   │   ├── __init__.py
 │   │   └── dashboard.py
+│   ├── probability
+│   │   └── __init__.py
 │   ├── providers
 │   │   ├── __init__.py
 │   │   ├── alpaca_provider.py
 │   │   └── yahoo_provider.py
+│   ├── repositories
+│   │   └── watchlist_index.py
 │   ├── scanners
 │   │   ├── __init__.py
 │   │   ├── intraday_scanner.py
@@ -112,6 +124,9 @@
 │   ├── sources
 │   │   ├── __init__.py
 │   │   ├── finviz_source.py
+│   │   ├── text
+│   │   │   ├── discord_text.py
+│   │   │   └── signal_text.py
 │   │   └── textlist_source.py
 │   ├── strats
 │   │   ├── __init__.py
@@ -155,12 +170,15 @@
 │   │   ├── CONTRIBUTING.md
 │   │   ├── GLOSSARY.md
 │   │   └── LICENSE
+│   ├── research
+│   │   └── data_sources.md
 │   └── specs
 │       ├── CONFIG.md
 │       ├── DASHBOARD_SPEC.md
 │       ├── DATA_SCHEMA.md
 │       ├── RISK_POLICY.md
 │       ├── SESSION_MODEL.md
+│       ├── SOURCES.md
 │       └── WATCHLIST_SPEC.md
 ├── dump_json
 ├── ecosystem.config.cjs
@@ -199,16 +217,24 @@
 ├── test_format.py
 └── tests
     ├── __init__.py
+    ├── adapters
+    │   └── test_azure_blob_adapter.py
     ├── api
     ├── backtest
     │   └── test_metrics.py
     ├── bootstrap
     │   └── __init__.py
-    ├── confest.py
+    ├── conftest.py
     ├── data
     │   └── test_data_client.py
+    ├── filters
+    │   ├── __init__.py
+    │   └── test_volatility_filter.py
     ├── integration
-    │   └── test_app.py
+    │   ├── test_app.py
+    │   └── test_telegram_smoke.py
+    ├── probability
+    │   └── __init__.py
     ├── providers
     │   └── test_yahoo_provider.py
     ├── sources
@@ -221,15 +247,23 @@
     ├── test_config.py
     ├── test_smoke.py
     ├── unit
+    │   ├── test_health_config.py
     │   ├── test_market_alpaca_client.py
+    │   ├── test_telegram_watchlist_command.py
+    │   ├── test_telegram_webhook.py
+    │   ├── test_textlist_source.py
     │   ├── test_watchlist_builder.py
+    │   ├── test_watchlist_manual.py
     │   ├── test_watchlist_route.py
     │   ├── test_watchlist_service.py
-    │   └── test_watchlist_utils.py
+    │   ├── test_watchlist_sources_unified.py
+    │   ├── test_watchlist_utils.py
+    │   ├── test_webhook_bypass.py
+    │   └── test_yahoo_breaker.py
     ├── utils
     │   ├── test_env.py
     │   ├── test_http.py
     │   └── test_normalize.py
     └── wiring
 
-58 directories, 175 files
+66 directories, 201 files

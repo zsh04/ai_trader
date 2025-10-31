@@ -8,7 +8,6 @@ from fastapi.responses import JSONResponse
 import re
 import json
 from contextlib import contextmanager
-
 from app.adapters.notifiers.telegram import format_watchlist_message
 from app.scanners.watchlist_builder import build_watchlist
 from app.utils.normalize import (

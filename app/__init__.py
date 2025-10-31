@@ -2,6 +2,6 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-__version__ = "1.6.0"
+__version__ = "1.6.6"
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")

@@ -1,0 +1,25 @@
+# .github/workflows/ci-smoke.yml
+name: CI Smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -U pip
+      - run: pip install -r requirements.txt
+      - name: Run focused smoke
+        env:
+          ENV: "test"
+          HTTP_RETRIES: "2"
+          HTTP_BACKOFF: "0.1"
+          WATCHLIST_SOURCE: "textlist"
+          TELEGRAM_FAKE: "1"
+        run: |
+          pytest -q -k "health_config or yahoo_provider or azure_blob_adapter"
