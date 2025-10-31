@@ -97,6 +97,9 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
                 f"got {len(features)}"
             )
 
+            self._fitted = False
+            return self
+        
         # Fit HMM
         self.hmm.fit(features)
 
@@ -110,6 +113,10 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
                 state_means.append((i, mean_atr))
 
         # Sort by volatility
+        # self.hmm.means_ is shape (n_components, n_features)
+        state_means = [(i, mean[0]) for i, mean in enumerate(self.hmm.means_)]
+        
+        # Sort by volatility (mean of the first feature - ATR)
         state_means.sort(key=lambda x: x[1])
 
         # Map indices to labels
