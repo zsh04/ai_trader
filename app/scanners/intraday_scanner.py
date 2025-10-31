@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 from app.data.data_client import get_universe
 from app.providers.yahoo_provider import (
-    get_history_daily,  # daily history for ADV computation
+    get_history_daily,
     intraday_last,
     latest_volume,
 )
@@ -15,21 +15,37 @@ from app.providers.yahoo_provider import (
 NY_TZ = ZoneInfo("America/New_York")
 SESSION_OPEN = time(9, 30)
 SESSION_CLOSE = time(16, 0)
-SESSION_MINUTES = 390  # 6.5 hours
+SESSION_MINUTES = 390
 
 
 @dataclass
 class IntradayParams:
+    """
+    A data class for intraday scanner parameters.
+
+    Attributes:
+        rvol_threshold (float): The relative volume threshold.
+        min_price (float): The minimum price.
+        min_curr_vol (int): The minimum current volume.
+        adv_window (int): The average daily volume window.
+        max_symbols (int): The maximum number of symbols to scan.
+    """
     rvol_threshold: float = 1.8
     min_price: float = 3.0
     min_curr_vol: int = 250_000
     adv_window: int = 20
-    max_symbols: int = 200  # cap universe for speed
+    max_symbols: int = 200
 
 
 def _minutes_since_open(now: Optional[datetime] = None) -> int:
     """
-    Minutes since regular session open (NYSE) clamped to [1, 390].
+    Calculates the number of minutes since the market opened.
+
+    Args:
+        now (Optional[datetime]): The current time.
+
+    Returns:
+        int: The number of minutes since the market opened.
     """
     now = now or datetime.now(tz=NY_TZ)
     open_dt = datetime.combine(now.date(), SESSION_OPEN, tzinfo=NY_TZ)
@@ -39,22 +55,33 @@ def _minutes_since_open(now: Optional[datetime] = None) -> int:
 
 def _expected_volume_fraction(now: Optional[datetime] = None) -> float:
     """
-    Rough linear fraction of the day that has elapsed (regular session only).
+    Calculates the expected volume fraction.
+
+    Args:
+        now (Optional[datetime]): The current time.
+
+    Returns:
+        float: The expected volume fraction.
     """
     return _minutes_since_open(now) / SESSION_MINUTES
 
 
 def _adv20(symbol: str, window: int) -> Optional[float]:
     """
-    Compute ADV over `window` *previous* sessions (exclude today).
+    Calculates the 20-day average daily volume.
+
+    Args:
+        symbol (str): The symbol to calculate the ADV for.
+        window (int): The lookback window.
+
+    Returns:
+        Optional[float]: The 20-day ADV, or None if not available.
     """
     try:
-        # 60 trading days back is plenty to cover a 20d lookback
         start = datetime.now(tz=NY_TZ).date() - timedelta(days=90)
         df = get_history_daily(symbol, start=start.isoformat())
         if df is None or df.empty or "volume" not in df.columns:
             return None
-        # Drop the last row if it's today (sometimes yfinance includes partial)
         if df.index[-1].date() == datetime.now(tz=NY_TZ).date():
             df = df.iloc[:-1]
         lookback = df.tail(window)
@@ -66,6 +93,17 @@ def _adv20(symbol: str, window: int) -> Optional[float]:
 
 
 def _tag_reasons(last: float, rvol: Optional[float], adv: Optional[float]) -> List[str]:
+    """
+    Tags the reasons for a symbol being included in a scan.
+
+    Args:
+        last (float): The last price.
+        rvol (Optional[float]): The relative volume.
+        adv (Optional[float]): The average daily volume.
+
+    Returns:
+        List[str]: A list of tags.
+    """
     tags: List[str] = []
     if rvol is not None:
         if rvol >= 3:
@@ -87,27 +125,23 @@ def scan_intraday(
     params: Optional[IntradayParams] = None,
 ) -> List[Dict]:
     """
-    Intraday scanner to detect RVOL spikes / range expansions using Yahoo Finance data.
+    Scans for intraday trading opportunities.
 
-    Heuristics:
-      - Compute current rVOL ≈ current_volume / (ADV20 * elapsed_fraction)
-      - Filter by price and liquidity thresholds
-      - Return compact dicts suitable for watchlist/notifications
+    Args:
+        symbols (Optional[Iterable[str]]): A list of symbols to scan.
+        params (Optional[IntradayParams]): The parameters for the scan.
 
-    Notes:
-      - Uses batched calls for current last and volume.
-      - ADV20 is computed per symbol (one by one); cap the universe for speed.
+    Returns:
+        List[Dict]: A list of dictionaries, where each dictionary represents a trading opportunity.
     """
     p = params or IntradayParams()
 
-    # Universe
     uni = list(symbols or get_universe())
     if not uni:
         return []
     if len(uni) > p.max_symbols:
         uni = uni[: p.max_symbols]
 
-    # Current price and volume (batched)
     last_map: Dict[str, float] = intraday_last(uni)
     vol_map: Dict[str, int] = latest_volume(uni)
 
@@ -118,7 +152,6 @@ def scan_intraday(
         last = float(last_map.get(sym) or 0.0)
         vol = int(vol_map.get(sym) or 0)
 
-        # Quick price/vol guard
         if last < p.min_price or vol < p.min_curr_vol:
             continue
 
@@ -128,7 +161,6 @@ def scan_intraday(
             rvol = vol / (adv * frac)
 
         if rvol is None or rvol < p.rvol_threshold:
-            # Still allow through if volume is exceptionally high (e.g., news)
             if vol < max(2 * p.min_curr_vol, (adv or 0) * 0.25):
                 continue
 
@@ -144,7 +176,6 @@ def scan_intraday(
         }
         out.append(entry)
 
-    # Sort by rvol desc, then volume desc
     out.sort(
         key=lambda d: (float(d.get("rvol") or 0), int(d.get("volume") or 0)),
         reverse=True,

@@ -2,10 +2,20 @@ from datetime import datetime, timezone
 
 
 def utc_now():
-    """Return current UTC datetime with tzinfo."""
+    """
+    Returns the current UTC datetime.
+
+    Returns:
+        datetime: The current UTC datetime.
+    """
     return datetime.now(timezone.utc)
 
 
 def utc_iso():
-    """Return current UTC datetime as ISO string."""
+    """
+    Returns the current UTC datetime as an ISO string.
+
+    Returns:
+        str: The current UTC datetime as an ISO string.
+    """
     return utc_now().isoformat()

@@ -22,16 +22,15 @@ from app.backtest.model import BetaWinrate
 from app.providers.yahoo_provider import get_history_daily
 from app.strats.breakout import BreakoutParams, generate_signals
 
-# ------------------------------------------------------------------------------
-# Logging
-# ------------------------------------------------------------------------------
 log = logging.getLogger(__name__)
 
 
 def _setup_cli_logging(level: int = logging.INFO) -> None:
     """
-    Idempotent CLI logging initializer. Keeps uvicorn/fastapi logs quiet when used as a script,
-    and provides consistent formatting for CI logs.
+    Sets up CLI logging.
+
+    Args:
+        level (int): The logging level.
     """
     root = logging.getLogger()
     if not root.handlers:
@@ -44,10 +43,20 @@ def _setup_cli_logging(level: int = logging.INFO) -> None:
 
 
 def _roundish(x, ndigits=4):
+    """
+    Rounds a number to a given number of digits.
+
+    Args:
+        x: The number to round.
+        ndigits (int): The number of digits to round to.
+
+    Returns:
+        The rounded number.
+    """
     if isinstance(x, (float, np.floating)):
         if math.isfinite(float(x)):
             return round(float(x), ndigits)
-        return str(x)  # inf / -inf
+        return str(x)
     if isinstance(x, (int, np.integer)):
         return int(x)
     if isinstance(x, Timestamp):
@@ -60,11 +69,17 @@ def _try_backtest(
     base_kwargs: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """
-    Call backtest_long_only with a sequence of likely signatures to avoid flatline
-    due to missing initial capital / fractional share flags across versions.
+    Tries to run a backtest with different signatures.
+
+    Args:
+        engine_fn (Callable[..., Dict[str, Any]]): The backtest engine function.
+        base_kwargs (Dict[str, Any]): The base keyword arguments.
+
+    Returns:
+        Tuple[Dict[str, Any], Dict[str, Any]]: A tuple of (result, extra_kwargs).
     """
     trials = [
-        {},  # as-is
+        {},
         {"initial_equity": 100_000.0},
         {"init_equity": 100_000.0},
         {"starting_equity": 100_000.0},
@@ -81,7 +96,6 @@ def _try_backtest(
             return engine_fn(**{**base_kwargs, **extra}), extra
         except TypeError:
             continue
-    # final attempt: run as-is
     return engine_fn(**base_kwargs), {}
 
 
@@ -101,7 +115,21 @@ def run(
     export_csv: str | None = None,
 ) -> None:
     """
-    Execute a long-only breakout backtest for a single symbol.
+    Runs a breakout backtest.
+
+    Args:
+        symbol (str): The symbol to backtest.
+        start (str): The start date of the backtest.
+        end (str | None): The end date of the backtest.
+        params_kwargs (Dict[str, Any]): The parameters for the strategy.
+        slippage_bps (float | None): The slippage in basis points.
+        fee_per_share (float | None): The fee per share.
+        risk_frac_override (float | None): The risk fraction override.
+        min_notional (float): The minimum notional value.
+        debug (bool): Whether to enable debug logging.
+        debug_signals (bool): Whether to debug signals.
+        debug_entries (bool): Whether to debug entries.
+        export_csv (str | None): The path to export the results to.
     """
     start_dt = pd.to_datetime(start).date()
     end_dt = pd.to_datetime(end).date() if end else datetime.now(UTC).date()
@@ -117,15 +145,12 @@ def run(
         )
         return
 
-    # Strategy params
     p = BreakoutParams(**params_kwargs)
     sig = generate_signals(df, asdict(p))
 
-    # Engine OHLC input (ensure lowercase columns)
     if all(c in sig.columns for c in ["open", "high", "low", "close"]):
         df_engine = sig[["open", "high", "low", "close"]].copy()
     else:
-        # Fallback to original df (supporting the provider’s column names)
         df_engine = df.rename(
             columns={"Open": "open", "High": "high", "Low": "low", "Close": "close"}
         )
@@ -133,7 +158,6 @@ def run(
         if missing:
             raise ValueError(f"OHLC columns missing for engine: {missing}")
 
-    # Convert persistent states to one-bar events
     entry_state = sig.get("long_entry", pd.Series(False, index=df_engine.index)).astype(
         bool
     )
@@ -144,13 +168,10 @@ def run(
     entry_event = entry_state & ~entry_state.shift(1, fill_value=False)
     exit_event = exit_state & ~exit_state.shift(1, fill_value=False)
 
-    # If engine executes next-bar by design and we are NOT entering on break bar,
-    # shift the edge events to the following bar.
     if not getattr(p, "enter_on_break_bar", False):
         entry_event = entry_event.shift(1, fill_value=False)
         exit_event = exit_event.shift(1, fill_value=False)
 
-    # Sanity: keep indexes aligned and dtype boolean
     if not entry_event.index.equals(df_engine.index) or not exit_event.index.equals(
         df_engine.index
     ):
@@ -159,7 +180,6 @@ def run(
     entry_event = entry_event.astype(bool)
     exit_event = exit_event.astype(bool)
 
-    # Diagnostics
     if debug:
         log.debug(
             "Signals: entries=%d exits=%d rows=%d",
@@ -173,7 +193,6 @@ def run(
             int(exit_event.sum()),
         )
 
-    # Optional signal dumps
     if debug_signals:
         cols_dbg_all = [
             c
@@ -218,8 +237,8 @@ def run(
 
     bt_kwargs: Dict[str, Any] = dict(
         df=df_engine,
-        entry=entry_event,  # pass one-bar boolean events (Series for engine .iloc)
-        exit_=exit_event,  # pass one-bar boolean events
+        entry=entry_event,
+        exit_=exit_event,
         atr=atr_series,
         entry_price=p.entry_price,
         atr_mult=p.atr_mult,
@@ -238,7 +257,6 @@ def run(
     if used_extra:
         log.debug("backtest_long_only extra kwargs applied: %s", used_extra)
 
-    # Introspection
     try:
         trades_obj = res.get("trades")
         trades_len = len(trades_obj) if hasattr(trades_obj, "__len__") else -1
@@ -263,7 +281,6 @@ def run(
     except Exception as e_keys:
         log.debug("Result introspection failed: %s", e_keys)
 
-    # Equity flatline diagnostics
     try:
         eq = res.get("equity")
         flat = False
@@ -313,7 +330,6 @@ def run(
     except Exception as e_diag:
         log.debug("Equity-flat diagnostics failed: %s", e_diag)
 
-    # Metrics & outputs
     m = bt_metrics.equity_stats(res["equity"], use_mtm=True)
     m_dict = asdict(m)
     m_pretty = {k: _roundish(v) for k, v in m_dict.items()}
@@ -358,7 +374,6 @@ def run(
 
 
 if __name__ == "__main__":
-    # Minimal logging config for CLI use; app runtime can configure root logging.
     _setup_cli_logging(logging.INFO)
 
     ap = argparse.ArgumentParser(
@@ -394,7 +409,6 @@ if __name__ == "__main__":
         help="Directory to write <symbol>_equity.csv and <symbol>_trades.csv exports",
     )
 
-    # --- Strategy Parameters ---
     ap.add_argument("--lookback", type=int, help="Breakout lookback window length")
     ap.add_argument(
         "--ema", dest="ema_fast", type=int, help="EMA length for trend filter"
@@ -488,7 +502,6 @@ if __name__ == "__main__":
         help="Enter on the same bar as the breakout (no shift)",
     )
 
-    # --- Backtest / Risk Parameters ---
     ap.add_argument(
         "--slippage-bps",
         dest="slippage_bps",
@@ -512,7 +525,6 @@ if __name__ == "__main__":
         help="Minimum notional value per trade (default: 100.0)",
     )
 
-    # --- Debug / Diagnostics ---
     ap.add_argument(
         "--debug",
         dest="debug",
@@ -541,7 +553,6 @@ if __name__ == "__main__":
     if args.no_save:
         os.environ["BACKTEST_NO_SAVE"] = "1"
 
-    # Build kwargs for BreakoutParams
     candidate_keys = [
         "lookback",
         "ema_fast",
@@ -560,7 +571,6 @@ if __name__ == "__main__":
     raw_kwargs = {
         k: getattr(args, k) for k in candidate_keys if getattr(args, k) is not None
     }
-    # Filter out any keys not supported by BreakoutParams (handles version drift)
     try:
         allowed_keys = set(getattr(BreakoutParams, "__annotations__", {}).keys())
     except Exception:
@@ -583,7 +593,6 @@ if __name__ == "__main__":
             export_csv=args.export_csv,
         )
         if args.print_metrics_json:
-            # Determine output file and emit metrics as JSON if available
             out_dir = os.getenv("BACKTEST_OUT_DIR", ".")
             out = os.path.join(out_dir, f"backtest_{args.symbol}.csv")
             if os.path.exists(out):

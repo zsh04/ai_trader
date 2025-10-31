@@ -14,75 +14,100 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Optional
 
-try:  # optional dependency
-    import pandas as pd  # type: ignore
-    import pandas_market_calendars as mcal  # type: ignore
-except Exception:  # pragma: no cover - optional path
+try:
+    import pandas as pd
+    import pandas_market_calendars as mcal
+except Exception:
     pd = None
     mcal = None
 
 try:
-    from zoneinfo import ZoneInfo  # py>=3.9
-except Exception:  # pragma: no cover
-    ZoneInfo = None  # type: ignore
+    from zoneinfo import ZoneInfo
+except Exception:
+    ZoneInfo = None
 
-# Defaults
 DEFAULT_MARKETS = ["XNYS", "XNAS"]
 DEFAULT_MARKET = DEFAULT_MARKETS[0]
 LOCAL_TZ = "America/Los_Angeles"
 
 
-# ----------------------------- helpers ---------------------------------
-
-
 def _tz(tz: Optional[str]) -> dt.tzinfo:
+    """
+    Returns a timezone object.
+
+    Args:
+        tz (Optional[str]): The timezone string.
+
+    Returns:
+        dt.tzinfo: A timezone object.
+    """
     if tz and ZoneInfo:
         return ZoneInfo(tz)
-    # Fallback to UTC if zoneinfo not present
     return dt.timezone.utc
 
 
 @lru_cache(maxsize=8)
 def _calendar(market: str = DEFAULT_MARKET):
+    """
+    Returns a market calendar.
+
+    Args:
+        market (str): The market to get the calendar for.
+
+    Returns:
+        A market calendar object.
+    """
     if mcal is None:
         return None
     return mcal.get_calendar(market)
 
 
 def _to_date(x: dt.date | dt.datetime | str) -> dt.date:
+    """
+    Converts a value to a date.
+
+    Args:
+        x (dt.date | dt.datetime | str): The value to convert.
+
+    Returns:
+        dt.date: A date object.
+    """
     if isinstance(x, dt.datetime):
         return x.date()
     if isinstance(x, dt.date):
         return x
-    # string
     return dt.date.fromisoformat(x)
 
 
 def _today_local() -> dt.date:
+    """
+    Returns the current date in the local timezone.
+
+    Returns:
+        dt.date: The current date.
+    """
     tz = _tz(LOCAL_TZ)
     now = dt.datetime.now(tz)
     return now.date()
 
 
-# ------------------------------ API ------------------------------------
-
-
 def is_trading_day(
     x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET
 ) -> bool:
-    """Return True if *x* is a trading day for *market*.
+    """
+    Checks if a given date is a trading day.
 
-    Uses `pandas_market_calendars` when available, otherwise falls back to
-    a simple Mon–Fri check.
+    Args:
+        x (dt.date | dt.datetime | str): The date to check.
+        market (str): The market to check against.
 
-    Supports markets: XNYS, XNAS by default.
+    Returns:
+        bool: True if the date is a trading day, False otherwise.
     """
     d = _to_date(x)
     cal = _calendar(market)
     if cal is None:
-        # Fallback: Monday–Friday only (no holiday awareness)
         return d.weekday() < 5
-    # pmc path
     valid = cal.valid_days(start_date=d, end_date=d)
     return len(valid) > 0
 
@@ -90,20 +115,24 @@ def is_trading_day(
 def next_trading_day(
     x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET
 ) -> dt.date:
-    """Return the next trading day on/after *x* (strictly after if *x* is trading).
+    """
+    Returns the next trading day.
 
-    Supports markets: XNYS, XNAS by default.
+    Args:
+        x (dt.date | dt.datetime | str): The date to start from.
+        market (str): The market to check against.
+
+    Returns:
+        dt.date: The next trading day.
     """
     d = _to_date(x)
     cal = _calendar(market)
     if cal is None:
-        # Fallback: iterate Mon–Fri
         d2 = d + dt.timedelta(days=1)
         while d2.weekday() >= 5:
             d2 += dt.timedelta(days=1)
         return d2
     days = cal.valid_days(start_date=d, end_date=d + dt.timedelta(days=10))
-    # `valid_days` returns business days; if d is trading day, first element is d
     if len(days) == 0:
         return d
     if pd is not None and isinstance(days, pd.DatetimeIndex) and days[0].date() == d:
@@ -114,9 +143,15 @@ def next_trading_day(
 def previous_trading_day(
     x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET
 ) -> dt.date:
-    """Return the previous trading day before *x*.
+    """
+    Returns the previous trading day.
 
-    Supports markets: XNYS, XNAS by default.
+    Args:
+        x (dt.date | dt.datetime | str): The date to start from.
+        market (str): The market to check against.
+
+    Returns:
+        dt.date: The previous trading day.
     """
     d = _to_date(x)
     cal = _calendar(market)
@@ -128,7 +163,6 @@ def previous_trading_day(
     days = cal.valid_days(start_date=d - dt.timedelta(days=10), end_date=d)
     if len(days) == 0:
         return d
-    # last valid day strictly before d
     if pd is not None and isinstance(days, pd.DatetimeIndex) and days[-1].date() == d:
         return days[-2].date() if len(days) > 1 else d
     return days[-1].date()
@@ -136,6 +170,13 @@ def previous_trading_day(
 
 @dataclass(frozen=True)
 class MarketHours:
+    """
+    A data class for market hours.
+
+    Attributes:
+        market_open (dt.datetime): The market open time.
+        market_close (dt.datetime): The market close time.
+    """
     market_open: dt.datetime
     market_close: dt.datetime
 
@@ -143,11 +184,16 @@ class MarketHours:
 def market_hours(
     x: dt.date | dt.datetime | str, market: str = DEFAULT_MARKET, tz: str = LOCAL_TZ
 ) -> Optional[MarketHours]:
-    """Return local-market open/close datetimes for *x*.
+    """
+    Returns the market hours for a given date.
 
-    If pmc is not installed, returns None.
+    Args:
+        x (dt.date | dt.datetime | str): The date to get the market hours for.
+        market (str): The market to get the hours for.
+        tz (str): The timezone to return the hours in.
 
-    Supports markets: XNYS, XNAS by default.
+    Returns:
+        Optional[MarketHours]: A MarketHours object, or None if the market is closed.
     """
     d = _to_date(x)
     cal = _calendar(market)
@@ -157,7 +203,6 @@ def market_hours(
     if sched.empty:
         return None
     row = sched.iloc[0]
-    # pmc returns tz-aware timestamps in UTC by default; convert to requested tz
     tzinfo = _tz(tz)
     op = row["market_open"].to_pydatetime().astimezone(tzinfo)
     cl = row["market_close"].to_pydatetime().astimezone(tzinfo)
@@ -167,9 +212,16 @@ def market_hours(
 def is_market_open(
     ts: Optional[dt.datetime] = None, market: str = DEFAULT_MARKET, tz: str = LOCAL_TZ
 ) -> bool:
-    """Return True if the market is open at *ts* (defaults to now in local time).
+    """
+    Checks if the market is open at a given time.
 
-    Supports markets: XNYS, XNAS by default.
+    Args:
+        ts (Optional[dt.datetime]): The time to check.
+        market (str): The market to check against.
+        tz (str): The timezone to check in.
+
+    Returns:
+        bool: True if the market is open, False otherwise.
     """
     tzinfo = _tz(tz)
     ts = (
@@ -179,7 +231,6 @@ def is_market_open(
     )
     hours = market_hours(ts.date(), market=market, tz=tz)
     if hours is None:
-        # Fallback: between 9:30 and 16:00 local time on weekdays
         if ts.weekday() >= 5:
             return False
         open_time = ts.replace(hour=9, minute=30, second=0, microsecond=0)

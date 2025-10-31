@@ -11,12 +11,17 @@ from app.utils import env as ENV
 
 log = logging.getLogger(__name__)
 
-# ------------------------------------------------------------------------------
-# Header helpers
-# ------------------------------------------------------------------------------
-
 
 def _ensure_ua(headers: Optional[Dict[str, str]]) -> Dict[str, str]:
+    """
+    Ensures that a User-Agent header is present in a dictionary of headers.
+
+    Args:
+        headers (Optional[Dict[str, str]]): A dictionary of headers.
+
+    Returns:
+        Dict[str, str]: A dictionary of headers with a User-Agent header.
+    """
     merged = {"User-Agent": ENV.HTTP_USER_AGENT}
     if headers:
         merged.update(headers)
@@ -24,8 +29,11 @@ def _ensure_ua(headers: Optional[Dict[str, str]]) -> Dict[str, str]:
 
 
 def alpaca_headers() -> Dict[str, str]:
-    """Standard Alpaca auth + JSON + UA headers.
-    Returns minimal JSON headers if keys are missing so callers can handle 401s.
+    """
+    Returns a dictionary of headers for Alpaca API requests.
+
+    Returns:
+        Dict[str, str]: A dictionary of headers.
     """
     base = {
         "Accept": "application/json",
@@ -39,20 +47,33 @@ def alpaca_headers() -> Dict[str, str]:
 
 
 def with_alpaca(headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
-    """Merge caller headers with alpaca auth + UA."""
+    """
+    Merges a dictionary of headers with the default Alpaca headers.
+
+    Args:
+        headers (Optional[Dict[str, str]]): A dictionary of headers.
+
+    Returns:
+        Dict[str, str]: A merged dictionary of headers.
+    """
     merged = alpaca_headers()
     if headers:
         merged.update(headers)
     return merged
 
 
-# ------------------------------------------------------------------------------
-# Core HTTP (JSON) with retries and jittered backoff
-# ------------------------------------------------------------------------------
-
-
 def _compute_sleep(attempt: int, backoff: float, retry_after: Optional[str]) -> float:
-    # Respect Retry-After if present and valid
+    """
+    Computes the sleep time for a retry.
+
+    Args:
+        attempt (int): The current retry attempt.
+        backoff (float): The backoff factor.
+        retry_after (Optional[str]): The value of the Retry-After header.
+
+    Returns:
+        float: The sleep time in seconds.
+    """
     if retry_after:
         try:
             val = float(retry_after)
@@ -60,7 +81,6 @@ def _compute_sleep(attempt: int, backoff: float, retry_after: Optional[str]) -> 
                 return val
         except Exception:
             pass
-    # Jittered backoff: base * (attempt+1) * (0.85..1.15)
     jitter = random.uniform(0.85, 1.15)
     return max(0.1, backoff * (attempt + 1) * jitter)
 
@@ -76,6 +96,19 @@ def _log_http_event(
     start_time: float,
     note: str = "",
 ) -> None:
+    """
+    Logs an HTTP event.
+
+    Args:
+        level (int): The logging level.
+        method (str): The HTTP method.
+        url (str): The URL.
+        status (int): The HTTP status code.
+        attempt (int): The current retry attempt.
+        retries (int): The total number of retries.
+        start_time (float): The start time of the request.
+        note (str): An optional note.
+    """
     latency_ms = round((time.perf_counter() - start_time) * 1000.0, 1)
     log.log(
         level,
@@ -103,12 +136,23 @@ def request_json(
     backoff: Optional[float] = None,
     session: Optional[requests.Session] = None,
 ) -> Tuple[int, Dict[str, Any]]:
-    """Make an HTTP request expecting JSON. Returns (status_code, json_dict).
+    """
+    Makes an HTTP request and returns the JSON response.
 
-    - Retries on 408/429/5xx and network errors up to `retries` times with jittered backoff.
-    - Respects `Retry-After` header when present.
-    - On non-JSON responses, returns empty dict.
-    - On repeated network failure, returns (599, {}).
+    Args:
+        method (str): The HTTP method.
+        url (str): The URL to request.
+        params (Optional[Dict[str, Any]]): The request parameters.
+        headers (Optional[Dict[str, str]]): The request headers.
+        json (Optional[Dict[str, Any]]): The request JSON body.
+        data (Any): The request data.
+        timeout (Optional[int]): The request timeout.
+        retries (Optional[int]): The number of retries.
+        backoff (Optional[float]): The backoff factor.
+        session (Optional[requests.Session]): The request session.
+
+    Returns:
+        Tuple[int, Dict[str, Any]]: A tuple of (status_code, response_data).
     """
     timeout = timeout if timeout is not None else ENV.HTTP_TIMEOUT_SECS
     retries = (
@@ -136,7 +180,6 @@ def request_json(
                 timeout=timeout,
             )
 
-            # Success path
             if 200 <= resp.status_code < 300:
                 _log_http_event(
                     level=logging.INFO,
@@ -154,7 +197,6 @@ def request_json(
                     log.exception("JSON decode failed for %s", url)
                     return resp.status_code, {}
 
-            # Retryable?
             retryable = resp.status_code in {408, 429, 500, 502, 503, 504}
             if retryable and attempt < retries:
                 sleep_s = _compute_sleep(
@@ -182,7 +224,6 @@ def request_json(
                 time.sleep(sleep_s)
                 continue
 
-            # Non-retriable or exhausted
             _log_http_event(
                 level=logging.WARNING,
                 method=method,
@@ -196,7 +237,6 @@ def request_json(
             try:
                 return resp.status_code, resp.json()
             except Exception:
-                # Truncate body for logging
                 body = (resp.text or "")[:400]
                 log.debug("Non-JSON response for %s: %s", url, body)
                 return resp.status_code, {}
@@ -233,11 +273,6 @@ def request_json(
     return 599, {}
 
 
-# ------------------------------------------------------------------------------
-# Convenience wrappers (backward compatible signatures)
-# ------------------------------------------------------------------------------
-
-
 def http_get(
     url: str,
     params: Optional[Dict[str, Any]] = None,
@@ -247,6 +282,20 @@ def http_get(
     retries: Optional[int] = None,
     backoff: Optional[float] = None,
 ) -> Tuple[int, Dict[str, Any]]:
+    """
+    Makes an HTTP GET request and returns the JSON response.
+
+    Args:
+        url (str): The URL to request.
+        params (Optional[Dict[str, Any]]): The request parameters.
+        headers (Optional[Dict[str, str]]): The request headers.
+        timeout (Optional[int]): The request timeout.
+        retries (Optional[int]): The number of retries.
+        backoff (Optional[float]): The backoff factor.
+
+    Returns:
+        Tuple[int, Dict[str, Any]]: A tuple of (status_code, response_data).
+    """
     return request_json(
         "GET",
         url,
@@ -267,7 +316,20 @@ def http_post_json(
     retries: Optional[int] = None,
     backoff: Optional[float] = None,
 ) -> Tuple[int, Dict[str, Any]]:
-    # Ensure JSON content-type by default
+    """
+    Makes an HTTP POST request with a JSON body and returns the JSON response.
+
+    Args:
+        url (str): The URL to request.
+        json_body (Optional[Dict[str, Any]]): The request JSON body.
+        headers (Optional[Dict[str, str]]): The request headers.
+        timeout (Optional[int]): The request timeout.
+        retries (Optional[int]): The number of retries.
+        backoff (Optional[float]): The backoff factor.
+
+    Returns:
+        Tuple[int, Dict[str, Any]]: A tuple of (status_code, response_data).
+    """
     h = {"Accept": "application/json", "Content-Type": "application/json"}
     if headers:
         h.update(headers)

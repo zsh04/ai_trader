@@ -10,8 +10,6 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 
 from app.config import settings
-
-# bring routers in explicitly
 from app.api.routes.health import router as health_router
 from app.api.routes.tasks import tasks_router, public_router
 from app.api.routes.telegram import router as telegram_router
@@ -20,6 +18,12 @@ __all__ = ["app"]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    An async context manager for the lifespan of the application.
+
+    Args:
+        app (FastAPI): The FastAPI application.
+    """
     import logging
     logger = logging.getLogger(__name__)
 
@@ -40,7 +44,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Trader", version=settings.VERSION, lifespan=lifespan)
 
-# Give each router a non-empty prefix to avoid “Prefix and path cannot be both empty”
 app.include_router(health_router,   prefix="/health",   tags=["health"])
 app.include_router(telegram_router)
 app.include_router(tasks_router)
@@ -51,6 +54,16 @@ _request_logger = logging.getLogger("request")
 
 @app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
+    """
+    A middleware for logging HTTP requests.
+
+    Args:
+        request (Request): The incoming request.
+        call_next: The next middleware in the chain.
+
+    Returns:
+        The response from the next middleware.
+    """
     start = time.perf_counter()
     request_id = request.headers.get("X-Request-ID") or uuid4().hex
     try:

@@ -26,7 +26,15 @@ _KV_PATTERN = re.compile(r"--([A-Za-z0-9_-]+)=(?:\"([^\"]*)\"|'([^']*)'|([^\s]+)
 
 
 def normalize_quotes_and_dashes(text: str) -> str:
-    """Normalize fancy quotes and dashes to plain ASCII variants."""
+    """
+    Normalizes curly quotes and dashes to their ASCII equivalents.
+
+    Args:
+        text (str): The text to normalize.
+
+    Returns:
+        str: The normalized text.
+    """
     if not text:
         return ""
     out = text
@@ -38,7 +46,15 @@ def normalize_quotes_and_dashes(text: str) -> str:
 
 
 def parse_kv_flags(text: str) -> Dict[str, str]:
-    """Extract --key=value pairs handling smart quotes/dashes."""
+    """
+    Parses key-value flags from a string.
+
+    Args:
+        text (str): The string to parse.
+
+    Returns:
+        Dict[str, str]: A dictionary of key-value flags.
+    """
     cleaned = normalize_quotes_and_dashes(text or "")
     matches = _KV_PATTERN.findall(cleaned)
     result: Dict[str, str] = {}
@@ -50,13 +66,13 @@ def parse_kv_flags(text: str) -> Dict[str, str]:
 
 def parse_watchlist_args(text: str) -> Dict[str, Any]:
     """
-    Parse CLI/Telegram watchlist arguments into structured options.
+    Parses watchlist arguments from a string.
 
     Args:
-        text: Raw argument string (e.g. "--limit=10 --title='Custom' AAPL").
+        text (str): The string to parse.
 
     Returns:
-        Dict containing symbols, limit, session_hint, title, include_filters.
+        Dict[str, Any]: A dictionary of watchlist arguments.
     """
     import shlex
 
@@ -91,7 +107,6 @@ def parse_watchlist_args(text: str) -> Dict[str, Any]:
         elif not part.startswith("--"):
             opts["symbols"].append(part.replace(",", " ").strip().upper())
 
-    # Split comma-delimited entries that may have slipped through
     expanded: List[str] = []
     for sym in opts["symbols"]:
         expanded.extend([s for s in sym.split() if s])
@@ -101,9 +116,14 @@ def parse_watchlist_args(text: str) -> Dict[str, Any]:
 
 def bars_to_map(bars_obj: Any, symbols: List[str]) -> Dict[str, List[Dict[str, Any]]]:
     """
-    Normalize Alpaca v2 bars payload into {SYM: [bar,...]} regardless of shape:
-      - list of bar dicts (with 'S' or 'T' for symbol), or
-      - dict {SYM: [bar,...]}
+    Normalizes an Alpaca v2 bars payload to a dictionary.
+
+    Args:
+        bars_obj (Any): The bars payload.
+        symbols (List[str]): A list of symbols.
+
+    Returns:
+        Dict[str, List[Dict[str, Any]]]: A dictionary of bars.
     """
     out: Dict[str, List[Dict[str, Any]]] = {s: [] for s in symbols}
     if isinstance(bars_obj, list):

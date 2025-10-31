@@ -5,11 +5,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-# Opt-in to pandas future behavior to avoid silent downcasting warnings in fillna/ffill/bfill.
 try:
     pd.set_option("future.no_silent_downcasting", True)
 except Exception:
-    # If running with an older pandas that doesn't support this option, ignore.
     pass
 
 from .common import (
@@ -24,19 +22,21 @@ from .common import (
 
 def generate_signals(df: pd.DataFrame, p: Any) -> pd.DataFrame:
     """
-    Long-only momentum with EMA trend filter and percentile rank.
-    Returns original OHLCV + columns:
-        momentum, ema, rank, long_entry, long_exit, mom_z (diagnostic)
-    Parameters can be a dict or MomentumParams dataclass.
+    Generates trading signals for a momentum strategy.
+
+    Args:
+        df (pd.DataFrame): A DataFrame with OHLCV data.
+        p (Any): A dictionary or dataclass with the strategy parameters.
+
+    Returns:
+        pd.DataFrame: A DataFrame with the generated signals.
     """
     out = ensure_flat_ohlcv(df)
 
-    # Resolve columns
     close = pick_col(out, "close", "adj_close", "close_price", "c", "ohlc_close")
-    high = pick_col(out, "high", "ohlc_high", "h")  # for future use
-    low = pick_col(out, "low", "ohlc_low", "l")  # for future use
+    high = pick_col(out, "high", "ohlc_high", "h")
+    low = pick_col(out, "low", "ohlc_low", "l")
 
-    # Params
     roc_lb = int(get_param(p, "roc_lookback", 60))
     ema_fast = int(get_param(p, "ema_fast", 50))
     rank_win = int(get_param(p, "rank_window", 252))
@@ -47,17 +47,14 @@ def generate_signals(df: pd.DataFrame, p: Any) -> pd.DataFrame:
     z_win = int(get_param(p, "z_window", 20))
     enter_samebar = bool(get_param(p, "enter_on_signal_bar", False))
 
-    # Core features
     momentum = as_series(close.pct_change(roc_lb))
     trend = ema(close, ema_fast)
     rank = rank_percentile(close, rank_win)
 
-    # Diagnostics
     mom_mean = momentum.rolling(z_win, min_periods=z_win).mean()
     mom_std = momentum.rolling(z_win, min_periods=z_win).std(ddof=0)
     mom_z = (momentum - mom_mean) / mom_std.replace(0.0, np.nan)
 
-    # Entry / Exit rules
     trend_ok = close > trend
     mom_ok = (momentum >= min_roc) & (rank >= min_rank)
 
@@ -71,7 +68,6 @@ def generate_signals(df: pd.DataFrame, p: Any) -> pd.DataFrame:
     )
     long_exit_sig = ema_exit | fade_exit
 
-    # Persist
     out["momentum"] = momentum
     out["ema"] = trend
     out["rank"] = rank

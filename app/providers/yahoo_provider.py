@@ -12,10 +12,9 @@ import requests
 from app.utils.http import http_get
 from app.utils import env as ENV
 
-# yfinance is optional at runtime; we guard imports and degrade gracefully.
 log = logging.getLogger(__name__)
 
-_CHUNK_SIZE = 50  # keep multi-symbol batches reasonable
+_CHUNK_SIZE = 50
 _YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
 _YAHOO_BACKOFF = [0.5, 1.0, 2.0]
 
@@ -25,12 +24,23 @@ _breaker_open_until = 0.0
 
 
 def yahoo_is_degraded() -> bool:
-    """Return True if the Yahoo provider circuit breaker is open."""
+    """
+    Checks if the Yahoo provider is degraded.
+
+    Returns:
+        bool: True if the provider is degraded, False otherwise.
+    """
     with _breaker_lock:
         return _breaker_open_until > time.monotonic()
 
 
 def _breaker_allow_request() -> Tuple[bool, float]:
+    """
+    Checks if a request is allowed by the circuit breaker.
+
+    Returns:
+        Tuple[bool, float]: A tuple of (allowed, remaining_time).
+    """
     with _breaker_lock:
         remaining = _breaker_open_until - time.monotonic()
         if remaining > 0:
@@ -39,6 +49,7 @@ def _breaker_allow_request() -> Tuple[bool, float]:
 
 
 def _breaker_record_throttle() -> None:
+    """Records a throttle event."""
     global _breaker_failures, _breaker_open_until
     with _breaker_lock:
         _breaker_failures += 1
@@ -49,6 +60,7 @@ def _breaker_record_throttle() -> None:
 
 
 def _breaker_record_success() -> None:
+    """Records a successful request."""
     global _breaker_failures, _breaker_open_until
     with _breaker_lock:
         _breaker_failures = 0
@@ -56,6 +68,16 @@ def _breaker_record_success() -> None:
 
 
 def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[int, Dict[str, Any]]:
+    """
+    Makes a request to the Yahoo Finance API.
+
+    Args:
+        url (str): The URL to request.
+        params (Optional[Dict[str, Any]]): The request parameters.
+
+    Returns:
+        Tuple[int, Dict[str, Any]]: A tuple of (status_code, response_data).
+    """
     allowed, remaining = _breaker_allow_request()
     if not allowed:
         log.debug(
@@ -118,14 +140,18 @@ def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[i
     return 429, {"error": "yahoo_throttled"}
 
 if TYPE_CHECKING:
-    # for type hints without importing pandas at runtime
-    from pandas import DataFrame  # noqa: F401
+    from pandas import DataFrame
 
 
 def _try_import_yf():
-    try:
-        import yfinance as yf  # type: ignore
+    """
+    Tries to import the yfinance library.
 
+    Returns:
+        The yfinance library if successful, None otherwise.
+    """
+    try:
+        import yfinance as yf
         return yf
     except Exception as e:
         log.warning(
@@ -135,15 +161,43 @@ def _try_import_yf():
 
 
 def _norm_syms(symbols: Iterable[str]) -> List[str]:
+    """
+    Normalizes a list of symbols.
+
+    Args:
+        symbols (Iterable[str]): A list of symbols.
+
+    Returns:
+        List[str]: A normalized list of symbols.
+    """
     return [s.strip().upper() for s in symbols if s and s.strip()]
 
 
 def _chunk(symbols: Iterable[str], n: int = _CHUNK_SIZE) -> List[List[str]]:
+    """
+    Chunks a list of symbols into smaller lists.
+
+    Args:
+        symbols (Iterable[str]): A list of symbols.
+        n (int): The size of each chunk.
+
+    Returns:
+        List[List[str]]: A list of lists of symbols.
+    """
     syms = _norm_syms(symbols)
     return [syms[i : i + n] for i in range(0, len(syms), n)]
 
 
 def _coerce_date(value: str | date | datetime | None) -> date:
+    """
+    Coerces a value to a date.
+
+    Args:
+        value (str | date | datetime | None): The value to coerce.
+
+    Returns:
+        date: A date object.
+    """
     if value is None:
         return datetime.now(timezone.utc).date()
     if isinstance(value, datetime):
@@ -157,12 +211,31 @@ def _coerce_date(value: str | date | datetime | None) -> date:
 
 
 def _epoch_for_day(value: date) -> int:
+    """
+    Converts a date to an epoch timestamp.
+
+    Args:
+        value (date): The date to convert.
+
+    Returns:
+        int: An epoch timestamp.
+    """
     return int(
         datetime(value.year, value.month, value.day, tzinfo=timezone.utc).timestamp()
     )
 
 
 def _safe_float(seq: Any, idx: int) -> Optional[float]:
+    """
+    Safely gets a float from a sequence.
+
+    Args:
+        seq (Any): The sequence.
+        idx (int): The index.
+
+    Returns:
+        Optional[float]: The float value, or None if not found.
+    """
     if not isinstance(seq, list):
         return None
     try:
@@ -181,6 +254,16 @@ def _safe_float(seq: Any, idx: int) -> Optional[float]:
 
 
 def _safe_int(seq: Any, idx: int) -> Optional[int]:
+    """
+    Safely gets an integer from a sequence.
+
+    Args:
+        seq (Any): The sequence.
+        idx (int): The index.
+
+    Returns:
+        Optional[int]: The integer value, or None if not found.
+    """
     if not isinstance(seq, list):
         return None
     try:
@@ -205,6 +288,18 @@ def _fetch_chart_history(
     *,
     auto_adjust: bool = False,
 ) -> Dict[str, Any]:
+    """
+    Fetches chart history for a symbol.
+
+    Args:
+        symbol (str): The symbol to fetch.
+        start (str | date): The start date.
+        end (Optional[str | date]): The end date.
+        auto_adjust (bool): Whether to auto-adjust for splits and dividends.
+
+    Returns:
+        Dict[str, Any]: The chart history.
+    """
     start_day = _coerce_date(start)
     end_day = _coerce_date(end) if end else datetime.now(timezone.utc).date()
     if end_day <= start_day:
@@ -250,7 +345,17 @@ def _fetch_chart_history(
 
 
 def _chart_to_dataframe(payload: Dict[str, Any], auto_adjust: bool) -> "DataFrame":
-    import pandas as pd  # local import to avoid hard dependency at module load
+    """
+    Converts a chart payload to a DataFrame.
+
+    Args:
+        payload (Dict[str, Any]): The chart payload.
+        auto_adjust (bool): Whether to auto-adjust for splits and dividends.
+
+    Returns:
+        DataFrame: A DataFrame with the chart data.
+    """
+    import pandas as pd
 
     cols = ["open", "high", "low", "close", "volume"]
     chart = payload.get("chart") or {}
@@ -314,15 +419,15 @@ def _chart_to_dataframe(payload: Dict[str, Any], auto_adjust: bool) -> "DataFram
     return df[cols]
 
 
-# ---------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------
-
-
 def intraday_last(symbols: List[str]) -> Dict[str, float]:
     """
-    Best-effort last price using Yahoo fast_info when available, falling back to a
-    fresh 1m candle if necessary. Returns {SYM: last_price}.
+    Gets the last intraday price for a list of symbols.
+
+    Args:
+        symbols (List[str]): A list of symbols.
+
+    Returns:
+        Dict[str, float]: A dictionary of last prices.
     """
     yf = _try_import_yf()
     if not yf:
@@ -338,7 +443,6 @@ def intraday_last(symbols: List[str]) -> Dict[str, float]:
             )
             continue
 
-        # First pass: fast_info (cheap)
         for sym in batch:
             try:
                 t = tkrs.tickers[sym]
@@ -349,13 +453,10 @@ def intraday_last(symbols: List[str]) -> Dict[str, float]:
                     if not math.isnan(px) and px > 0:
                         out[sym] = px
             except KeyError:
-                # fast_info present but missing key
                 pass
             except Exception:
-                # ignore; try a slower fallback below
                 pass
 
-        # Fallback only for the ones we still don't have
         missing = [s for s in batch if s not in out]
         if not missing:
             continue
@@ -363,7 +464,6 @@ def intraday_last(symbols: List[str]) -> Dict[str, float]:
         for sym in missing:
             try:
                 t = tkrs.tickers[sym]
-                # Small download; 1d/1m includes today’s intraday bars
                 df = t.history(
                     period="1d", interval="1m", prepost=True, auto_adjust=False
                 )
@@ -379,8 +479,13 @@ def intraday_last(symbols: List[str]) -> Dict[str, float]:
 
 def latest_close(symbols: List[str]) -> Dict[str, float]:
     """
-    Latest daily close for each symbol. Uses a small daily window and takes the last close.
-    Returns {SYM: close}.
+    Gets the latest close price for a list of symbols.
+
+    Args:
+        symbols (List[str]): A list of symbols.
+
+    Returns:
+        Dict[str, float]: A dictionary of latest close prices.
     """
     yf = _try_import_yf()
     if not yf:
@@ -413,8 +518,13 @@ def latest_close(symbols: List[str]) -> Dict[str, float]:
 
 def latest_volume(symbols: List[str]) -> Dict[str, int]:
     """
-    Latest (most recent) volume. Tries fast_info first, then falls back to the latest
-    intraday bar’s Volume, then daily Volume. Returns {SYM: volume}.
+    Gets the latest volume for a list of symbols.
+
+    Args:
+        symbols (List[str]): A list of symbols.
+
+    Returns:
+        Dict[str, int]: A dictionary of latest volumes.
     """
     yf = _try_import_yf()
     if not yf:
@@ -430,7 +540,6 @@ def latest_volume(symbols: List[str]) -> Dict[str, int]:
             )
             continue
 
-        # fast_info volume (can be daily)
         for sym in batch:
             try:
                 t = tkrs.tickers[sym]
@@ -441,7 +550,6 @@ def latest_volume(symbols: List[str]) -> Dict[str, int]:
                     if v > 0:
                         out[sym] = v
             except (ValueError, TypeError):
-                # e.g., NaN / non-numeric
                 pass
             except KeyError:
                 pass
@@ -452,7 +560,6 @@ def latest_volume(symbols: List[str]) -> Dict[str, int]:
         if not missing:
             continue
 
-        # Try intraday 1m volume for the rest
         for sym in missing:
             try:
                 t = tkrs.tickers[sym]
@@ -466,7 +573,6 @@ def latest_volume(symbols: List[str]) -> Dict[str, int]:
             except Exception:
                 pass
 
-        # Still missing? Use latest daily volume
         missing = [s for s in batch if s not in out]
         for sym in missing:
             try:
@@ -486,24 +592,29 @@ def latest_volume(symbols: List[str]) -> Dict[str, int]:
     return out
 
 
-# --- History helpers for backtests ----------------------------------------------------
-
-
 def get_history_daily(
     symbol: str,
     start: str | date,
     end: Optional[str | date] = None,
     auto_adjust: bool = False,
-) -> "pandas.DataFrame":
+) -> "DataFrame":
     """
-    Daily OHLCV for one symbol. Returns a DataFrame with columns:
-    [open, high, low, close, volume] and a Date index (naive).
+    Gets daily historical data for a symbol.
+
+    Args:
+        symbol (str): The symbol to get data for.
+        start (str | date): The start date.
+        end (Optional[str | date]): The end date.
+        auto_adjust (bool): Whether to auto-adjust for splits and dividends.
+
+    Returns:
+        DataFrame: A DataFrame with the historical data.
     """
     payload = _fetch_chart_history(symbol, start, end, auto_adjust=auto_adjust)
     if payload:
         try:
             return _chart_to_dataframe(payload, auto_adjust=auto_adjust)
-        except Exception as exc:  # pragma: no cover - extremely rare parsing bug
+        except Exception as exc:
             log.warning(
                 "yahoo history parse failed symbol=%s start=%s end=%s err=%s",
                 symbol,
@@ -514,8 +625,7 @@ def get_history_daily(
 
     yf = _try_import_yf()
     if not yf:
-        import pandas as pd  # local import to keep module importable without pandas
-
+        import pandas as pd
         return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
 
     import pandas as pd
@@ -527,7 +637,6 @@ def get_history_daily(
     if df.empty:
         return df
 
-    # Normalize to expected schema for our backtester
     cols = {
         "Open": "open",
         "High": "high",
@@ -537,7 +646,6 @@ def get_history_daily(
     }
     out = df.rename(columns=cols)[list(cols.values())].copy()
 
-    # Convert to date index robustly (handle tz-aware/naive)
     try:
         idx = out.index
         if getattr(idx, "tz", None) is not None:
@@ -546,10 +654,9 @@ def get_history_daily(
         try:
             idx = out.index.tz_localize(None)
         except Exception:
-            idx = out.index  # leave as-is
+            idx = out.index
 
-    # Build a plain Date index
-    import pandas as pd  # local import
+    import pandas as pd
 
     out.index = pd.Index([d.date() for d in pd.to_datetime(idx)], name="date")
     return out

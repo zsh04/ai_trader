@@ -11,16 +11,17 @@ def position_size(
     atr: float,
     stop_atr_mult: float = 1.0,
 ) -> int:
-    """Compute trade size based on ATR-derived stop distance.
+    """
+    Computes the trade size based on an ATR-derived stop distance.
 
     Args:
-        equity: Total account equity in dollars.
-        risk_pct: Fraction (0–1) of equity to risk per trade.
-        atr: Average True Range (volatility proxy).
-        stop_atr_mult: Stop-loss multiple of ATR.
+        equity (float): The total account equity in dollars.
+        risk_pct (float): The fraction of equity to risk per trade (0-1).
+        atr (float): The Average True Range (ATR) as a volatility proxy.
+        stop_atr_mult (float): The stop-loss as a multiple of ATR.
 
     Returns:
-        Integer number of shares/contracts to trade.
+        int: The number of shares or contracts to trade.
     """
     if equity <= 0:
         logger.warning("Invalid equity (<=0) for sizing.")

@@ -18,25 +18,30 @@ API_BASE = "https://api.telegram.org"
 _TEST_OUTBOX: List[Dict[str, Any]] = []
 
 def test_outbox() -> List[Dict[str, Any]]:
-    """Return a shallow copy of the in-memory outbox (for tests)."""
+    """
+    Returns a shallow copy of the in-memory outbox for tests.
+
+    Returns:
+        List[Dict[str, Any]]: A list of messages in the outbox.
+    """
     return list(_TEST_OUTBOX)
 
 def test_outbox_clear() -> None:
-    """Clear the in-memory outbox (for tests)."""
+    """Clears the in-memory outbox for tests."""
     _TEST_OUTBOX.clear()
 
 class FakeTelegramClient:
-    """Test double used during pytest runs (or when TELEGRAM_FAKE=1).
+    """
+    A test double for the TelegramClient.
 
-    Captures messages into _TEST_OUTBOX so tests can assert on replies
-    without making real HTTP calls.
+    Captures messages into an in-memory outbox for inspection during tests.
     """
     def __init__(self) -> None:
+        """Initializes the FakeTelegramClient."""
         self.allowed: Set[int] = set()
         self.secret = ""
         self.timeout = 1
 
-    # Keep the same surface as the real client
     def smart_send(
         self,
         chat_id: int | str,
@@ -48,7 +53,20 @@ class FakeTelegramClient:
         retries: int = 0,
         **_ignore,
     ) -> bool:
-        # For tests, split into conservative chunks like real client does
+        """
+        Sends a message, splitting it into chunks if necessary.
+
+        Args:
+            chat_id (int | str): The chat ID to send the message to.
+            text (str): The message text.
+            parse_mode (Optional[str]): The parse mode for the message.
+            mode (Optional[str]): The parse mode for the message.
+            chunk_size (int): The maximum chunk size.
+            retries (int): The number of retries.
+
+        Returns:
+            bool: True if the message was sent successfully, False otherwise.
+        """
         for part in _split_chunks(text, limit=chunk_size):
             _TEST_OUTBOX.append(
                 {
@@ -59,32 +77,83 @@ class FakeTelegramClient:
             )
         return True
 
-    # Common aliases used by _reply fallback sequence
     def send_message(self, chat_id: int | str, text: str, parse_mode: Optional[str] = None) -> bool:
+        """
+        Sends a message.
+
+        Args:
+            chat_id (int | str): The chat ID to send the message to.
+            text (str): The message text.
+            parse_mode (Optional[str]): The parse mode for the message.
+
+        Returns:
+            bool: True if the message was sent successfully, False otherwise.
+        """
         return self.smart_send(chat_id, text, parse_mode=parse_mode)
 
     def send_text(self, chat_id: int | str, text: str, parse_mode: Optional[str] = None) -> bool:
+        """
+        Sends a message.
+
+        Args:
+            chat_id (int | str): The chat ID to send the message to.
+            text (str): The message text.
+            parse_mode (Optional[str]): The parse mode for the message.
+
+        Returns:
+            bool: True if the message was sent successfully, False otherwise.
+        """
         return self.smart_send(chat_id, text, parse_mode=parse_mode)
 
     def send(self, chat_id: int | str, text: str) -> bool:
+        """
+        Sends a message.
+
+        Args:
+            chat_id (int | str): The chat ID to send the message to.
+            text (str): The message text.
+
+        Returns:
+            bool: True if the message was sent successfully, False otherwise.
+        """
         return self.smart_send(chat_id, text)
 
     def ping(self) -> bool:
+        """
+        Pings the Telegram API.
+
+        Returns:
+            bool: True.
+        """
         return True
 
 def _coerce_chat_id(cid: Optional[str | int]) -> Optional[str | int]:
+    """
+    Coerces a chat ID to an integer if possible.
+
+    Args:
+        cid (Optional[str | int]): The chat ID.
+
+    Returns:
+        Optional[str | int]: The coerced chat ID.
+    """
     if cid is None:
         return None
     try:
-        # Telegram accepts strings; keep numeric if convertible
         return int(str(cid))
     except Exception:
         return str(cid)
 
 def _split_chunks(text: str, limit: int = 3500) -> list[str]:
-    """Split text conservatively under Telegram's 4096 cap (room for formatting).
+    """
+    Splits text into chunks under a given limit.
 
-    If a single line exceeds `limit`, hard-wrap that line.
+    Args:
+        text (str): The text to split.
+        limit (int): The maximum chunk size.
+
+    Returns:
+        list[str]: A list of text chunks.
     """
     if not text:
         return ["(empty)"]
@@ -100,15 +169,13 @@ def _split_chunks(text: str, limit: int = 3500) -> list[str]:
             chunks.append(buf)
             buf = ""
 
-    for ln in text.splitlines(True):  # keepends=True
-        # If an individual line is too large, hard-wrap it into slices
+    for ln in text.splitlines(True):
         while len(ln) > limit:
             head, ln = ln[:limit], ln[limit:]
             if len(buf) + len(head) > limit:
                 flush()
             buf += head
             flush()
-        # Now ln is <= limit
         if len(buf) + len(ln) > limit:
             flush()
         buf += ln
@@ -118,6 +185,7 @@ def _split_chunks(text: str, limit: int = 3500) -> list[str]:
 
 
 class TelegramClient:
+    """A client for the Telegram Bot API."""
     def __init__(
         self,
         bot_token: str,
@@ -125,15 +193,31 @@ class TelegramClient:
         webhook_secret: str | None = None,
         timeout: int = 10,
     ) -> None:
+        """
+        Initializes the TelegramClient.
+
+        Args:
+            bot_token (str): The Telegram bot token.
+            allowed_users (Set[int] | None): A set of allowed user IDs.
+            webhook_secret (str | None): The webhook secret.
+            timeout (int): The request timeout.
+        """
         self.base = f"{API_BASE}/bot{bot_token}" if bot_token else ""
         self.allowed = allowed_users or set()
         self.secret = webhook_secret or ""
         self.timeout = timeout
 
-    # --- Auth Helpers ---
     def is_allowed(self, chat_id: int | str) -> bool:
+        """
+        Checks if a user is allowed to interact with the bot.
+
+        Args:
+            chat_id (int | str): The user's chat ID.
+
+        Returns:
+            bool: True if the user is allowed, False otherwise.
+        """
         if not self.allowed:
-            # permissive if no allowlist configured
             return True
         try:
             return int(str(chat_id)) in self.allowed
@@ -141,9 +225,17 @@ class TelegramClient:
             return False
 
     def verify_webhook(self, header_secret: Optional[str]) -> bool:
+        """
+        Verifies a webhook request.
+
+        Args:
+            header_secret (Optional[str]): The webhook secret from the request header.
+
+        Returns:
+            bool: True if the secret is valid, False otherwise.
+        """
         return (header_secret or "") == self.secret
 
-    # --- Message Sending ---
     def send_text(
         self,
         chat_id: int | str,
@@ -151,6 +243,18 @@ class TelegramClient:
         parse_mode: Optional[str] = "Markdown",
         disable_preview: bool = True,
     ) -> bool:
+        """
+        Sends a text message.
+
+        Args:
+            chat_id (int | str): The chat ID to send the message to.
+            text (str): The message text.
+            parse_mode (Optional[str]): The parse mode for the message.
+            disable_preview (bool): Whether to disable the link preview.
+
+        Returns:
+            bool: True if the message was sent successfully, False otherwise.
+        """
         return self._send(
             chat_id, text, parse_mode=parse_mode, disable_preview=disable_preview
         )
@@ -158,6 +262,17 @@ class TelegramClient:
     def send_markdown(
         self, chat_id: int | str, text: str, disable_preview: bool = True
     ) -> bool:
+        """
+        Sends a Markdown message.
+
+        Args:
+            chat_id (int | str): The chat ID to send the message to.
+            text (str): The message text.
+            disable_preview (bool): Whether to disable the link preview.
+
+        Returns:
+            bool: True if the message was sent successfully, False otherwise.
+        """
         return self._send(
             chat_id, text, parse_mode="Markdown", disable_preview=disable_preview
         )
@@ -165,6 +280,17 @@ class TelegramClient:
     def send_html(
         self, chat_id: int | str, text: str, disable_preview: bool = True
     ) -> bool:
+        """
+        Sends an HTML message.
+
+        Args:
+            chat_id (int | str): The chat ID to send the message to.
+            text (str): The message text.
+            disable_preview (bool): Whether to disable the link preview.
+
+        Returns:
+            bool: True if the message was sent successfully, False otherwise.
+        """
         return self._send(
             chat_id, text, parse_mode="HTML", disable_preview=disable_preview
         )
@@ -172,6 +298,17 @@ class TelegramClient:
     def send_document(
         self, chat_id: int | str, file_path: str, caption: Optional[str] = None
     ) -> bool:
+        """
+        Sends a document.
+
+        Args:
+            chat_id (int | str): The chat ID to send the document to.
+            file_path (str): The path to the document.
+            caption (Optional[str]): The document caption.
+
+        Returns:
+            bool: True if the document was sent successfully, False otherwise.
+        """
         if not self.base:
             log.warning("[Telegram] Missing bot token; skipping document send")
             return False
@@ -202,9 +339,22 @@ class TelegramClient:
         mode: Optional[str] = None,
         chunk_size: int = 3500,
         retries: int = 2,
-        **_ignore,  # tolerate extra kwargs from callers
+        **_ignore,
     ) -> bool:
-        """Send long messages in chunks. Accepts either parse_mode or mode."""
+        """
+        Sends a long message in chunks.
+
+        Args:
+            chat_id (int | str): The chat ID to send the message to.
+            text (str): The message text.
+            parse_mode (Optional[str]): The parse mode for the message.
+            mode (Optional[str]): The parse mode for the message.
+            chunk_size (int): The maximum chunk size.
+            retries (int): The number of retries.
+
+        Returns:
+            bool: True if the message was sent successfully, False otherwise.
+        """
         eff_mode = parse_mode or mode or "Markdown"
         ok = True
         for part in _split_chunks(text, limit=chunk_size):
@@ -225,7 +375,12 @@ class TelegramClient:
         return ok
 
     def ping(self) -> bool:
-        """Lightweight sanity check using getMe."""
+        """
+        Pings the Telegram API.
+
+        Returns:
+            bool: True if the ping is successful, False otherwise.
+        """
         if not self.base:
             log.warning("[Telegram] Missing bot token; cannot ping")
             return False
@@ -252,7 +407,6 @@ class TelegramClient:
             log.error("[Telegram] Ping error: %s", e)
         return False
 
-    # --- Internal HTTP ---
     def _send(
         self,
         chat_id: int | str,
@@ -260,10 +414,21 @@ class TelegramClient:
         parse_mode: Optional[str] = None,
         disable_preview: bool = True,
     ) -> bool:
+        """
+        Sends a message to the Telegram API.
+
+        Args:
+            chat_id (int | str): The chat ID to send the message to.
+            text (str): The message text.
+            parse_mode (Optional[str]): The parse mode for the message.
+            disable_preview (bool): Whether to disable the link preview.
+
+        Returns:
+            bool: True if the message was sent successfully, False otherwise.
+        """
         if not self.base:
             log.warning("[Telegram] Missing bot token; skipping send")
             return False
-        # Defensive: Telegram hard limit is 4096 chars; trim if somehow exceeded
         if len(text) > 4096:
             text = text[:4096]
         url = f"{self.base}/sendMessage"
@@ -293,17 +458,14 @@ class TelegramClient:
         return False
 
 
-# --- Module-level helpers -------------------------------------------------------
-
 def build_client_from_env() -> TelegramClient | FakeTelegramClient:
-    """Factory that returns a real client in production, but a Fake client during tests.
+    """
+    Builds a Telegram client from environment variables.
 
-    Conditions for fake:
-      - Running under pytest (PYTEST_CURRENT_TEST is set), OR
-      - TELEGRAM_FAKE=1 is set in environment.
+    Returns:
+        TelegramClient | FakeTelegramClient: A Telegram client.
     """
     if os.getenv("PYTEST_CURRENT_TEST") or os.getenv("TELEGRAM_FAKE") == "1":
-        # Ensure a clean outbox at test start if desired; tests can also call test_outbox_clear()
         log.debug("[Telegram] Using FakeTelegramClient (test mode)")
         return FakeTelegramClient()
 
@@ -334,6 +496,17 @@ def build_client_from_env() -> TelegramClient | FakeTelegramClient:
 def format_watchlist_message(
     session: str, items: Iterable[dict], title: str = "AI Trader • Watchlist"
 ) -> str:
+    """
+    Formats a watchlist message.
+
+    Args:
+        session (str): The trading session.
+        items (Iterable[dict]): A list of watchlist items.
+        title (str): The message title.
+
+    Returns:
+        str: The formatted message.
+    """
     header = f"*{title}* — _{session}_\n"
     lines = []
     for it in items:
@@ -355,7 +528,18 @@ def send_watchlist(
     chat_id: Optional[str | int] = None,
     title: str = "AI Trader • Watchlist",
 ) -> bool:
-    # Prefer explicit chat_id argument; fallback to env default
+    """
+    Sends a watchlist to a Telegram chat.
+
+    Args:
+        session (str): The trading session.
+        items (Iterable[dict]): A list of watchlist items.
+        chat_id (Optional[str | int]): The chat ID to send the watchlist to.
+        title (str): The message title.
+
+    Returns:
+        bool: True if the watchlist was sent successfully, False otherwise.
+    """
     target = (
         _coerce_chat_id(chat_id)
         if chat_id is not None
@@ -368,5 +552,4 @@ def send_watchlist(
         return False
     client = build_client_from_env()
     msg = format_watchlist_message(session, items, title=title)
-    # Fake client also supports smart_send, so this path works in tests too
     return client.smart_send(target, msg, mode="Markdown", chunk_size=3500, retries=2)

@@ -9,12 +9,30 @@ import pandas as pd
 
 
 def _normalize_name(s: str) -> str:
+    """
+    Normalizes a string by converting it to lowercase and replacing whitespace and hyphens with underscores.
+
+    Args:
+        s (str): The string to normalize.
+
+    Returns:
+        str: The normalized string.
+    """
     return re.sub(r"[\s\-]+", "_", s).lower()
 
 
-# -------- Param helpers --------
 def get_param(p: Any, key: str, default: Any) -> Any:
-    """Read a parameter from either a dict or a dataclass; fallback to default."""
+    """
+    Gets a parameter from a dictionary or dataclass.
+
+    Args:
+        p (Any): The dictionary or dataclass.
+        key (str): The key to get.
+        default (Any): The default value to return if the key is not found.
+
+    Returns:
+        Any: The value of the parameter.
+    """
     if isinstance(p, Mapping):
         return p.get(key, default)
     if is_dataclass(p):
@@ -22,9 +40,16 @@ def get_param(p: Any, key: str, default: Any) -> Any:
     return getattr(p, key, default)
 
 
-# -------- Series/DataFrame safety --------
 def as_series(obj: Any) -> pd.Series:
-    """Coerce single-column DataFrames to Series; pass Series through."""
+    """
+    Converts an object to a pandas Series.
+
+    Args:
+        obj (Any): The object to convert.
+
+    Returns:
+        pd.Series: The converted Series.
+    """
     if isinstance(obj, pd.DataFrame):
         return obj.iloc[:, 0]
     return obj
@@ -32,8 +57,14 @@ def as_series(obj: Any) -> pd.Series:
 
 def first_column(df: pd.DataFrame, name: str) -> pd.Series:
     """
-    Return a Series for the given column even if duplicates exist
-    (DataFrame would be returned otherwise).
+    Selects the first column with a given name.
+
+    Args:
+        df (pd.DataFrame): The DataFrame to select from.
+        name (str): The name of the column to select.
+
+    Returns:
+        pd.Series: The selected column.
     """
     obj = df.loc[:, name]
     if isinstance(obj, pd.DataFrame):
@@ -43,8 +74,14 @@ def first_column(df: pd.DataFrame, name: str) -> pd.Series:
 
 def pick_col(df: pd.DataFrame, *candidates: str) -> pd.Series:
     """
-    Return the first matching column (case-insensitive, with basic normalization).
-    Tries exact, case-insensitive exact, then fuzzy (prefix/suffix/contains).
+    Picks a column from a DataFrame.
+
+    Args:
+        df (pd.DataFrame): The DataFrame to pick from.
+        *candidates (str): A list of candidate column names.
+
+    Returns:
+        pd.Series: The picked column.
     """
     if df is None or df.empty:
         raise KeyError("Empty DataFrame")
@@ -52,18 +89,15 @@ def pick_col(df: pd.DataFrame, *candidates: str) -> pd.Series:
     cols = list(df.columns)
     lower_map = {_normalize_name(c): c for c in cols}
 
-    # 1) Exact (as-is)
     for name in candidates:
         if name in df.columns:
             return first_column(df, name)
 
-    # 2) Exact (normalized, case-insensitive)
     for name in candidates:
         key = _normalize_name(name)
         if key in lower_map:
             return first_column(df, lower_map[key])
 
-    # 3) Fuzzy (contains/prefix/suffix) with normalization
     for name in candidates:
         key = _normalize_name(name)
         for c in cols:
@@ -84,10 +118,13 @@ def pick_col(df: pd.DataFrame, *candidates: str) -> pd.Series:
 
 def ensure_flat_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     """
-    - Sort index
-    - Flatten MultiIndex columns (if present)
-    - Lowercase col names
-    - Drop duplicate columns (keep first)
+    Ensures that a DataFrame has a flat, lowercase, and deduplicated column index.
+
+    Args:
+        df (pd.DataFrame): The DataFrame to process.
+
+    Returns:
+        pd.DataFrame: The processed DataFrame.
     """
     out = df.copy().sort_index()
     cols = out.columns
@@ -115,23 +152,63 @@ def ensure_flat_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-# -------- Math helpers --------
 def ema(series: pd.Series, span: int) -> pd.Series:
+    """
+    Calculates the exponential moving average of a Series.
+
+    Args:
+        series (pd.Series): The Series to calculate the EMA of.
+        span (int): The span of the EMA.
+
+    Returns:
+        pd.Series: The EMA of the Series.
+    """
     return as_series(series).ewm(span=span, adjust=False).mean()
 
 
 def rolling_max(series: pd.Series, n: int, min_periods: int | None = None) -> pd.Series:
+    """
+    Calculates the rolling maximum of a Series.
+
+    Args:
+        series (pd.Series): The Series to calculate the rolling maximum of.
+        n (int): The window size.
+        min_periods (int | None): The minimum number of periods.
+
+    Returns:
+        pd.Series: The rolling maximum of the Series.
+    """
     mp = n if min_periods is None else min_periods
     return as_series(series).rolling(n, min_periods=mp).max()
 
 
 def rolling_min(series: pd.Series, n: int, min_periods: int | None = None) -> pd.Series:
+    """
+    Calculates the rolling minimum of a Series.
+
+    Args:
+        series (pd.Series): The Series to calculate the rolling minimum of.
+        n (int): The window size.
+        min_periods (int | None): The minimum number of periods.
+
+    Returns:
+        pd.Series: The rolling minimum of the Series.
+    """
     mp = n if min_periods is None else min_periods
     return as_series(series).rolling(n, min_periods=mp).min()
 
 
 def safe_atr(df: pd.DataFrame, n: int) -> pd.Series:
-    """Plain ATR with defensive fixes for NaN/Inf/≤0."""
+    """
+    Calculates the Average True Range (ATR) of a DataFrame.
+
+    Args:
+        df (pd.DataFrame): The DataFrame to calculate the ATR of.
+        n (int): The window size.
+
+    Returns:
+        pd.Series: The ATR of the DataFrame.
+    """
     high = pick_col(df, "high", "ohlc_high", "h")
     low = pick_col(df, "low", "ohlc_low", "l")
     close = pick_col(df, "close", "adj_close", "close_price", "c", "ohlc_close")
@@ -151,8 +228,14 @@ def safe_atr(df: pd.DataFrame, n: int) -> pd.Series:
 
 def rank_percentile(series: pd.Series, window: int) -> pd.Series:
     """
-    Rolling percentile rank of the last value within the window.
-    Returns values in [0,1].
+    Calculates the rolling percentile rank of a Series.
+
+    Args:
+        series (pd.Series): The Series to calculate the rolling percentile rank of.
+        window (int): The window size.
+
+    Returns:
+        pd.Series: The rolling percentile rank of the Series.
     """
     s = as_series(series)
 

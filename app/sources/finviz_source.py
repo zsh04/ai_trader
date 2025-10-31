@@ -15,7 +15,12 @@ log = logging.getLogger(__name__)
 
 
 def is_ready() -> bool:
-    """Return True if Finviz source is operational and importable."""
+    """
+    Checks if the Finviz source is ready.
+
+    Returns:
+        bool: True if the source is ready, False otherwise.
+    """
     return _FINVIZ_OK
 
 
@@ -25,21 +30,15 @@ def fetch_symbols(
     max_symbols: int = 50,
 ) -> List[str]:
     """
-    Fetch ticker symbols from Finviz using its public Screener API.
+    Fetches symbols from Finviz.
 
-    Parameters
-    ----------
-    preset : str, optional
-        Finviz preset signal name (e.g., "Top Gainers", "Unusual Volume").
-    filters : list[str], optional
-        Finviz filter codes (e.g., ["sh_avgvol_o3000", "ta_perf_4w20o"]).
-    max_symbols : int, optional
-        Maximum number of tickers to return, by default 50.
+    Args:
+        preset (str): The Finviz preset to use.
+        filters (Optional[List[str]]): A list of Finviz filters to use.
+        max_symbols (int): The maximum number of symbols to return.
 
-    Returns
-    -------
-    list[str]
-        A list of uppercase ticker symbols (AAPL, TSLA, etc.).
+    Returns:
+        List[str]: A list of symbols.
     """
     if not _FINVIZ_OK:
         log.warning("finvizfinance not installed; returning []")
@@ -51,7 +50,6 @@ def fetch_symbols(
             s.set_filter(signal=preset)
         df = s.get_screen_df()
 
-        # Support both DataFrame and list-of-dicts returns
         if hasattr(df, "get"):
             tickers = df.get("Ticker", [])
         elif isinstance(df, list):
@@ -60,7 +58,6 @@ def fetch_symbols(
             log.warning("Unexpected Finviz schema type: %s", type(df))
             tickers = []
 
-        # Normalize and filter symbols
         symbols = [str(t).upper().strip() for t in tickers if t]
         symbols = [s for s in symbols if s.isalpha() and 1 <= len(s) <= 5]
 
@@ -71,12 +68,15 @@ def fetch_symbols(
         return []
 
 
-# --- Compatibility wrapper for unified watchlist interface ---
 def get_symbols(*, max_symbols: int | None = None) -> List[str]:
     """
-    Unified API: returns top tickers from Finviz screener.
+    Gets symbols from Finviz.
 
-    max_symbols limits the final deduplicated list if provided.
+    Args:
+        max_symbols (int | None): The maximum number of symbols to return.
+
+    Returns:
+        List[str]: A list of symbols.
     """
     preset = os.getenv("FINVIZ_PRESET", "most-active")
     filters_raw = os.getenv("FINVIZ_FILTERS", "cap_large,sh_avgvol_o1000")

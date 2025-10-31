@@ -2,10 +2,20 @@
 from typing import Dict, List
 
 
-# app/utils/formatting.py  (small tweak in format_watchlist_telegram)
 def format_watchlist_telegram(
     items: List[Dict], title: str, blob_path: str | None = None
 ) -> str:
+    """
+    Formats a watchlist for Telegram.
+
+    Args:
+        items (List[Dict]): A list of watchlist items.
+        title (str): The title of the watchlist.
+        blob_path (str | None): The path to the watchlist blob.
+
+    Returns:
+        str: The formatted watchlist.
+    """
     if not items:
         return f"*{title}*\nNo candidates."
     lines = [f"*{title}* — {len(items)} tickers"]
@@ -21,6 +31,15 @@ def format_watchlist_telegram(
 
 
 def fmt_money(x) -> str:
+    """
+    Formats a number as a currency string.
+
+    Args:
+        x: The number to format.
+
+    Returns:
+        str: The formatted currency string.
+    """
     try:
         return f"${float(x):,.2f}"
     except Exception:

@@ -17,8 +17,20 @@ logger = logging.getLogger(__name__)
 def _send_watchlist(
     session: str, items: List[dict], *, title: str, chat_id: Optional[int | str] = None
 ) -> bool:
+    """
+    Sends a watchlist to a Telegram chat.
+
+    Args:
+        session (str): The trading session.
+        items (List[dict]): A list of watchlist items.
+        title (str): The message title.
+        chat_id (Optional[int | str]): The chat ID to send the watchlist to.
+
+    Returns:
+        bool: True if the watchlist was sent successfully, False otherwise.
+    """
     try:
-        from app.adapters.notifiers.telegram import send_watchlist  # type: ignore
+        from app.adapters.notifiers.telegram import send_watchlist
 
         return send_watchlist(session, items, chat_id=chat_id, title=title)
     except Exception:
@@ -29,11 +41,24 @@ _build_counters: dict[str, dict[str, int]] = {}
 
 
 def _increment_build_counter(source: str, ok: bool) -> None:
+    """
+    Increments the build counter for a given source.
+
+    Args:
+        source (str): The source of the watchlist.
+        ok (bool): Whether the build was successful.
+    """
     bucket = _build_counters.setdefault(source, {"ok": 0, "error": 0})
     bucket["ok" if ok else "error"] += 1
 
 
 def get_build_counters() -> dict[str, dict[str, int]]:
+    """
+    Returns the build counters.
+
+    Returns:
+        dict[str, dict[str, int]]: A dictionary of build counters.
+    """
     return {k: v.copy() for k, v in _build_counters.items()}
 
 
@@ -44,10 +69,25 @@ def _build_watchlist(
     include_ohlcv: bool,
     limit: int,
 ) -> Dict[str, Any]:
+    """
+    Builds a watchlist.
+
+    Args:
+        symbols (Optional[List[str]]): A list of symbols to include.
+        include_filters (bool): Whether to include filters.
+        include_ohlcv (bool): Whether to include OHLCV data.
+        limit (int): The maximum number of symbols to include.
+
+    Returns:
+        Dict[str, Any]: The watchlist.
+
+    Raises:
+        HTTPException: If an error occurs while building the watchlist.
+    """
     start = time.perf_counter()
     source = "manual"
     try:
-        from app.scanners.watchlist_builder import build_watchlist  # type: ignore
+        from app.scanners.watchlist_builder import build_watchlist
 
         result = build_watchlist(
             symbols=symbols,
@@ -95,6 +135,21 @@ def task_watchlist(
     title: Optional[str] = Query(None),
     chat_id: Optional[str] = Query(None),
 ) -> Dict[str, Any]:
+    """
+    Builds and optionally sends a watchlist.
+
+    Args:
+        symbols (Optional[List[str]]): A list of symbols to include.
+        include_filters (bool): Whether to include filters.
+        include_ohlcv (bool): Whether to include OHLCV data.
+        limit (int): The maximum number of symbols to include.
+        notify (bool): Whether to send the watchlist to a Telegram chat.
+        title (Optional[str]): The title of the watchlist.
+        chat_id (Optional[str]): The chat ID to send the watchlist to.
+
+    Returns:
+        Dict[str, Any]: The watchlist.
+    """
     wl = _build_watchlist(
         symbols=symbols,
         include_filters=include_filters,
@@ -110,6 +165,12 @@ def task_watchlist(
     return wl
 
 def _get_watchlist_payload() -> Dict[str, Any]:
+    """
+    Resolves and returns the watchlist payload.
+
+    Returns:
+        Dict[str, Any]: The watchlist payload.
+    """
     source, symbols = resolve_watchlist()
     payload = {"source": source, "count": len(symbols), "symbols": symbols}
     logger.info("[watchlist] source=%s count=%d", source, payload["count"])
@@ -117,10 +178,22 @@ def _get_watchlist_payload() -> Dict[str, Any]:
 
 @tasks_router.get("/watchlist")
 def get_watchlist_tasks() -> Dict[str, Any]:
+    """
+    Returns the current watchlist.
+
+    Returns:
+        Dict[str, Any]: The current watchlist.
+    """
     return _get_watchlist_payload()
 
 @public_router.get("/watchlist")
 def get_watchlist_public() -> Dict[str, Any]:
+    """
+    Returns the current watchlist.
+
+    Returns:
+        Dict[str, Any]: The current watchlist.
+    """
     return _get_watchlist_payload()
 
 __all__ = ["tasks_router", "public_router"]

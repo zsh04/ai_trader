@@ -6,12 +6,27 @@ log = logging.getLogger(__name__)
 
 
 class SessionClock:
+    """
+    A class for managing trading sessions.
+    """
     def __init__(self, tz: str, ranges: dict):
+        """
+        Initializes the SessionClock.
+
+        Args:
+            tz (str): The timezone to use.
+            ranges (dict): A dictionary of session ranges.
+        """
         self.tz = ZoneInfo(tz)
-        # ranges: {'PRE': ('04:00','09:30'), ...}
         self.ranges = ranges
 
     def now_session(self) -> str:
+        """
+        Returns the current trading session.
+
+        Returns:
+            str: The current trading session.
+        """
         try:
             now = datetime.now(self.tz).time()
             for name, (start, end) in self.ranges.items():
@@ -27,7 +42,12 @@ class SessionClock:
             return "CLOSED"
 
     def next_session(self) -> tuple[str, str] | None:
-        """Return the next session name and start time."""
+        """
+        Returns the next trading session.
+
+        Returns:
+            tuple[str, str] | None: A tuple of (session_name, start_time), or None if no next session.
+        """
         try:
             now = datetime.now(self.tz).time()
             for name, (start, _) in self.ranges.items():

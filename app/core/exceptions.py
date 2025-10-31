@@ -7,7 +7,7 @@ class ProviderError(AITraderError):
 
 
 class ConfigError(AITraderError):
-    """Raised for missing/malformed configuration."""
+    """Raised for missing or malformed configuration."""
 
 
 class DataValidationError(AITraderError):

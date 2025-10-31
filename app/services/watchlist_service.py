@@ -3,13 +3,20 @@ from __future__ import annotations
 
 from typing import Iterable, List, Optional
 
-# Existing sources you already have
 from app.source.finviz_source import get_symbols as finviz_symbols
 from app.source.textlist_source import get_symbols as textlist_symbols
 
 
 def _dedupe(seq: Iterable[str]) -> List[str]:
-    """De-dupe while preserving order (case-insensitive)."""
+    """
+    Deduplicates a sequence of strings.
+
+    Args:
+        seq (Iterable[str]): A sequence of strings.
+
+    Returns:
+        List[str]: A deduplicated list of strings.
+    """
     seen = set()
     out: List[str] = []
     for s in seq:
@@ -29,12 +36,16 @@ def build_watchlist(
     sort: Optional[str] = None,
 ) -> List[str]:
     """
-    Return a deduped list of symbols from the requested source.
+    Builds a watchlist from a given source.
 
-    source: 'auto' | 'finviz' | 'textlist'
-    scanner: optional scanner name (e.g., 'top_gainers'); handled by source
-    limit: cap result length
-    sort: 'alpha' or None
+    Args:
+        source (str): The source to build the watchlist from.
+        scanner (Optional[str]): The scanner to use.
+        limit (Optional[int]): The maximum number of symbols to return.
+        sort (Optional[str]): The sort order for the symbols.
+
+    Returns:
+        List[str]: A list of symbols.
     """
     source = (source or "auto").strip().lower()
     scanner = (scanner or "").strip() or None
@@ -43,12 +54,24 @@ def build_watchlist(
     symbols: List[str] = []
 
     def _fetch_finviz() -> List[str]:
+        """
+        Fetches symbols from Finviz.
+
+        Returns:
+            List[str]: A list of symbols.
+        """
         try:
             return list(finviz_symbols(scanner=scanner))
         except Exception:
             return []
 
     def _fetch_textlist() -> List[str]:
+        """
+        Fetches symbols from a text list.
+
+        Returns:
+            List[str]: A list of symbols.
+        """
         try:
             return list(textlist_symbols(scanner=scanner))
         except Exception:
@@ -59,7 +82,6 @@ def build_watchlist(
     elif source == "textlist":
         symbols = _fetch_textlist()
     else:
-        # auto: prefer finviz, fallback to textlist
         symbols = _fetch_finviz()
         if not symbols:
             symbols = _fetch_textlist()

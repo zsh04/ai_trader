@@ -14,11 +14,14 @@ _BLACKLIST = {"FOR", "AND", "THE", "ALL", "WITH", "USA", "CEO", "ETF"}
 
 def extract_symbols(raw: str, max_symbols: int = 100) -> List[str]:
     """
-    Extract likely stock ticker symbols from a raw text block.
+    Extracts stock ticker symbols from a raw text block.
 
-    Accepts comma-, space-, or newline-separated input.
-    For example:
-        "AAPL, TSLA, NVDA" → ["AAPL", "TSLA", "NVDA"]
+    Args:
+        raw (str): The raw text to extract symbols from.
+        max_symbols (int): The maximum number of symbols to extract.
+
+    Returns:
+        List[str]: A list of extracted symbols.
     """
     if not raw:
         log.debug("extract_symbols called with empty input.")
@@ -30,23 +33,43 @@ def extract_symbols(raw: str, max_symbols: int = 100) -> List[str]:
     out = [s for s in syms if s not in _BLACKLIST]
     out = [s for s in out if 1 <= len(s) <= 5 and s.isalpha()]
 
-    unique = list(dict.fromkeys(out))  # preserve order, dedupe
+    unique = list(dict.fromkeys(out))
     log.info("Extracted %d symbols: %s", len(unique), unique[:10])
     return unique[:max_symbols]
 
 
 def _load_backend(name: str):
+    """
+    Loads a text list backend.
+
+    Args:
+        name (str): The name of the backend to load.
+
+    Returns:
+        The loaded backend module, or None if not found.
+    """
     module_name = f"app.sources.text.{name}_text"
     try:
         return importlib.import_module(module_name)
     except ModuleNotFoundError:
         log.warning("Textlist backend module missing: %s", module_name)
-    except Exception as exc:  # pragma: no cover - defensive logging
+    except Exception as exc:
         log.warning("Textlist backend %s import failed: %s", module_name, exc)
     return None
 
 
 def _iter_symbols(symbols: Iterable[str], *, limit: int | None, seen: set[str]) -> List[str]:
+    """
+    Iterates over symbols and deduplicates them.
+
+    Args:
+        symbols (Iterable[str]): An iterable of symbols.
+        limit (int | None): The maximum number of symbols to return.
+        seen (set[str]): A set of already seen symbols.
+
+    Returns:
+        List[str]: A list of deduplicated symbols.
+    """
     out: List[str] = []
     for sym in symbols or []:
         ticker = (sym or "").strip().upper()
@@ -60,10 +83,28 @@ def _iter_symbols(symbols: Iterable[str], *, limit: int | None, seen: set[str]) 
 
 
 def _split_csv(s: str) -> List[str]:
+    """
+    Splits a CSV string into a list.
+
+    Args:
+        s (str): The CSV string.
+
+    Returns:
+        List[str]: A list of strings.
+    """
     return [p.strip() for p in s.replace(";", ",").split(",") if p.strip()]
 
 
 def _env_int(name: str) -> int | None:
+    """
+    Gets an integer from an environment variable.
+
+    Args:
+        name (str): The name of the environment variable.
+
+    Returns:
+        int | None: The integer value, or None if not found.
+    """
     try:
         val = int(os.getenv(name, "").strip())
         return val if val > 0 else None
@@ -73,8 +114,10 @@ def _env_int(name: str) -> int | None:
 
 def _from_env_textlist() -> List[str]:
     """
-    Fallback loader for env-provided text lists.
-    Looks at WATCHLIST_TEXT, then WATCHLIST_MANUAL, then TEXTLIST_EXTRA.
+    Loads a text list from environment variables.
+
+    Returns:
+        List[str]: A list of symbols.
     """
     raw = os.getenv("WATCHLIST_TEXT") or os.getenv("WATCHLIST_MANUAL") or ""
     base = extract_symbols(raw, max_symbols=10_000)
@@ -87,15 +130,14 @@ def _from_env_textlist() -> List[str]:
 
 def get_symbols(*, max_symbols: int | None = None) -> List[str]:
     """
-    Aggregate symbols from configured text backends.
+    Gets symbols from configured text backends.
 
-    TEXTLIST_BACKENDS="discord,signal"
+    Args:
+        max_symbols (int | None): The maximum number of symbols to return.
 
-    By default, if no backends are configured, returns [] to match unit test expectations.
-    To enable env-string fallback (WATCHLIST_TEXT / WATCHLIST_MANUAL / TEXTLIST_EXTRA),
-    set TEXTLIST_USE_ENV_FALLBACK=1.
+    Returns:
+        List[str]: A list of symbols.
     """
-    # Resolve effective limit: argument > MAX_WATCHLIST > unlimited
     limit = (
         max_symbols
         if isinstance(max_symbols, int) and max_symbols > 0
@@ -106,14 +148,12 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
     backend_names = [name.strip().lower() for name in backends_raw.split(",") if name.strip()]
     use_env_fallback = os.getenv("TEXTLIST_USE_ENV_FALLBACK", "0") == "1"
 
-    # If there are no backends and fallback is not explicitly enabled, return [] (test-friendly).
     if not backend_names and not use_env_fallback:
         return []
 
     seen: set[str] = set()
     aggregated: List[str] = []
 
-    # Gather from configured backends
     for name in backend_names:
         module = _load_backend(name)
         if module is None:
@@ -141,7 +181,7 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
             except Exception as exc:
                 log.warning("Textlist backend %s get_symbols error: %s", name, exc)
                 continue
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:
             log.warning("Textlist backend %s get_symbols error: %s", name, exc)
             continue
 
@@ -155,7 +195,6 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
         if limit is not None and len(aggregated) >= limit:
             return aggregated[:limit]
 
-    # Optional env fallback when enabled OR when backends exist but returned nothing and flag is on
     if use_env_fallback and (not aggregated):
         env_syms = _from_env_textlist()
         aggregated.extend(

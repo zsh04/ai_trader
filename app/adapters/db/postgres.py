@@ -31,12 +31,26 @@ log = logging.getLogger(__name__)
 
 
 def _dsn_from_env() -> Optional[str]:
+    """
+    Retrieves the database DSN from environment variables.
+
+    Returns:
+        Optional[str]: The database DSN if found, otherwise None.
+    """
     # Prefer production DSN; fall back to TEST_DATABASE_URL (e.g., CI) if present
     return os.getenv("DATABASE_URL") or os.getenv("TEST_DATABASE_URL")
 
 
 def _sanitize_dsn(dsn: str) -> str:
-    """Redact password when logging DSN."""
+    """
+    Redacts the password from a DSN string for safe logging.
+
+    Args:
+        dsn (str): The DSN string.
+
+    Returns:
+        str: The sanitized DSN string.
+    """
     try:
         # naive redaction between ":" (after scheme//user) and "@"
         if "@" in dsn and "://" in dsn:
@@ -62,9 +76,16 @@ _SESSION_FACTORY: Optional[sessionmaker] = None
 def make_engine(
     dsn: Optional[str] = None, pool_size: int = 5, max_overflow: int = 5
 ) -> Optional[Engine]:
-    """Create a new Engine (uncached). Prefer `get_engine()` for a singleton.
+    """
+    Creates a new SQLAlchemy Engine.
 
-    Returns None when no DSN is configured so callers can degrade gracefully.
+    Args:
+        dsn (Optional[str]): The database DSN.
+        pool_size (int): The connection pool size.
+        max_overflow (int): The maximum number of connections to allow in the pool.
+
+    Returns:
+        Optional[Engine]: A new Engine instance, or None if no DSN is configured.
     """
     dsn = dsn or _dsn_from_env()
     if not dsn:
@@ -89,6 +110,12 @@ def make_engine(
 
 
 def get_engine() -> Optional[Engine]:
+    """
+    Retrieves a singleton SQLAlchemy Engine instance.
+
+    Returns:
+        Optional[Engine]: The singleton Engine instance, or None if not configured.
+    """
     global _ENGINE
     if _ENGINE is None:
         _ENGINE = make_engine()
@@ -96,6 +123,15 @@ def get_engine() -> Optional[Engine]:
 
 
 def make_session_factory(engine: Optional[Engine] = None) -> Optional[sessionmaker]:
+    """
+    Creates a new SQLAlchemy sessionmaker.
+
+    Args:
+        engine (Optional[Engine]): The Engine to bind the sessionmaker to.
+
+    Returns:
+        Optional[sessionmaker]: A new sessionmaker instance, or None if not configured.
+    """
     global _SESSION_FACTORY
     eng = engine if engine is not None else get_engine()
     if eng is None:
@@ -110,6 +146,15 @@ def make_session_factory(engine: Optional[Engine] = None) -> Optional[sessionmak
 
 
 def get_session() -> Session:
+    """
+    Retrieves a new SQLAlchemy Session.
+
+    Returns:
+        Session: A new Session instance.
+
+    Raises:
+        RuntimeError: If the database engine is not configured.
+    """
     factory = make_session_factory()
     if factory is None:
         raise RuntimeError("Database engine not configured (no DSN in env)")
@@ -127,10 +172,19 @@ def ping(
     retries: int = 0,
     backoff: float = 0.75,
 ) -> bool:
-    """Try a lightweight query with optional retries.
-
-    For Postgres we also set a per-statement timeout for the connection where possible.
     """
+    Pings the database to check for connectivity.
+
+    Args:
+        engine (Optional[Engine]): The Engine to use for the ping.
+        timeout_sec (float): The timeout in seconds for the ping.
+        retries (int): The number of times to retry the ping.
+        backoff (float): The backoff factor for retries.
+
+    Returns:
+        bool: True if the ping is successful, False otherwise.
+    """
+
     eng = engine or get_engine()
     if eng is None:
         log.warning("[postgres] ping: no engine available (no DSN)")
@@ -158,6 +212,15 @@ def ping(
             time.sleep(backoff * attempts)
 
 def get_db():
+    """
+    A generator function that yields a new SQLAlchemy Session.
+
+    Yields:
+        Session: A new Session instance.
+
+    Raises:
+        RuntimeError: If the database engine is not configured.
+    """
     factory = make_session_factory()
     if factory is None:
         raise RuntimeError("Database engine not configured (no DSN in env)")

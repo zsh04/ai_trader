@@ -20,6 +20,12 @@ class AlpacaPingError(Exception):
     pass
 
 def _trading_base_url() -> str:
+    """
+    Retrieves the trading base URL from environment variables.
+
+    Returns:
+        str: The trading base URL.
+    """
     # Prefer explicit trading base URL if present; fallback to paper trading.
     from app.utils import env as ENV
     return (
@@ -29,6 +35,15 @@ def _trading_base_url() -> str:
     ).rstrip("/")
 
 def _api_headers() -> Dict[str, str]:
+    """
+    Builds the API headers for Alpaca API requests.
+
+    Returns:
+        Dict[str, str]: A dictionary of API headers.
+
+    Raises:
+        AlpacaPingError: If API key or secret is missing.
+    """
     from app.utils import env as ENV
     key = getattr(ENV, "ALPACA_API_KEY", None) or getattr(ENV, "ALPACA_API_KEY_ID", None)
     secret = getattr(ENV, "ALPACA_API_SECRET", None) or getattr(ENV, "ALPACA_API_SECRET_KEY", None)
@@ -38,6 +53,15 @@ def _api_headers() -> Dict[str, str]:
 
 
 def _normalize_symbols(symbols: Iterable[str]) -> List[str]:
+    """
+    Normalizes a list of symbols.
+
+    Args:
+        symbols (Iterable[str]): A list of symbols.
+
+    Returns:
+        List[str]: A list of normalized symbols.
+    """
     seen: set[str] = set()
     ordered: List[str] = []
     for raw in symbols or []:
@@ -55,6 +79,13 @@ class AlpacaAuthError(RuntimeError):
     """Raised when Alpaca returns a persistent 401."""
 
     def __init__(self, message: str, *, fallback_to_yahoo: bool) -> None:
+        """
+        Initializes the AlpacaAuthError.
+
+        Args:
+            message (str): The error message.
+            fallback_to_yahoo (bool): Whether to fallback to Yahoo.
+        """
         super().__init__(message)
         self.fallback_to_yahoo = fallback_to_yahoo
 
@@ -85,6 +116,22 @@ class AlpacaMarketClient:
         session=None,
         logger: Optional[logging.Logger] = None,
     ) -> None:
+        """
+        Initializes the AlpacaMarketClient.
+
+        Args:
+            api_key (Optional[str]): The Alpaca API key.
+            api_secret (Optional[str]): The Alpaca API secret.
+            base_url (Optional[str]): The Alpaca API base URL.
+            default_feed (Optional[str]): The default data feed.
+            timeout (Optional[int]): The request timeout.
+            retries (Optional[int]): The number of retries.
+            backoff (Optional[float]): The backoff factor for retries.
+            force_yahoo_on_auth_error (Optional[bool]): Whether to fallback to Yahoo on auth error.
+            transport: The transport function.
+            session: The request session.
+            logger (Optional[logging.Logger]): The logger.
+        """
         self.api_key = api_key if api_key is not None else ENV.ALPACA_API_KEY
         self.api_secret = (
             api_secret if api_secret is not None else ENV.ALPACA_API_SECRET
@@ -113,6 +160,16 @@ class AlpacaMarketClient:
     def snapshots(
         self, symbols: Sequence[str], *, feed: Optional[str] = None
     ) -> Tuple[int, Dict[str, Any]]:
+        """
+        Retrieves snapshots for a list of symbols.
+
+        Args:
+            symbols (Sequence[str]): A list of symbols.
+            feed (Optional[str]): The data feed to use.
+
+        Returns:
+            Tuple[int, Dict[str, Any]]: A tuple of status code and a dictionary of snapshots.
+        """
         clean = _normalize_symbols(symbols)
         if not clean:
             return 200, {}
@@ -127,6 +184,15 @@ class AlpacaMarketClient:
     # Internals                                                             #
     # --------------------------------------------------------------------- #
     def _resolve_feed(self, feed: Optional[str]) -> str:
+        """
+        Resolves the data feed.
+
+        Args:
+            feed (Optional[str]): The data feed.
+
+        Returns:
+            str: The resolved data feed.
+        """
         if not feed:
             return self.default_feed
         value = feed.strip().lower()
@@ -138,6 +204,12 @@ class AlpacaMarketClient:
         return self.default_feed
 
     def _build_headers(self) -> Dict[str, str]:
+        """
+        Builds the request headers.
+
+        Returns:
+            Dict[str, str]: A dictionary of request headers.
+        """
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -156,6 +228,20 @@ class AlpacaMarketClient:
         params: Optional[Dict[str, Any]] = None,
         feed: Optional[str] = None,
     ) -> Tuple[int, Dict[str, Any]]:
+        """
+        Makes a request to the Alpaca API.
+
+        Args:
+            path (str): The API path.
+            params (Optional[Dict[str, Any]]): The request parameters.
+            feed (Optional[str]): The data feed.
+
+        Returns:
+            Tuple[int, Dict[str, Any]]: A tuple of status code and response data.
+
+        Raises:
+            AlpacaAuthError: If authentication fails.
+        """
         url = f"{self.base_url}/{path.lstrip('/')}"
         resolved_feed = self._resolve_feed(feed)
         query = dict(params or {})
@@ -219,8 +305,15 @@ def ping_alpaca(feed: str | None = None, timeout_sec: float = 4.0) -> tuple[bool
     Connectivity check to Alpaca market data edge.
     We do a DNS + TCP + TLS handshake to data.alpaca.markets:443 (no creds required).
 
+    Args:
+        feed (str | None): The data feed to use.
+        timeout_sec (float): The timeout in seconds.
+
     Returns:
-        (ok, meta) where ok is bool, meta has diagnostics (host, port, feed, latency_ms).
+        tuple[bool, dict]: A tuple of success status and metadata.
+
+    Raises:
+        AlpacaPingError: If the ping fails.
     """
     host = "data.alpaca.markets"
     port = 443

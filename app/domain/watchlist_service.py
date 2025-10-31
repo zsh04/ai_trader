@@ -14,11 +14,26 @@ _COUNTERS: Dict[str, Dict[str, int]] = {}
 
 
 def _get_counter(name: str) -> Dict[str, int]:
+    """
+    Returns a counter for a given name.
+
+    Args:
+        name (str): The name of the counter.
+
+    Returns:
+        Dict[str, int]: A dictionary with the counter values.
+    """
     bucket = _COUNTERS.setdefault(name, {"ok": 0, "error": 0})
     return bucket
 
 
 def get_counters() -> Dict[str, Dict[str, int]]:
+    """
+    Returns all counters.
+
+    Returns:
+        Dict[str, Dict[str, int]]: A dictionary with all counter values.
+    """
     return {k: v.copy() for k, v in _COUNTERS.items()}
 
 logger = logging.getLogger(__name__)
@@ -28,6 +43,14 @@ _WARNED_KEYS: set[str] = set()
 
 
 def _warn_once(key: str, message: str, *args: object) -> None:
+    """
+    Logs a warning message once.
+
+    Args:
+        key (str): The key to identify the warning.
+        message (str): The warning message.
+        *args (object): The arguments for the warning message.
+    """
     if key in _WARNED_KEYS:
         return
     logger.warning(message, *args)
@@ -36,31 +59,41 @@ def _warn_once(key: str, message: str, *args: object) -> None:
 
 def _import_source(module_name: str):
     """
-    Resolve a source module, favoring monkeypatched entries used by tests:
-      - First, look in sys.modules for 'app.source.{name}' or 'app.sources.{name}'
-      - Then, try to import 'app.source.{name}', falling back to 'app.sources.{name}'
+    Imports a source module.
+
+    Args:
+        module_name (str): The name of the module to import.
+
+    Returns:
+        The imported module.
     """
     primary = f"app.source.{module_name}"
     fallback = f"app.sources.{module_name}"
 
-    # Respect test monkeypatching and already-loaded modules
     if primary in sys.modules:
         return sys.modules[primary]
     if fallback in sys.modules:
         return sys.modules[fallback]
 
-    # Import normally
     try:
         return importlib.import_module(primary)
     except ModuleNotFoundError as exc:
         try:
             return importlib.import_module(fallback)
         except ModuleNotFoundError:
-            # Re-raise the original to keep the ‘primary’ context
             raise exc
 
 
 def _iter_symbols(payload: object) -> Iterable[str]:
+    """
+    Iterates over symbols in a payload.
+
+    Args:
+        payload (object): The payload to iterate over.
+
+    Returns:
+        Iterable[str]: An iterable of symbols.
+    """
     if payload is None:
         return []
     if isinstance(payload, dict) and "symbols" in payload:
@@ -72,10 +105,13 @@ def _iter_symbols(payload: object) -> Iterable[str]:
 
 def _fetch_symbols(source: str) -> List[str]:
     """
-    Load symbols from a source module. The module may expose one of:
-      - get_symbols()
-      - fetch_symbols()
-      - load_symbols()
+    Fetches symbols from a source.
+
+    Args:
+        source (str): The source to fetch symbols from.
+
+    Returns:
+        List[str]: A list of symbols.
     """
     module_name = f"{source}_source"
     try:
@@ -88,8 +124,8 @@ def _fetch_symbols(source: str) -> List[str]:
         fn = getattr(module, attr, None)
         if callable(fn):
             try:
-                result = fn()  # type: ignore[misc]
-            except Exception as exc:  # pragma: no cover (defensive)
+                result = fn()
+            except Exception as exc:
                 _warn_once(
                     f"fetch:{source}",
                     "[watchlist] source=%s failed: %s",
@@ -109,25 +145,32 @@ def _fetch_symbols(source: str) -> List[str]:
 
 def _parse_manual_from_env() -> List[str]:
     """
-    Interpret WATCHLIST_TEXT as a comma/whitespace separated symbol list.
+    Parses a manual watchlist from an environment variable.
+
+    Returns:
+        List[str]: A list of symbols.
     """
     raw = os.getenv("WATCHLIST_TEXT", "") or ""
     if not raw.strip():
         return []
-    # split by comma first, then strip; also split spaces within each chunk
     parts: list[str] = []
     for chunk in raw.split(","):
         chunk = chunk.strip()
         if not chunk:
             continue
-        # If the chunk still contains whitespace, split that too
         parts.extend(chunk.split())
     return parts
 
 
 def _apply_max_cap(symbols: List[str]) -> List[str]:
     """
-    Truncate to MAX_WATCHLIST if set to a positive int.
+    Applies a maximum cap to a list of symbols.
+
+    Args:
+        symbols (List[str]): A list of symbols.
+
+    Returns:
+        List[str]: A capped list of symbols.
     """
     cap_raw = os.getenv("MAX_WATCHLIST", "").strip()
     cap: int | None = None
@@ -147,15 +190,14 @@ def _apply_max_cap(symbols: List[str]) -> List[str]:
 
 def resolve_watchlist() -> Tuple[str, List[str]]:
     """
-    Resolve the watchlist symbols based on WATCHLIST_SOURCE env var.
+    Resolves the watchlist based on the WATCHLIST_SOURCE environment variable.
 
     Returns:
-        (source_name, normalized_symbols).
+        Tuple[str, List[str]]: A tuple of (source, symbols).
     """
     requested = (os.getenv("WATCHLIST_SOURCE") or _DEFAULT_SOURCE).strip().lower()
     source = requested or _DEFAULT_SOURCE
 
-    # Normalize source selection
     if source == "scanner":
         _warn_once(
             "scanner-fallback",
@@ -171,7 +213,6 @@ def resolve_watchlist() -> Tuple[str, List[str]]:
         )
         source = _DEFAULT_SOURCE
 
-    # Gather symbols by source
     symbols = []
     error = None
     start = time.perf_counter()
@@ -185,7 +226,6 @@ def resolve_watchlist() -> Tuple[str, List[str]]:
         logger.exception("[watchlist:resolve] source=%s error=%s", source, exc)
     duration_ms = (time.perf_counter() - start) * 1000.0
 
-    # Normalize and cap
     normalized = normalize_symbols(symbols)
     if not normalized and symbols:
         _warn_once(

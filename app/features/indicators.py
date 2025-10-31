@@ -15,19 +15,14 @@ log = logging.getLogger(__name__)
 
 def rsi(series: pd.Series, period: int = 14) -> pd.Series:
     """
-    Compute Relative Strength Index (RSI).
+    Computes the Relative Strength Index (RSI).
 
-    Parameters
-    ----------
-    series : pd.Series
-        Price series (e.g., closing prices).
-    period : int, default 14
-        Lookback period for RSI.
+    Args:
+        series (pd.Series): A Series of price data.
+        period (int): The lookback period for the RSI.
 
-    Returns
-    -------
-    pd.Series
-        RSI values scaled 0–100.
+    Returns:
+        pd.Series: A Series of RSI values.
     """
     if series is None or len(series) < period:
         log.warning(
@@ -53,19 +48,46 @@ def rsi(series: pd.Series, period: int = 14) -> pd.Series:
 
 
 def sma(series: pd.Series, period: int = 20) -> pd.Series:
-    """Simple moving average."""
+    """
+    Computes the Simple Moving Average (SMA).
+
+    Args:
+        series (pd.Series): A Series of price data.
+        period (int): The lookback period for the SMA.
+
+    Returns:
+        pd.Series: A Series of SMA values.
+    """
     return series.rolling(window=period, min_periods=1).mean()
 
 
 def ema(series: pd.Series, period: int = 20) -> pd.Series:
-    """Exponential moving average."""
+    """
+    Computes the Exponential Moving Average (EMA).
+
+    Args:
+        series (pd.Series): A Series of price data.
+        period (int): The lookback period for the EMA.
+
+    Returns:
+        pd.Series: A Series of EMA values.
+    """
     return series.ewm(span=period, adjust=False).mean()
 
 
 def atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     """
-    Average True Range using OHLC data.
-    Requires columns: 'high', 'low', 'close'.
+    Computes the Average True Range (ATR).
+
+    Args:
+        df (pd.DataFrame): A DataFrame with OHLC data.
+        period (int): The lookback period for the ATR.
+
+    Returns:
+        pd.Series: A Series of ATR values.
+
+    Raises:
+        ValueError: If the DataFrame does not contain the required columns.
     """
     if not all(c in df.columns for c in ["high", "low", "close"]):
         raise ValueError("DataFrame must contain columns: high, low, close")

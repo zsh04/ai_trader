@@ -14,17 +14,17 @@ class ExecutionError(RuntimeError):
 
 class AlpacaClient:
     """
-    Minimal-yet-safe Alpaca Trading v2 execution adapter.
+    A minimal and safe Alpaca Trading v2 execution adapter.
 
-    - Uses REST endpoints under `base_url` (e.g., https://paper-api.alpaca.markets).
-    - Uses Data v2 endpoints under `data_url` (default https://data.alpaca.markets)
-      only to compute absolute take-profit / stop-loss prices when given percentages.
-
-    Notes
-    -----
-    * This client places **long/short bracket market orders** when TP/SL args are provided.
-    * Retries are lightweight (for network/transient 5xx).
-    * For production, consider swapping to `httpx` with async and circuit breakers.
+    Attributes:
+        key (str): The Alpaca API key.
+        secret (str): The Alpaca API secret.
+        base_url (str): The base URL for the Alpaca API.
+        data_url (str): The base URL for the Alpaca data API.
+        timeout (float): The request timeout in seconds.
+        retries (int): The number of retries for failed requests.
+        backoff (float): The backoff factor for retries.
+        log (logging.Logger): The logger instance.
     """
 
     def __init__(
@@ -39,6 +39,19 @@ class AlpacaClient:
         backoff: float = 1.5,
         logger: logging.Logger | None = None,
     ) -> None:
+        """
+        Initializes the AlpacaClient.
+
+        Args:
+            key (str): The Alpaca API key.
+            secret (str): The Alpaca API secret.
+            base_url (str): The base URL for the Alpaca API.
+            data_url (str | None): The base URL for the Alpaca data API.
+            timeout (float): The request timeout in seconds.
+            retries (int): The number of retries for failed requests.
+            backoff (float): The backoff factor for retries.
+            logger (logging.Logger | None): The logger instance.
+        """
         self.key = key
         self.secret = secret
         self.base_url = base_url.rstrip("/")
@@ -48,22 +61,32 @@ class AlpacaClient:
         self.backoff = max(0.0, backoff)
         self.log = logger or logging.getLogger(__name__)
 
-    # -------------------------------------------------------------------------
-    # Internal HTTP helpers
-    # -------------------------------------------------------------------------
     def _auth_headers(self) -> Dict[str, str]:
+        """
+        Returns the authentication headers for API requests.
+
+        Returns:
+            Dict[str, str]: A dictionary of authentication headers.
+        """
         return {
             "APCA-API-KEY-ID": self.key,
             "APCA-API-SECRET-KEY": self.secret,
             "Content-Type": "application/json",
             "Accept": "application/json",
-            # Avoid being blocked by overly strict APIs
             "User-Agent": "ai-trader/0.1 (+alpaca-client)",
         }
 
     def _request(self, method: str, url: str, **kwargs) -> requests.Response:
         """
-        Simple retry wrapper for transient failures and network errors.
+        Makes an HTTP request with retries.
+
+        Args:
+            method (str): The HTTP method.
+            url (str): The URL to request.
+            **kwargs: Additional keyword arguments for the request.
+
+        Returns:
+            requests.Response: The HTTP response.
         """
         headers = kwargs.pop("headers", {})
         merged_headers = {**self._auth_headers(), **headers}
@@ -77,7 +100,6 @@ class AlpacaClient:
                     timeout=self.timeout,
                     **kwargs,
                 )
-                # Retry on 429/5xx (except 501/505 etc — handled generically)
                 if (
                     resp.status_code in (429, 500, 502, 503, 504)
                     and attempt < self.retries
@@ -113,13 +135,12 @@ class AlpacaClient:
                     continue
                 raise
 
-    # -------------------------------------------------------------------------
-    # Public API
-    # -------------------------------------------------------------------------
     def health_check(self) -> bool:
         """
-        Verify account connectivity.
-        Returns True if account endpoint responds 2xx.
+        Checks the health of the Alpaca API.
+
+        Returns:
+            bool: True if the API is healthy, False otherwise.
         """
         url = f"{self.base_url}/v2/account"
         try:
@@ -130,13 +151,19 @@ class AlpacaClient:
                     "Alpaca health_check failed: %s %s", r.status_code, r.text
                 )
             return ok
-        except Exception as e:  # pragma: no cover - defensive
+        except Exception as e:
             self.log.exception("Alpaca health_check exception: %s", e)
             return False
 
     def get_last_price(self, symbol: str) -> float:
         """
-        Fetch latest trade price from Alpaca Data v2.
+        Gets the last price for a symbol.
+
+        Args:
+            symbol (str): The symbol to get the last price for.
+
+        Returns:
+            float: The last price for the symbol.
         """
         url = f"{self.data_url}/v2/stocks/{symbol}/trades/latest"
         r = self._request("GET", url)
@@ -167,47 +194,32 @@ class AlpacaClient:
         sl_limit_offset: float = 0.0,
     ) -> str:
         """
-        Place a market **bracket** order.
+        Places a bracket order.
 
-        Parameters
-        ----------
-        symbol : str
-            Ticker (e.g., "AAPL")
-        side : str
-            "buy" or "sell"
-        qty : int
-            Whole shares
-        tp_pct : Optional[float]
-            Take-profit percent **as a decimal** (e.g., 0.03 for +3%).
-        sl_pct : Optional[float]
-            Stop-loss percent **as a decimal** (e.g., 0.01 for -1%).
-        extended_hours : bool
-            Allow execution outside regular session.
-        time_in_force : str
-            e.g., "day" (default), "gtc" etc.
-        entry_price : Optional[float]
-            Reference price to compute TP/SL absolute levels.
-            If not provided and tp/sl are given, we fetch latest price from Data v2.
-        sl_limit_offset : float
-            If &gt; 0, use a stop-limit for the stop leg with this absolute offset from stop_price.
+        Args:
+            symbol (str): The symbol to place the order for.
+            side (str): The side of the order ('buy' or 'sell').
+            qty (int): The quantity of the order.
+            tp_pct (float | None): The take profit percentage.
+            sl_pct (float | None): The stop loss percentage.
+            extended_hours (bool): Whether to allow extended hours trading.
+            time_in_force (str): The time in force for the order.
+            entry_price (float | None): The entry price for the order.
+            sl_limit_offset (float): The stop loss limit offset.
 
-        Returns
-        -------
-        str
-            Broker order id
+        Returns:
+            str: The order ID.
         """
         if side not in ("buy", "sell"):
             raise ValueError("side must be 'buy' or 'sell'")
         if qty <= 0:
             raise ValueError("qty must be positive")
 
-        # Compute absolute TP/SL prices if given in percent
         tp_price: Optional[float] = None
         sl_price: Optional[float] = None
         sl_limit_price: Optional[float] = None
 
         if (tp_pct is not None or sl_pct is not None) and entry_price is None:
-            # Pull a reference price from Data v2
             entry_price = self.get_last_price(symbol)
 
         if entry_price is not None:
@@ -237,7 +249,6 @@ class AlpacaClient:
             "extended_hours": bool(extended_hours),
         }
 
-        # Build bracket legs if any protection is present
         if tp_price is not None or sl_price is not None:
             payload["order_class"] = "bracket"
             if tp_price is not None:

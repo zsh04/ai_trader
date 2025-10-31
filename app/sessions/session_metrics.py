@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Mapping
 
-# Canonical session labels we use across the app
 PRE = "PRE"
 REG_AM = "REG-AM"
 REG_MID = "REG-MID"
@@ -15,18 +14,14 @@ SESSION_ORDER = (PRE, REG_AM, REG_MID, REG_PM, AFT)
 
 @dataclass(slots=True)
 class MetricEvent:
-    """One trade/decision metric captured for a session bucket.
+    """
+    A data class for a single metric event.
 
-    Attributes
-    ----------
-    session: str
-        One of SESSION_ORDER, e.g. "REG-AM".
-    pnl: float
-        Realized P&L contribution for the event (base currency units).
-    slippage_bp: float
-        Slippage in basis points (positive = adverse).
-    spread_pct: float
-        Inside spread paid as percent of price (0.001 = 0.1%).
+    Attributes:
+        session (str): The session the event occurred in.
+        pnl (float): The profit and loss of the event.
+        slippage_bp (float): The slippage in basis points.
+        spread_pct (float): The spread in percentage points.
     """
 
     session: str
@@ -37,36 +32,39 @@ class MetricEvent:
 
 @dataclass
 class SessionMetrics:
-    """Collects per-session execution metrics and summarizes them.
-
-    The structure is intentionally stdlib-only so it can be used in
-    backtests and live services without extra dependencies.
+    """
+    A data class for collecting and summarizing session metrics.
     """
 
     buckets: Dict[str, List[MetricEvent]] = field(
         default_factory=lambda: {k: [] for k in SESSION_ORDER}
     )
 
-    # --- Recording -------------------------------------------------------
     def record(self, ev: MetricEvent) -> None:
-        """Record a single event, auto-creating a bucket if needed."""
+        """
+        Records a single metric event.
+
+        Args:
+            ev (MetricEvent): The metric event to record.
+        """
         self.buckets.setdefault(ev.session, []).append(ev)
 
     def record_many(self, events: Iterable[MetricEvent]) -> None:
+        """
+        Records multiple metric events.
+
+        Args:
+            events (Iterable[MetricEvent]): A list of metric events to record.
+        """
         for ev in events:
             self.record(ev)
 
-    # --- Summaries -------------------------------------------------------
     def summary(self) -> Dict[str, Dict[str, float]]:
-        """Return per-session summary with trades, pnl, and averages.
+        """
+        Summarizes the metrics for each session.
 
-        Output schema per session key:
-            {
-                "trades": int,
-                "pnl": float,
-                "avg_slippage_bp": float,
-                "avg_spread_pct": float,
-            }
+        Returns:
+            Dict[str, Dict[str, float]]: A dictionary of session summaries.
         """
         out: Dict[str, Dict[str, float]] = {}
         for k in SESSION_ORDER:
@@ -93,11 +91,15 @@ class SessionMetrics:
         return out
 
     def overall(self) -> Dict[str, float]:
-        """Aggregate totals across all sessions."""
+        """
+        Summarizes the metrics for all sessions.
+
+        Returns:
+            Dict[str, float]: A dictionary of overall summaries.
+        """
         s = self.summary()
         total_trades = int(sum(v["trades"] for v in s.values()))
         total_pnl = float(sum(v["pnl"] for v in s.values()))
-        # Weighted averages (by trade count) for slippage/spread
         if total_trades:
             w_slip = (
                 sum(v["avg_slippage_bp"] * v["trades"] for v in s.values())
@@ -117,19 +119,34 @@ class SessionMetrics:
             "avg_spread_pct": w_spread,
         }
 
-    # --- Utilities -------------------------------------------------------
     def merge(self, other: "SessionMetrics") -> "SessionMetrics":
-        """Merge another metrics object into this one (in-place)."""
+        """
+        Merges another SessionMetrics object into this one.
+
+        Args:
+            other (SessionMetrics): The SessionMetrics object to merge.
+
+        Returns:
+            SessionMetrics: The merged SessionMetrics object.
+        """
         for k, events in other.buckets.items():
             self.buckets.setdefault(k, []).extend(events)
         return self
 
     def to_dict(self) -> Dict[str, Mapping[str, float]]:
-        """Convenience: full payload with per-session and overall."""
+        """
+        Converts the SessionMetrics object to a dictionary.
+
+        Returns:
+            Dict[str, Mapping[str, float]]: A dictionary representation of the SessionMetrics object.
+        """
         data = self.summary()
         data["OVERALL"] = self.overall()
         return data
 
     def reset(self) -> None:
+        """
+        Resets the metrics.
+        """
         for k in list(self.buckets.keys()):
             self.buckets[k].clear()

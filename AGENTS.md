@@ -101,6 +101,12 @@ curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
 - Always include basic type hints.
 - Avoid circular imports — prefer dependency injection.
 
+### Documentation
+- All public functions, methods, and classes must have complete docstrings.
+- Docstrings should explain the purpose of the code, its arguments, and its return value.
+- When adding new code, ensure that it is fully documented.
+- When modifying existing code, update the documentation as needed.
+
 ---
 
 ## 🧩 Commands for Codex Sandbox
