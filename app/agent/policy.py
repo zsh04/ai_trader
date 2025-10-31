@@ -20,13 +20,15 @@ from typing import Optional, Tuple
 
 @dataclass(frozen=True)
 class PolicyConfig:
-    """Policy parameters with sane defaults.
+    """
+    Policy parameters with sane defaults.
 
-    enter_prob: probability threshold to allow a new long entry
-    exit_prob:  probability threshold to force an exit (hysteresis)
-    max_risk_fraction: fraction of equity you are willing to risk per trade (0–1)
-    cooldown_sec: min seconds after an exit before a new entry in the same symbol
-    min_hold_sec: minimum seconds to hold after entry before evaluating exit rules
+    Attributes:
+        enter_prob (float): Probability threshold to allow a new long entry.
+        exit_prob (float): Probability threshold to force an exit.
+        max_risk_fraction (float): Fraction of equity to risk per trade.
+        cooldown_sec (int): Minimum seconds after an exit before a new entry.
+        min_hold_sec (int): Minimum seconds to hold after entry.
     """
 
     enter_prob: float = 0.55
@@ -45,6 +47,15 @@ DEFAULT = PolicyConfig()
 
 
 def _valid_prob(x: Optional[float]) -> bool:
+    """
+    Checks if a value is a valid probability.
+
+    Args:
+        x (Optional[float]): The value to check.
+
+    Returns:
+        bool: True if the value is a valid probability, False otherwise.
+    """
     return x is not None and 0.0 <= x <= 1.0 and not isnan(x)
 
 
@@ -54,10 +65,15 @@ def _valid_prob(x: Optional[float]) -> bool:
 
 
 def should_enter(signal_prob: Optional[float], cfg: PolicyConfig = DEFAULT) -> bool:
-    """Gate a long entry by probability.
+    """
+    Determines whether to enter a long position.
 
-    Uses a single threshold (cfg.enter_prob). Make sure caller enforces session/market-hours
-    and symbol-specific risk separately.
+    Args:
+        signal_prob (Optional[float]): The probability of the entry signal.
+        cfg (PolicyConfig): The policy configuration.
+
+    Returns:
+        bool: True if the entry is allowed, False otherwise.
     """
     return _valid_prob(signal_prob) and float(signal_prob) >= cfg.enter_prob
 
@@ -70,20 +86,24 @@ def should_exit(
     seconds_in_trade: Optional[int] = None,
     cfg: PolicyConfig = DEFAULT,
 ) -> Tuple[bool, str]:
-    """Return (exit?, reason).
-
-    Exit if:
-      • stop was breached
-      • target was hit
-      • probability deteriorates below cfg.exit_prob (after min hold)
     """
-    # Hard price-based rules dominate
+    Determines whether to exit a position.
+
+    Args:
+        current_prob (Optional[float]): The current probability of the signal.
+        price_breached_stop (bool): Whether the price has breached the stop loss.
+        price_hit_target (bool): Whether the price has hit the target.
+        seconds_in_trade (Optional[int]): The number of seconds in the trade.
+        cfg (PolicyConfig): The policy configuration.
+
+    Returns:
+        Tuple[bool, str]: A tuple of (exit?, reason).
+    """
     if price_breached_stop:
         return True, "stop"
     if price_hit_target:
         return True, "target"
 
-    # Probability-based exit (with minimum hold window)
     if seconds_in_trade is not None and seconds_in_trade < cfg.min_hold_sec:
         return False, "min_hold"
 
@@ -103,7 +123,17 @@ def cooldown_active(
     now_ts: Optional[float] = None,
     cfg: PolicyConfig = DEFAULT,
 ) -> bool:
-    """True if a cool-down window is still active since the last exit."""
+    """
+    Checks if a cooldown period is active.
+
+    Args:
+        last_exit_ts (Optional[float]): The timestamp of the last exit.
+        now_ts (Optional[float]): The current timestamp.
+        cfg (PolicyConfig): The policy configuration.
+
+    Returns:
+        bool: True if a cooldown is active, False otherwise.
+    """
     if not last_exit_ts or cfg.cooldown_sec <= 0:
         return False
     now = now_ts if now_ts is not None else time()
@@ -111,9 +141,15 @@ def cooldown_active(
 
 
 def risk_budget(equity: float, cfg: PolicyConfig = DEFAULT) -> float:
-    """Amount of PnL you are allowed to risk for *one* position, in $.
+    """
+    Calculates the risk budget for a single position.
 
-    Caller can divide by per-share risk to derive position size.
+    Args:
+        equity (float): The current equity.
+        cfg (PolicyConfig): The policy configuration.
+
+    Returns:
+        float: The risk budget in dollars.
     """
     if equity <= 0:
         return 0.0

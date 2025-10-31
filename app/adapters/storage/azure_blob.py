@@ -58,7 +58,12 @@ _INMEM_INDEX: dict[str, set[str]] = defaultdict(set)
 # --------------------------
 
 def _azure_exceptions() -> Tuple[type[Exception], type[Exception]]:
-    """Return (ResourceExistsError, ResourceNotFoundError) or generic Exception fallbacks."""
+    """
+    Returns a tuple of Azure SDK exceptions.
+
+    Returns:
+        Tuple[type[Exception], type[Exception]]: A tuple of (ResourceExistsError, ResourceNotFoundError).
+    """
     try:
         from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError  # type: ignore
         return ResourceExistsError, ResourceNotFoundError
@@ -70,12 +75,13 @@ def _azure_exceptions() -> Tuple[type[Exception], type[Exception]]:
 
 def _client() -> "BlobServiceClient":
     """
-    Returns a cached BlobServiceClient using (in order of preference):
-    1) AZURE_STORAGE_CONNECTION_STRING
-    2) https://{settings.blob_account}.blob.core.windows.net + settings.blob_key
-    3) DefaultAzureCredential against https://{settings.blob_account}.blob.core.windows.net
+    Returns a cached BlobServiceClient instance.
 
-    Raises a RuntimeError with a helpful message if configuration is incomplete.
+    Returns:
+        BlobServiceClient: A BlobServiceClient instance.
+
+    Raises:
+        RuntimeError: If the Azure Storage SDK is not installed or configured.
     """
     global _BSC
     if _BSC is not None:
@@ -125,8 +131,16 @@ def _client() -> "BlobServiceClient":
 
 def _container(container_name: Optional[str] = None) -> "ContainerClient":
     """
-    Returns a ContainerClient; creates container if it does not exist.
-    Avoids importing Azure classes for tests that monkeypatch.
+    Returns a ContainerClient instance.
+
+    Args:
+        container_name (Optional[str]): The name of the container.
+
+    Returns:
+        ContainerClient: A ContainerClient instance.
+
+    Raises:
+        RuntimeError: If the container name is not configured.
     """
     container_name = (container_name or settings.blob_container or "").strip()
     if not container_name:
@@ -143,17 +157,23 @@ def _container(container_name: Optional[str] = None) -> "ContainerClient":
 
 def _normalize_path(path: str) -> str:
     """
-    Normalize a blob path:
-    - strip whitespace and leading slashes
-    - collapse double slashes
-    - forbid '..' path segments
+    Normalizes a blob path.
+
+    Args:
+        path (str): The blob path.
+
+    Returns:
+        str: The normalized blob path.
+
+    Raises:
+        TypeError: If the path is not a string.
+        ValueError: If the path contains invalid segments.
     """
     if not isinstance(path, str):
         raise TypeError("path must be a string")
     p = path.strip().lstrip("/")
     while "//" in p:
         p = p.replace("//", "/")
-    # Guard against parent traversal patterns
     segments = [seg for seg in p.split("/") if seg not in ("", ".")]
     if any(seg == ".." for seg in segments):
         raise ValueError("invalid path segment '..'")
@@ -161,13 +181,30 @@ def _normalize_path(path: str) -> str:
 
 
 def _safe_name(name: str) -> str:
-    """Sanitize a name for filename segment."""
+    """
+    Sanitizes a name for use in a blob path.
+
+    Args:
+        name (str): The name to sanitize.
+
+    Returns:
+        str: The sanitized name.
+    """
     s = (name or "").strip().replace("/", "_").replace("\\", "_")
     return s or "unnamed"
 
 
 def _locator(container: str, path: str) -> str:
-    """Return canonical 'container/path' locator string."""
+    """
+    Returns a canonical 'container/path' locator string.
+
+    Args:
+        container (str): The container name.
+        path (str): The blob path.
+
+    Returns:
+        str: The locator string.
+    """
     container = container.strip().strip("/")
     path = _normalize_path(path)
     return f"{container}/{path}"
@@ -175,26 +212,30 @@ def _locator(container: str, path: str) -> str:
 
 def _resolve_sig_2_or_3(args: tuple, kwargs: dict, want: str) -> Tuple[Optional[str], str, Any]:
     """
-    Resolve dual signatures for blob ops.
+    Resolves dual signatures for blob operations.
 
-    For save (want='save'):   (container, path, obj) OR (obj, path) OR (path, obj)
-    For load/json (want='load'): (container, path) OR (path,)
-    For list (want='list'):   (container, prefix) OR (prefix,)
+    Args:
+        args (tuple): The positional arguments.
+        kwargs (dict): The keyword arguments.
+        want (str): The operation type.
+
+    Returns:
+        Tuple[Optional[str], str, Any]: A tuple of (container, path, obj).
+
+    Raises:
+        TypeError: If the arguments are invalid.
+        ValueError: If the operation type is invalid.
     """
     if want == "save":
-        # Prefer explicit 3-arg form
         if len(args) == 3:
             container, path, obj = args
             return str(container), str(path), obj
         if len(args) == 2:
             a, b = args
-            # Heuristic: string + not-string => (path, obj)
             if isinstance(a, str) and not isinstance(b, str):
                 return None, str(a), b
-            # not-string + string => (obj, path)
             if not isinstance(a, str) and isinstance(b, str):
                 return None, str(b), a
-        # Kwargs support: container=, path=, obj=
         container = kwargs.get("container")
         path = kwargs.get("path")
         obj = kwargs.get("obj")
@@ -207,15 +248,11 @@ def _resolve_sig_2_or_3(args: tuple, kwargs: dict, want: str) -> Tuple[Optional[
             container, path_or_prefix = args
             return str(container), str(path_or_prefix), None
         if len(args) == 1:
-            # Ambiguity breaker: if user passed a single positional (container)
-            # AND provided key via kwargs (path/prefix), treat as (container, key).
             key = kwargs.get("path") or kwargs.get("prefix")
             if key is not None:
                 return str(args[0]), str(key), None
-            # Otherwise, treat as (key,)
             path_or_prefix = args[0]
             return None, str(path_or_prefix), None
-        # Kwargs support
         container = kwargs.get("container")
         key = kwargs.get("path") or kwargs.get("prefix")
         if key is None:
@@ -231,14 +268,18 @@ def _resolve_sig_2_or_3(args: tuple, kwargs: dict, want: str) -> Tuple[Optional[
 
 def blob_save_json(*args, **kwargs) -> str:
     """
-    Save a JSON-serializable object to blob storage.
+    Saves a JSON-serializable object to Azure Blob Storage.
 
-    Accepted forms:
-      - blob_save_json(container, path, obj)
-      - blob_save_json(obj, path)
-      - blob_save_json(path, obj)
-      - blob_save_json(container=..., path=..., obj=...)
-    Returns a 'container/path' locator string.
+    Args:
+        *args: Variable length argument list.
+        **kwargs: Arbitrary keyword arguments.
+
+    Returns:
+        str: A 'container/path' locator string.
+
+    Raises:
+        RuntimeError: If the container name is not configured.
+        AttributeError: If the blob client is missing an upload method.
     """
     container_override, path, obj = _resolve_sig_2_or_3(args, kwargs, want="save")
     container_name = (container_override or settings.blob_container or "").strip()
@@ -247,11 +288,9 @@ def blob_save_json(*args, **kwargs) -> str:
 
     container = _container(container_name)
     path = _normalize_path(path)
-    blob = container.get_blob_client(path)  # lazy; avoids importing BlobClient
+    blob = container.get_blob_client(path)
     buf = json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
-    # Support real SDK (blob.upload_blob), some fakes (blob.upload),
-    # and container-level fakes (container.upload_blob(name, data, ...)).
     if hasattr(blob, "upload_blob"):
         blob.upload_blob(buf, overwrite=True, content_type="application/json")
     elif hasattr(blob, "upload"):
@@ -261,7 +300,6 @@ def blob_save_json(*args, **kwargs) -> str:
     else:
         raise AttributeError("Blob client/container missing an upload method")
 
-    # Record into in-memory index for tests that lack enumeration capability
     _INMEM_INDEX[container_name].add(path)
 
     return _locator(container_name, path)
@@ -269,11 +307,17 @@ def blob_save_json(*args, **kwargs) -> str:
 
 def blob_load_text(*args, **kwargs) -> Optional[str]:
     """
-    Load a blob as text; returns None if not found.
+    Loads a blob as text.
 
-    Accepted forms:
-      - blob_load_text(container, path)
-      - blob_load_text(path)
+    Args:
+        *args: Variable length argument list.
+        **kwargs: Arbitrary keyword arguments.
+
+    Returns:
+        Optional[str]: The blob content as a string, or None if not found.
+
+    Raises:
+        RuntimeError: If the container name is not configured.
     """
     container_override, path, _ = _resolve_sig_2_or_3(args, kwargs, want="load")
     container_name = (container_override or settings.blob_container or "").strip()
@@ -285,7 +329,6 @@ def blob_load_text(*args, **kwargs) -> Optional[str]:
     blob = container.get_blob_client(path)
     _, ResourceNotFoundError = _azure_exceptions()
 
-    # Try blob-client API first
     try:
         if hasattr(blob, "download_blob"):
             data = blob.download_blob().readall()
@@ -296,7 +339,6 @@ def blob_load_text(*args, **kwargs) -> Optional[str]:
     except ResourceNotFoundError:
         return None
 
-    # Fall back to container-level fake: container.download_blob(name) -> bytes/obj
     if hasattr(container, "download_blob"):
         try:
             data = container.download_blob(path)
@@ -306,18 +348,22 @@ def blob_load_text(*args, **kwargs) -> Optional[str]:
         except ResourceNotFoundError:
             return None
 
-    # If neither path exists, behave like "not found" for tests.
     return None
 
 
 def blob_load_json(*args, **kwargs) -> Optional[Union[dict, list]]:
     """
-    Load a blob and parse JSON; returns None if not found.
-    Raises ValueError if the blob contents are not valid JSON.
+    Loads a blob and parses it as JSON.
 
-    Accepted forms:
-      - blob_load_json(container, path)
-      - blob_load_json(path)
+    Args:
+        *args: Variable length argument list.
+        **kwargs: Arbitrary keyword arguments.
+
+    Returns:
+        Optional[Union[dict, list]]: The parsed JSON object, or None if not found.
+
+    Raises:
+        ValueError: If the blob content is not valid JSON.
     """
     text = blob_load_text(*args, **kwargs)
     if text is None:
@@ -325,7 +371,6 @@ def blob_load_json(*args, **kwargs) -> Optional[Union[dict, list]]:
     try:
         return json.loads(text)
     except Exception as e:
-        # If args length permits, show path
         try:
             _, p, _ = _resolve_sig_2_or_3(args, kwargs, want="json")
         except Exception:
@@ -335,11 +380,17 @@ def blob_load_json(*args, **kwargs) -> Optional[Union[dict, list]]:
 
 def blob_list(*args, **kwargs) -> list[str]:
     """
-    List blob names within the configured (or provided) container, optionally under `prefix`.
+    Lists blobs in a container.
 
-    Accepted forms:
-      - blob_list(container, prefix="")
-      - blob_list(prefix="")
+    Args:
+        *args: Variable length argument list.
+        **kwargs: Arbitrary keyword arguments.
+
+    Returns:
+        list[str]: A list of blob names.
+
+    Raises:
+        RuntimeError: If the container name is not configured.
     """
     container_override, prefix, _ = _resolve_sig_2_or_3(args, kwargs, want="list")
     container_name = (container_override or settings.blob_container or "").strip()
@@ -351,10 +402,9 @@ def blob_list(*args, **kwargs) -> list[str]:
     names: list[str] = []
 
     def _normalize_listed_name(raw: str) -> str:
-        """Make listed names comparable to our write paths."""
-        s = str(raw).lstrip("/")                            # remove any leading slash
+        s = str(raw).lstrip("/")
         if container_name and s.startswith(container_name + "/"):
-            s = s[len(container_name) + 1 :]               # strip container qualifier
+            s = s[len(container_name) + 1 :]
         return _normalize_path(s)
 
     def _collect(it) -> None:
@@ -371,16 +421,13 @@ def blob_list(*args, **kwargs) -> list[str]:
 
     iterable = None
 
-    # --- (1) Azure SDK canonical API variants -------------------------------
     if hasattr(container, "list_blobs"):
-        # name_starts_with
         try:
             iterable = container.list_blobs(name_starts_with=norm_prefix) if norm_prefix else container.list_blobs()
         except TypeError:
             iterable = None
         _collect(iterable)
 
-        # prefix= fallback
         if not names:
             try:
                 iterable = container.list_blobs(prefix=norm_prefix) if norm_prefix else container.list_blobs()
@@ -388,7 +435,6 @@ def blob_list(*args, **kwargs) -> list[str]:
                 iterable = None
             _collect(iterable)
 
-        # positional prefix
         if not names and norm_prefix:
             try:
                 iterable = container.list_blobs(norm_prefix)
@@ -396,7 +442,6 @@ def blob_list(*args, **kwargs) -> list[str]:
                 iterable = None
             _collect(iterable)
 
-        # try with trailing slash if still nothing
         if not names and norm_prefix and not norm_prefix.endswith("/"):
             pfx_slash = norm_prefix + "/"
             for call in (
@@ -412,7 +457,6 @@ def blob_list(*args, **kwargs) -> list[str]:
                 if names:
                     break
 
-    # --- (2) Common minimal doubles ----------------------------------------
     if not names and hasattr(container, "list"):
         try:
             iterable = container.list(norm_prefix) if norm_prefix else container.list()
@@ -442,7 +486,6 @@ def blob_list(*args, **kwargs) -> list[str]:
                 iterable = None
         _collect(iterable)
 
-    # --- (3) Other plausible test-double APIs -------------------------------
     if not names and hasattr(container, "list_blob_names"):
         try:
             iterable = container.list_blob_names(prefix=norm_prefix) if norm_prefix else container.list_blob_names()
@@ -479,7 +522,6 @@ def blob_list(*args, **kwargs) -> list[str]:
             iterable = None
         _collect(iterable)
 
-    # --- (4) Introspect common in-memory stores on fake containers ----------
     if not names:
         for attr in (
             "_blobs", "blobs",
@@ -499,11 +541,9 @@ def blob_list(*args, **kwargs) -> list[str]:
                 names.extend([_normalize_listed_name(x.name if hasattr(x, "name") else x) for x in store])
                 break
 
-    # --- (5) Final fallback: consult our in-process write index for test doubles
     if not names:
         names.extend([_normalize_path(p) for p in _INMEM_INDEX.get(container_name, set())])
 
-    # Apply filtering (post-normalization) and sort deterministically
     if norm_prefix:
         names = [n for n in names if isinstance(n, str) and n.startswith(norm_prefix)]
     names = sorted(set(names))
@@ -511,9 +551,15 @@ def blob_list(*args, **kwargs) -> list[str]:
 
 def today_key(prefix: str, name: Optional[str] = None, suffix: str = "json") -> str:
     """
-    Build a UTC-date-based key.
-      - With name:    "{prefix}/YYYY/MM/DD/{name}.{suffix}"   (folder-style date for tests/tools)
-      - Without name: "{prefix}/YYYY-MM-DD.{suffix}"          (flat file for back-compat)
+    Builds a date-based key for a blob.
+
+    Args:
+        prefix (str): The key prefix.
+        name (Optional[str]): The key name.
+        suffix (str): The key suffix.
+
+    Returns:
+        str: The generated key.
     """
     base = _normalize_path(prefix)
     now = datetime.now(timezone.utc)
@@ -522,16 +568,20 @@ def today_key(prefix: str, name: Optional[str] = None, suffix: str = "json") -> 
     dd = now.strftime("%d")
     if name:
         return f"{base}/{yyyy}/{mm}/{dd}/{_safe_name(name)}.{suffix}"
-    # Keep the legacy flat format when no name is provided
     return f"{base}/{yyyy}-{mm}-{dd}.{suffix}"
 
 
 def today_key_ts(prefix: str, name: Optional[str] = None, suffix: str = "json") -> str:
     """
-    Build a UTC datetime key like:
-      - With name:   "{prefix}/YYYY-MM-DD/HHmmss/{name}.{suffix}"
-      - Without name:"{prefix}/YYYY-MM-DD/HHmmss.{suffix}"
-    Useful when multiple writes per day are expected.
+    Builds a timestamp-based key for a blob.
+
+    Args:
+        prefix (str): The key prefix.
+        name (Optional[str]): The key name.
+        suffix (str): The key suffix.
+
+    Returns:
+        str: The generated key.
     """
     base = _normalize_path(prefix)
     now = datetime.now(timezone.utc)
@@ -544,8 +594,16 @@ def today_key_ts(prefix: str, name: Optional[str] = None, suffix: str = "json") 
 
 def to_url(locator_or_path: str) -> str:
     """
-    Convert a 'container/path' locator OR a bare path into a full HTTPS URL:
-    https://{account}.blob.core.windows.net/{container}/{path}
+    Converts a locator or path to a full blob URL.
+
+    Args:
+        locator_or_path (str): The locator or path.
+
+    Returns:
+        str: The full blob URL.
+
+    Raises:
+        RuntimeError: If the blob account is not configured.
     """
     account = (settings.blob_account or "").strip()
     if not account:
@@ -565,7 +623,7 @@ def to_url(locator_or_path: str) -> str:
 # --------------------------
 
 def _reset_client_cache() -> None:
-    """Clear the cached BlobServiceClient (for tests) and in-memory index."""
+    """Resets the client cache and in-memory index."""
     global _BSC
     _BSC = None
     _INMEM_INDEX.clear()
@@ -580,43 +638,110 @@ put_json = blob_save_json
 # --------------------------
 
 class WatchlistBlobStore:
-    """
-    Backward-compatible class wrapper used by older code.
-    Provides simple save/load/list APIs under an optional base_prefix.
-    """
+    """A wrapper for storing and retrieving watchlists in Azure Blob Storage."""
     def __init__(self, *, base_prefix: str = "watchlists", container: Optional[str] = None):
-        self.base_prefix = _normalize_path(base_prefix)
-        self.container = container  # optional override
+        """
+        Initializes the WatchlistBlobStore.
 
-    # Key builders
+        Args:
+            base_prefix (str): The base prefix for blob keys.
+            container (Optional[str]): The container name.
+        """
+        self.base_prefix = _normalize_path(base_prefix)
+        self.container = container
+
     def today_key(self, *, name: Optional[str] = None, suffix: str = "json") -> str:
+        """
+        Builds a date-based key for a blob.
+
+        Args:
+            name (Optional[str]): The key name.
+            suffix (str): The key suffix.
+
+        Returns:
+            str: The generated key.
+        """
         return today_key(self.base_prefix, name=name, suffix=suffix)
 
     def today_key_ts(self, *, name: Optional[str] = None, suffix: str = "json") -> str:
+        """
+        Builds a timestamp-based key for a blob.
+
+        Args:
+            name (Optional[str]): The key name.
+            suffix (str): The key suffix.
+
+        Returns:
+            str: The generated key.
+        """
         return today_key_ts(self.base_prefix, name=name, suffix=suffix)
 
-    # Ops
     def save_json(self, key: str, obj: Any) -> str:
+        """
+        Saves a JSON object to a blob.
+
+        Args:
+            key (str): The blob key.
+            obj (Any): The JSON-serializable object.
+
+        Returns:
+            str: The locator string.
+        """
         if self.container:
             return blob_save_json(self.container, f"{self.base_prefix}/{_normalize_path(key)}", obj)
         return blob_save_json(f"{self.base_prefix}/{_normalize_path(key)}", obj)
 
     def load_text(self, key: str) -> Optional[str]:
+        """
+        Loads a blob as text.
+
+        Args:
+            key (str): The blob key.
+
+        Returns:
+            Optional[str]: The blob content as a string, or None if not found.
+        """
         if self.container:
             return blob_load_text(self.container, f"{self.base_prefix}/{_normalize_path(key)}")
         return blob_load_text(f"{self.base_prefix}/{_normalize_path(key)}")
 
     def load_json(self, key: str) -> Optional[Union[dict, list]]:
+        """
+        Loads a blob and parses it as JSON.
+
+        Args:
+            key (str): The blob key.
+
+        Returns:
+            Optional[Union[dict, list]]: The parsed JSON object, or None if not found.
+        """
         if self.container:
             return blob_load_json(self.container, f"{self.base_prefix}/{_normalize_path(key)}")
         return blob_load_json(f"{self.base_prefix}/{_normalize_path(key)}")
 
     def list(self, prefix: str = "") -> List[str]:
+        """
+        Lists blobs in the container.
+
+        Args:
+            prefix (str): The prefix to filter by.
+
+        Returns:
+            List[str]: A list of blob names.
+        """
         p = f"{self.base_prefix}/{_normalize_path(prefix)}" if prefix else self.base_prefix
         if self.container:
             return blob_list(self.container, p)
         return blob_list(p)
 
-    # URL
     def to_url(self, locator_or_path: str) -> str:
+        """
+        Converts a locator or path to a full blob URL.
+
+        Args:
+            locator_or_path (str): The locator or path.
+
+        Returns:
+            str: The full blob URL.
+        """
         return to_url(locator_or_path)

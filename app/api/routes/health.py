@@ -9,10 +9,10 @@ from starlette.concurrency import run_in_threadpool
 from fastapi import APIRouter
 
 try:
-    from app import __version__ as APP_VERSION  # set in app/__init__.py
-except Exception:  # pragma: no cover
+    from app import __version__ as APP_VERSION
+except Exception:
     try:
-        from app.utils import env as ENV  # fallback to env var if present
+        from app.utils import env as ENV
 
         APP_VERSION = getattr(ENV, "APP_VERSION", "0.1.0")
     except Exception:
@@ -27,20 +27,33 @@ router = APIRouter(tags=["health"])
 
 @router.get("")
 async def health() -> Dict[str, Any]:
-    """Legacy health endpoint (mirrors /health/live)."""
+    """
+    Legacy health endpoint.
+
+    Returns:
+        Dict[str, Any]: A dictionary with the health status.
+    """
     return await health_live()
 
 
 @router.get("/live")
 async def health_live() -> Dict[str, Any]:
-    """Lightweight liveness probe."""
+    """
+    A lightweight liveness probe.
+
+    Returns:
+        Dict[str, Any]: A dictionary with the service status and version.
+    """
     return {"ok": True, "service": "ai-trader", "version": APP_VERSION}
 
 
 @router.get("/db")
 async def health_db() -> Dict[str, Any]:
-    """Database connectivity probe with simple latency measurement.
-    Keeps response compact so it can be used as a readiness probe.
+    """
+    Database connectivity probe.
+
+    Returns:
+        Dict[str, Any]: A dictionary with the database status and latency.
     """
     t0 = time.perf_counter()
     ok = False
@@ -54,15 +67,26 @@ async def health_db() -> Dict[str, Any]:
 
 @router.get("/ready")
 async def health_ready() -> Dict[str, str]:
-    """Lightweight readiness probe with UTC timestamp."""
+    """
+    A lightweight readiness probe.
+
+    Returns:
+        Dict[str, str]: A dictionary with the readiness status and timestamp.
+    """
     return {"status": "ok", "utc": datetime.now(timezone.utc).isoformat()}
 
 @router.get("/market")
 async def health_market():
+    """
+    Market data provider connectivity probe.
+
+    Returns:
+        Dict[str, Any]: A dictionary with the market data provider status.
+    """
     import os, logging
     from app.adapters.market.alpaca_client import ping_alpaca, AlpacaPingError
 
-    feed = os.getenv("ALPACA_DATA_FEED", "").lower() or "iex"  # default
+    feed = os.getenv("ALPACA_DATA_FEED", "").lower() or "iex"
     try:
         ok, meta = await run_in_threadpool(lambda: ping_alpaca(feed=feed, timeout_sec=4.0))
         return {"status": "ok" if ok else "degraded", "feed": feed, "meta": meta}
@@ -73,11 +97,25 @@ async def health_market():
 
 @router.get("/version")
 async def version() -> Dict[str, str]:
-    """Expose application version for diagnostics and CI smoke tests."""
+    """
+    Exposes the application version.
+
+    Returns:
+        Dict[str, str]: A dictionary with the application version.
+    """
     return {"version": APP_VERSION}
 
 
 def _mask(value: str | None) -> str:
+    """
+    Masks a string value.
+
+    Args:
+        value (str | None): The string to mask.
+
+    Returns:
+        str: The masked string.
+    """
     if not value:
         return ""
     prefix = 2
@@ -92,6 +130,12 @@ def _mask(value: str | None) -> str:
 
 @router.get("/config")
 async def health_config() -> Dict[str, Any]:
+    """
+    Exposes the application configuration.
+
+    Returns:
+        Dict[str, Any]: A dictionary with the application configuration.
+    """
     env = os.getenv("ENV", "dev").lower()
 
     telegram_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
@@ -130,7 +174,6 @@ async def health_config() -> Dict[str, Any]:
         "has_alpaca_keys": has_alpaca,
     }
 
-    # Determine overall status
     required_ok = has_telegram and has_db and has_alpaca
     status = "ok"
     if env == "prod" and not required_ok:
