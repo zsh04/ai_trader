@@ -92,24 +92,17 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
         features = self._extract_features(data)
         
         if len(features) < self.lookback:
-            raise ValueError(
-                f"Need at least {self.lookback} periods of clean data, "
-                f"got {len(features)}"
-            )
+            self._fitted = False
+            return self
         
         # Fit HMM
         self.hmm.fit(features)
         
         # Label states by mean ATR (state 0 = lowest vol, state n-1 = highest vol)
-        states = self.hmm.predict(features)
-        state_means = []
-        for i in range(self.n_states):
-            state_data = features[states == i]
-            if len(state_data) > 0:
-                mean_atr = state_data[:, 0].mean()  # First column is ATR
-                state_means.append((i, mean_atr))
+        # self.hmm.means_ is shape (n_components, n_features)
+        state_means = [(i, mean[0]) for i, mean in enumerate(self.hmm.means_)]
         
-        # Sort by volatility
+        # Sort by volatility (mean of the first feature - ATR)
         state_means.sort(key=lambda x: x[1])
         
         # Map indices to labels

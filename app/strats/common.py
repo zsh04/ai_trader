@@ -132,6 +132,9 @@ def rolling_min(series: pd.Series, n: int, min_periods: int | None = None) -> pd
 
 def safe_atr(df: pd.DataFrame, n: int) -> pd.Series:
     """Plain ATR with defensive fixes for NaN/Inf/≤0."""
+    if len(df) < n:
+        return pd.Series(np.nan, index=df.index)
+
     high = pick_col(df, "high", "ohlc_high", "h")
     low = pick_col(df, "low", "ohlc_low", "l")
     close = pick_col(df, "close", "adj_close", "close_price", "c", "ohlc_close")
