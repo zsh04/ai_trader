@@ -5,13 +5,13 @@ from typing import List
 
 def normalize_symbols(items: list[str]) -> List[str]:
     """
-    Normalizes and deduplicates a list of symbols.
+    Normalize and deduplicate symbol strings while preserving order.
 
-    Args:
-        items (list[str]): A list of symbols.
-
-    Returns:
-        List[str]: A normalized and deduplicated list of symbols.
+    Steps:
+    1. Strip leading/trailing whitespace.
+    2. Uppercase the symbol.
+    3. Drop blanks.
+    4. Keep only the first occurrence of each symbol.
     """
     seen: set[str] = set()
     out: List[str] = []

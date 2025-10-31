@@ -1,5 +1,14 @@
 """
 AI Trader — Streamlit Monitoring Dashboard
+
+Run locally:
+  streamlit run app/monitoring/dashboard.py
+
+Notes:
+- Reads optional DATABASE_URL and TELEGRAM_BOT_TOKEN from environment.
+- If DATABASE_URL is not provided or DB fetch fails, falls back to demo data.
+- Provides sidebar controls (date range, symbols, auto-refresh).
+- Caches queries via st.cache_data with TTL to avoid hammering the DB.
 """
 
 from __future__ import annotations
@@ -13,6 +22,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+# --- Page config & CSS tweaks ---
 st.set_page_config(page_title="AI Trader Dashboard", layout="wide", page_icon="📈")
 st.markdown(
     """
@@ -26,10 +36,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# --- Simple data-source toggle & config ---
 DB_URL = os.getenv("DATABASE_URL", "")
 TZ_LOCAL = os.getenv("DASHBOARD_TZ", "America/Los_Angeles")
 DEFAULT_SYMBOLS = os.getenv("DASHBOARD_SYMBOLS", "AAPL,MSFT,NVDA,SPY,QQQ").split(",")
 
+# --- Sidebar controls ---
 st.sidebar.header("Controls")
 lookback_days = st.sidebar.slider(
     "Lookback (days)", min_value=5, max_value=365, value=30, step=5
@@ -46,43 +58,29 @@ symbols_input = st.sidebar.text_input(
 ).strip()
 symbols: List[str] = [s.strip().upper() for s in symbols_input.split(",") if s.strip()]
 
+# Auto refresh (client-side)
+if auto_refresh_sec and auto_refresh_sec > 0:
+    st_autorefresh = (
+        st.experimental_rerun
+    )  # placeholder to avoid import; we call none here
+    # Streamlit doesn't have a built-in timer; we provide a manual refresh button instead.
 refresh = st.sidebar.button("🔄 Manual refresh")
 
 
+# --- Helpers -----------------------------------------------------------------
 @dataclass
 class EquitySnapshot:
-    """
-    A data class for an equity snapshot.
-
-    Attributes:
-        timestamp (datetime): The timestamp of the snapshot.
-        equity (float): The equity value.
-    """
     timestamp: datetime
     equity: float
 
 
 def _now_utc() -> datetime:
-    """
-    Returns the current UTC datetime.
-
-    Returns:
-        datetime: The current UTC datetime.
-    """
     return datetime.now(timezone.utc)
 
 
 @st.cache_data(show_spinner=False, ttl=60)
 def _demo_equity(n_points: int = 120) -> pd.DataFrame:
-    """
-    Generates a demo equity curve.
-
-    Args:
-        n_points (int): The number of data points to generate.
-
-    Returns:
-        pd.DataFrame: A DataFrame with the demo equity curve.
-    """
+    """Generate a noisy upward-sloping equity curve for demo."""
     base = 100_000.0
     timestamps = pd.date_range(
         _now_utc() - timedelta(minutes=n_points - 1),
@@ -99,32 +97,26 @@ def _demo_equity(n_points: int = 120) -> pd.DataFrame:
 
 
 def _compute_metrics(equity: pd.Series) -> pd.DataFrame:
-    """
-    Computes performance metrics from an equity series.
-
-    Args:
-        equity (pd.Series): The equity series.
-
-    Returns:
-        pd.DataFrame: A DataFrame with the performance metrics.
-    """
+    """Compute simple performance metrics from equity series (UTC-indexed)."""
     if equity.empty:
         return pd.DataFrame([{"Metric": "Total Return", "Value": "n/a"}])
 
     eq = equity.dropna().astype(float)
     total_ret = (eq.iloc[-1] / eq.iloc[0]) - 1.0 if len(eq) > 1 else 0.0
     rets = eq.pct_change().dropna()
-    ann_factor = 252
+    ann_factor = 252  # daily-like; if minute-level, this is heuristic. For minute data use 252*390.
     sharpe = (
         (rets.mean() / (rets.std() + 1e-12)) * np.sqrt(ann_factor)
         if len(rets) > 1
         else 0.0
     )
 
+    # Max drawdown
     roll_max = eq.cummax()
     dd = (eq / roll_max) - 1.0
     max_dd = dd.min() if not dd.empty else 0.0
 
+    # Format
     rows = [
         {"Metric": "Total Return", "Value": f"{total_ret*100:.2f}%"},
         {"Metric": "Sharpe Ratio", "Value": f"{sharpe:.2f}"},
@@ -136,19 +128,11 @@ def _compute_metrics(equity: pd.Series) -> pd.DataFrame:
 
 @st.cache_data(show_spinner=False, ttl=30)
 def _fetch_equity_from_db(since: datetime) -> Optional[pd.DataFrame]:
-    """
-    Fetches the equity curve from the database.
-
-    Args:
-        since (datetime): The start date for the equity curve.
-
-    Returns:
-        Optional[pd.DataFrame]: A DataFrame with the equity curve, or None if not found.
-    """
+    """Fetch equity curve from Postgres if DATABASE_URL is configured. Expect a table `equity_snapshots(ts_utc TIMESTAMPTZ, equity NUMERIC)`."""
     if not DB_URL:
         return None
     try:
-        import sqlalchemy as sa
+        import sqlalchemy as sa  # lazy import so Streamlit still works without it
 
         eng = sa.create_engine(DB_URL, pool_pre_ping=True, pool_size=3, max_overflow=2)
         query = """
@@ -161,6 +145,7 @@ def _fetch_equity_from_db(since: datetime) -> Optional[pd.DataFrame]:
             df = pd.read_sql(query, conn, params={"since": since})
         if df.empty:
             return None
+        # Ensure tz-aware
         if df["timestamp"].dtype.tz is None:
             df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
         return df.set_index("timestamp").sort_index()
@@ -173,16 +158,7 @@ def _fetch_equity_from_db(since: datetime) -> Optional[pd.DataFrame]:
 def _fetch_trades_from_db(
     since: datetime, symbols: List[str] | None
 ) -> Optional[pd.DataFrame]:
-    """
-    Fetches recent trades from the database.
-
-    Args:
-        since (datetime): The start date for the trades.
-        symbols (List[str] | None): A list of symbols to filter by.
-
-    Returns:
-        Optional[pd.DataFrame]: A DataFrame with the recent trades, or None if not found.
-    """
+    """Fetch recent trades. Expect a table `trades(symbol TEXT, side TEXT, qty NUMERIC, price NUMERIC, pnl NUMERIC, ts_utc TIMESTAMPTZ)`."""
     if not DB_URL:
         return None
     try:
@@ -215,9 +191,11 @@ def _fetch_trades_from_db(
         return None
 
 
+# --- Header ------------------------------------------------------------------
 st.title("AI Trading Agent — Monitoring Dashboard")
 st.caption("Live strategy diagnostics and telemetry view")
 
+# --- Account Equity Overview --------------------------------------------------
 st.header("📊 Account Equity Overview")
 
 since = _now_utc() - timedelta(days=lookback_days)
@@ -225,6 +203,7 @@ equity_df = _fetch_equity_from_db(since) or _demo_equity(
     n_points=min(lookback_days * 390, 2000)
 )
 
+# Allow user to view in local timezone
 tz_option = st.selectbox("Display time in", ["UTC", TZ_LOCAL], index=1)
 equity_plot = equity_df.copy()
 if tz_option != "UTC":
@@ -232,13 +211,16 @@ if tz_option != "UTC":
 
 st.line_chart(equity_plot.rename(columns={"equity": "Equity"}))
 
+# Metrics block
 st.subheader("Performance Metrics")
 st.table(_compute_metrics(equity_df["equity"]))
 
+# --- Recent Trades ------------------------------------------------------------
 st.header("💼 Recent Trades")
-trades_df = _fetch_trades_from_db(since, symbols)
+trades_df = _fetch_trades_from_db(since, symbols)  # may be None
 
 if trades_df is None:
+    # Provide a placeholder demo table if DB isn't wired yet
     demo_trades = pd.DataFrame(
         {
             "Symbol": ["AAPL", "NVDA", "MSFT"],
@@ -254,10 +236,12 @@ if trades_df is None:
 else:
     st.dataframe(trades_df)
 
+# --- Alerts & Logs ------------------------------------------------------------
 st.header("🚨 Alerts & Logs")
 st.caption("Wire Telegram alerts & backend runtime logs here (follow-up).")
 st.text_area("Runtime Logs", "No alerts. System stable.", height=150)
 
+# --- Footer -------------------------------------------------------------------
 st.divider()
 st.caption(
     "AI Trader v0.1.0 — Monitoring Layer • "

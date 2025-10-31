@@ -109,14 +109,6 @@ Logs rotate daily and retain seven days by default.
        -d '{"url":"<APP_SERVICE_URL>/telegram/webhook","secret_token":"<TELEGRAM_WEBHOOK_SECRET>"}'
   ```
 
-## Documentation
-
-This repository is thoroughly documented to provide a comprehensive guide for both developers and AI agents. The documentation is organized as follows:
-
-- **Docstrings:** All public functions, methods, and classes have complete docstrings that explain their purpose, arguments, and return values.
-- **`README.md`:** The main `README.md` file provides a high-level overview of the project, including its purpose, setup, and usage.
-- **`AGENTS.md`:** The `AGENTS.md` file provides specific instructions for AI agents, including coding conventions and architectural guidelines.
-
 ## Additional Docs
 
 - `ARCHITECTURE.md` — design deep dive

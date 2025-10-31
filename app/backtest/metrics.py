@@ -13,24 +13,9 @@ TRADING_DAYS = 252
 logger = logging.getLogger(__name__)
 
 
+# -------- Data classes --------
 @dataclass
 class EquityMetrics:
-    """
-    A data class for equity metrics.
-
-    Attributes:
-        start (pd.Timestamp): The start date of the backtest.
-        end (pd.Timestamp): The end date of the backtest.
-        periods (int): The number of periods in the backtest.
-        cagr (float): The compound annual growth rate.
-        total_return (float): The total return.
-        vol (float): The volatility.
-        sharpe (float): The Sharpe ratio.
-        sortino (float): The Sortino ratio.
-        max_drawdown (float): The maximum drawdown.
-        max_dd_len (int): The maximum drawdown length.
-        mar (float): The MAR ratio.
-    """
     start: pd.Timestamp
     end: pd.Timestamp
     periods: int
@@ -46,22 +31,6 @@ class EquityMetrics:
 
 @dataclass
 class TradeMetrics:
-    """
-    A data class for trade metrics.
-
-    Attributes:
-        n_trades (int): The number of trades.
-        win_rate (float): The win rate.
-        avg_pnl (float): The average profit and loss.
-        avg_win (float): The average win.
-        avg_loss (float): The average loss.
-        payoff (float): The payoff ratio.
-        expectancy (float): The expectancy.
-        best (float): The best trade.
-        worst (float): The worst trade.
-        gross_profit (float): The gross profit.
-        gross_loss (float): The gross loss.
-    """
     n_trades: int
     win_rate: float
     avg_pnl: float
@@ -75,16 +44,8 @@ class TradeMetrics:
     gross_loss: float
 
 
+# -------- Internals --------
 def _to_returns(curve: pd.Series) -> pd.Series:
-    """
-    Converts an equity curve to a returns series.
-
-    Args:
-        curve (pd.Series): The equity curve.
-
-    Returns:
-        pd.Series: The returns series.
-    """
     s = curve.astype(float).dropna()
     if s.empty:
         return pd.Series(dtype=float)
@@ -94,33 +55,14 @@ def _to_returns(curve: pd.Series) -> pd.Series:
 def _annualize_returns(
     mean_ret: float, std_ret: float, periods_per_year: int
 ) -> Tuple[float, float]:
-    """
-    Annualizes returns.
-
-    Args:
-        mean_ret (float): The mean return.
-        std_ret (float): The standard deviation of returns.
-        periods_per_year (int): The number of periods per year.
-
-    Returns:
-        Tuple[float, float]: A tuple of (annualized_mean_return, annualized_std_dev).
-    """
     return mean_ret * periods_per_year, std_ret * math.sqrt(periods_per_year)
 
 
 def _cagr(equity: pd.Series) -> float:
-    """
-    Calculates the compound annual growth rate.
-
-    Args:
-        equity (pd.Series): The equity curve.
-
-    Returns:
-        float: The CAGR.
-    """
     s = equity.astype(float).dropna()
     if len(s) < 2:
         return 0.0
+    # clamp very short backtests to avoid extreme annualization
     elapsed_years = max(0.25, (s.index[-1] - s.index[0]).days / 365.25)
     start_val = float(s.iloc[0])
     end_val = float(s.iloc[-1])
@@ -130,15 +72,6 @@ def _cagr(equity: pd.Series) -> float:
 
 
 def _drawdown_curve(curve: pd.Series) -> Tuple[pd.Series, float, int]:
-    """
-    Calculates the drawdown curve.
-
-    Args:
-        curve (pd.Series): The equity curve.
-
-    Returns:
-        Tuple[pd.Series, float, int]: A tuple of (drawdown_curve, max_drawdown, max_drawdown_length).
-    """
     s = curve.astype(float).dropna()
     if s.empty:
         return pd.Series(dtype=float), 0.0, 0
@@ -146,6 +79,7 @@ def _drawdown_curve(curve: pd.Series) -> Tuple[pd.Series, float, int]:
     dd = s / cummax - 1.0
     max_dd = float(dd.min())
 
+    # Longest drawdown duration (consecutive dd < 0)
     mask = (dd < 0).to_numpy()
     max_run = run = 0
     for m in mask:
@@ -158,6 +92,7 @@ def _drawdown_curve(curve: pd.Series) -> Tuple[pd.Series, float, int]:
     return dd, max_dd, int(max_run)
 
 
+# -------- Public API --------
 def equity_stats(
     equity_df: pd.DataFrame,
     *,
@@ -166,16 +101,10 @@ def equity_stats(
     risk_free_rate: float = 0.0,
 ) -> EquityMetrics:
     """
-    Computes equity metrics from an equity curve.
+    Compute equity metrics from an equity curve.
 
-    Args:
-        equity_df (pd.DataFrame): A DataFrame with the equity curve.
-        use_mtm (bool): Whether to use the mark-to-market equity curve.
-        periods_per_year (int): The number of periods per year.
-        risk_free_rate (float): The annual risk-free rate.
-
-    Returns:
-        EquityMetrics: An EquityMetrics object.
+    equity_df: DataFrame indexed by datetime, columns include 'equity' and optionally 'equity_mtm'.
+    risk_free_rate: annual risk-free rate used to compute excess return in Sharpe.
     """
     col = "equity_mtm" if use_mtm and "equity_mtm" in equity_df.columns else "equity"
     curve = equity_df[col].astype(float).dropna()
@@ -192,6 +121,7 @@ def equity_stats(
         )
 
     rets = _to_returns(curve)
+    # convert annual risk-free to per-period (simple) and subtract from returns
     rf_per_period = float(risk_free_rate) / float(periods_per_year)
     if rf_per_period != 0.0:
         rets = rets - rf_per_period
@@ -244,21 +174,12 @@ def equity_stats(
 
 
 def trade_stats(trades: List[Dict[str, Any]]) -> TradeMetrics:
-    """
-    Computes trade metrics from a list of trades.
-
-    Args:
-        trades (List[Dict[str, Any]]): A list of trades.
-
-    Returns:
-        TradeMetrics: A TradeMetrics object.
-    """
     if not trades:
-        return TradeMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        return TradeMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
     closed = [t for t in trades if "pnl" in t]
     if not closed:
-        return TradeMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        return TradeMetrics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
     pnls = np.array([float(t.get("pnl", 0.0)) for t in closed], dtype=float)
     wins = pnls[pnls > 0]
@@ -297,17 +218,6 @@ def summarize(
     use_mtm: bool = True,
     periods_per_year: int = TRADING_DAYS,
 ) -> Dict[str, Any]:
-    """
-    Summarizes the results of a backtest.
-
-    Args:
-        backtest_result (Dict[str, Any]): The backtest results.
-        use_mtm (bool): Whether to use the mark-to-market equity curve.
-        periods_per_year (int): The number of periods per year.
-
-    Returns:
-        Dict[str, Any]: A dictionary with the summary of the backtest.
-    """
     eq = backtest_result.get("equity")
     tr = backtest_result.get("trades", [])
     eqm = equity_stats(eq, use_mtm=use_mtm, periods_per_year=periods_per_year)
@@ -317,16 +227,6 @@ def summarize(
 
 
 def drawdown_series(equity_df: pd.DataFrame, *, use_mtm: bool = True) -> pd.Series:
-    """
-    Calculates the drawdown series.
-
-    Args:
-        equity_df (pd.DataFrame): A DataFrame with the equity curve.
-        use_mtm (bool): Whether to use the mark-to-market equity curve.
-
-    Returns:
-        pd.Series: The drawdown series.
-    """
     col = "equity_mtm" if use_mtm and "equity_mtm" in equity_df.columns else "equity"
     s = equity_df[col].astype(float).dropna()
     if s.empty:

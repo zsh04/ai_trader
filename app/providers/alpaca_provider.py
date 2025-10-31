@@ -19,15 +19,7 @@ log = logging.getLogger(__name__)
 
 
 def _normalize_symbols(symbols: List[str]) -> List[str]:
-    """
-    Normalizes a list of symbols.
-
-    Args:
-        symbols (List[str]): A list of symbols.
-
-    Returns:
-        List[str]: A normalized list of symbols.
-    """
+    """Uppercase, trim, and de-duplicate while preserving order."""
     seen = set()
     out: List[str] = []
     for s in symbols:
@@ -41,20 +33,12 @@ def _normalize_symbols(symbols: List[str]) -> List[str]:
     return out
 
 
+# Alpaca multi-symbol endpoints have practical payload/throughput limits.
+# Keep batches conservative to avoid HTTP 413/timeout issues.
 _CHUNK_SIZE = 50
 
 
 def _chunk_symbols(symbols: List[str], n: int = _CHUNK_SIZE) -> List[List[str]]:
-    """
-    Chunks a list of symbols into smaller lists.
-
-    Args:
-        symbols (List[str]): A list of symbols.
-        n (int): The size of each chunk.
-
-    Returns:
-        List[List[str]]: A list of lists of symbols.
-    """
     syms = _normalize_symbols(symbols)
     return [syms[i : i + n] for i in range(0, len(syms), n)]
 
@@ -62,15 +46,11 @@ def _chunk_symbols(symbols: List[str], n: int = _CHUNK_SIZE) -> List[List[str]]:
 def snapshots(
     symbols: List[str], feed: Optional[str] = None
 ) -> Dict[str, Dict[str, Any]]:
-    """
-    Fetches snapshots for a list of symbols.
+    """Fetch latest snapshots for multiple symbols.
 
-    Args:
-        symbols (List[str]): A list of symbols.
-        feed (Optional[str]): The data feed to use.
-
-    Returns:
-        Dict[str, Dict[str, Any]]: A dictionary of snapshots.
+    - Batches requests to avoid API limits.
+    - Returns a flat dict {SYMBOL: snapshot_dict}.
+    - If an error occurs for a batch, logs and continues (best-effort).
     """
     feed = feed or ALPACA_FEED
     batches = _chunk_symbols(symbols)
@@ -97,6 +77,7 @@ def snapshots(
             if not k:
                 continue
             out[k.upper()] = v or {}
+    # If everything came back empty, provide a helpful hint.
     if not out and symbols:
         log.warning(
             "alpaca snapshots returned empty for all symbols (feed=%s). "
@@ -113,18 +94,16 @@ def bars(
     feed: Optional[str] = None,
     adjustment: Optional[str] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
-    """
-    Fetches bars for a list of symbols.
+    """Fetch bars for multiple symbols.
 
     Args:
-        symbols (List[str]): A list of symbols.
-        timeframe (str): The timeframe to fetch.
-        limit (int): The number of bars to fetch.
-        feed (Optional[str]): The data feed to use.
-        adjustment (Optional[str]): The adjustment to apply.
+        timeframe: e.g. "1Min", "5Min", "15Min", "1Hour", "1Day" (Alpaca formats).
+        limit: number of bars per symbol.
+        feed: "iex" (paper/free) or "sip" (paid), defaults to env.
+        adjustment: raw/split/dividend (passed-through if provided).
 
     Returns:
-        Dict[str, List[Dict[str, Any]]]: A dictionary of bars.
+        Dict[SYMBOL, List[bar_dict]] — missing symbols map to empty lists.
     """
     feed = feed or ALPACA_FEED
     batches = _chunk_symbols(symbols)
@@ -156,12 +135,15 @@ def bars(
                 err,
                 ",".join(batch),
             )
+            # keep empty lists for this batch
             continue
         part = bars_to_map((data or {}).get("bars"), batch)
+        # merge into result (append to list per symbol)
         for sym, seq in part.items():
             if not isinstance(seq, list):
                 continue
             result.setdefault(sym, []).extend(seq)
+    # If all returned series are empty, surface a clear hint for debugging.
     if result and not any(seq for seq in result.values()):
         log.warning(
             "alpaca bars returned empty for all symbols (feed=%s, tf=%s). "
@@ -178,18 +160,6 @@ def minute_bars(
     feed: Optional[str] = None,
     adjustment: Optional[str] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
-    """
-    Fetches minute bars for a list of symbols.
-
-    Args:
-        symbols (List[str]): A list of symbols.
-        limit (int): The number of bars to fetch.
-        feed (Optional[str]): The data feed to use.
-        adjustment (Optional[str]): The adjustment to apply.
-
-    Returns:
-        Dict[str, List[Dict[str, Any]]]: A dictionary of minute bars.
-    """
     return bars(
         symbols, timeframe="1Min", limit=limit, feed=feed, adjustment=adjustment
     )
@@ -201,33 +171,14 @@ def day_bars(
     feed: Optional[str] = None,
     adjustment: Optional[str] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
-    """
-    Fetches day bars for a list of symbols.
-
-    Args:
-        symbols (List[str]): A list of symbols.
-        limit (int): The number of bars to fetch.
-        feed (Optional[str]): The data feed to use.
-        adjustment (Optional[str]): The adjustment to apply.
-
-    Returns:
-        Dict[str, List[Dict[str, Any]]]: A dictionary of day bars.
-    """
     return bars(
         symbols, timeframe="1Day", limit=limit, feed=feed, adjustment=adjustment
     )
 
 
 def latest_closes(symbols: List[str], feed: Optional[str] = None) -> Dict[str, float]:
-    """
-    Fetches the latest close price for a list of symbols.
-
-    Args:
-        symbols (List[str]): A list of symbols.
-        feed (Optional[str]): The data feed to use.
-
-    Returns:
-        Dict[str, float]: A dictionary of latest close prices.
+    """Convenience: fetch latest daily close for each symbol.
+    Uses `day_bars(..., limit=1)` and extracts `c`.
     """
     m = day_bars(symbols, limit=1, feed=feed)
     out: Dict[str, float] = {}
@@ -244,14 +195,8 @@ def latest_closes(symbols: List[str], feed: Optional[str] = None) -> Dict[str, f
 
 
 def latest_trades_from_snapshots(snaps: Dict[str, Dict[str, Any]]) -> Dict[str, float]:
-    """
-    Extracts the latest trade price from a dictionary of snapshots.
-
-    Args:
-        snaps (Dict[str, Dict[str, Any]]): A dictionary of snapshots.
-
-    Returns:
-        Dict[str, float]: A dictionary of latest trade prices.
+    """Extract the last trade price from snapshot responses.
+    Falls back to last quote if trade is missing. Returns {SYM: price}.
     """
     out: Dict[str, float] = {}
     for sym, s in (snaps or {}).items():
@@ -271,15 +216,7 @@ def latest_trades_from_snapshots(snaps: Dict[str, Dict[str, Any]]) -> Dict[str, 
 
 
 def has_data(data_map: Optional[Dict[str, Any]]) -> bool:
-    """
-    Checks if a dictionary of data has any data.
-
-    Args:
-        data_map (Optional[Dict[str, Any]]): A dictionary of data.
-
-    Returns:
-        bool: True if the dictionary has data, False otherwise.
-    """
+    """Return True if any non-empty series or map has data."""
     if not data_map:
         return False
     for v in data_map.values():

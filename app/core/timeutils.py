@@ -6,28 +6,19 @@ from datetime import datetime, time, timezone
 
 log = logging.getLogger(__name__)
 
+# Eastern Timezone aware (handles DST via IANA database)
 ET = zoneinfo.ZoneInfo("America/New_York")
 
 
 def now_utc() -> datetime:
-    """
-    Returns the current UTC datetime.
-
-    Returns:
-        datetime: The current UTC datetime.
-    """
+    """Return the current UTC datetime."""
     return datetime.now(timezone.utc)
 
 
 def session_for(dt_utc: datetime) -> str:
     """
-    Determines the trading session for a given UTC datetime.
-
-    Args:
-        dt_utc (datetime): The UTC datetime.
-
-    Returns:
-        str: The trading session.
+    Determine the trading session (premarket, regular, after, closed) for a UTC timestamp.
+    Uses US Eastern (NYSE/NASDAQ) hours by default.
     """
     try:
         dt_et = dt_utc.astimezone(ET)

@@ -6,49 +6,43 @@ from typing import Any, Dict
 import pandas as pd
 
 
+# --------------------------------------------------------------------------------------
+# Cost model
+# --------------------------------------------------------------------------------------
 @dataclass
 class Costs:
-    """
-    Per-trade cost assumptions.
+    """Per-trade cost assumptions.
 
-    Attributes:
-        slippage_bps (float): Per-fill slippage in basis points.
-        fee_per_share (float): Fixed fee per share.
+    Attributes
+    ----------
+    slippage_bps : float
+        Per-fill slippage in basis points (applied on both entry and exit).
+    fee_per_share : float
+        Fixed fee per share (applied on entry and exit).
     """
 
-    slippage_bps: float = 1.0
+    slippage_bps: float = 1.0  # 1 bp per fill
     fee_per_share: float = 0.0
 
 
+# --------------------------------------------------------------------------------------
+# Helpers
+# --------------------------------------------------------------------------------------
 _DEF_MIN_EPS = 1e-6
 
 
 def _as_series(x: pd.Series | pd.DataFrame) -> pd.Series:
-    """
-    Returns the first column of a DataFrame or the Series itself.
-
-    Args:
-        x (pd.Series | pd.DataFrame): The input Series or DataFrame.
-
-    Returns:
-        pd.Series: The first column of the DataFrame or the Series itself.
-    """
+    """Return the first column if a DataFrame else the Series itself."""
     return x.iloc[:, 0] if isinstance(x, pd.DataFrame) else x
 
 
 def _align_series(
     s: pd.Series | pd.DataFrame, index: pd.Index, *, fill: Any = 0
 ) -> pd.Series:
-    """
-    Aligns a Series to a given index.
+    """Coerce to a Series aligned to *index*.
 
-    Args:
-        s (pd.Series | pd.DataFrame): The Series or DataFrame to align.
-        index (pd.Index): The index to align to.
-        fill (Any): The value to fill missing values with.
-
-    Returns:
-        pd.Series: The aligned Series.
+    Ensures safe element access with `.iat` and avoids misalignment errors when
+    comparing `DataFrame` and `Series` objects.
     """
     ser = _as_series(s)
     if not ser.index.equals(index):
@@ -56,19 +50,25 @@ def _align_series(
     return ser.fillna(fill)
 
 
+# --------------------------------------------------------------------------------------
+# Backtest engine (long-only, 1 position)
+# --------------------------------------------------------------------------------------
+
+
 def backtest_long_only(
     df: pd.DataFrame,
     entry: pd.Series,
     exit_: pd.Series,
     atr: pd.Series,
-    entry_price: str = "close",
+    entry_price: str = "close",  # "close" or "next_open"
     atr_mult: float = 2.0,
-    risk_frac: float = 0.03,
+    risk_frac: float = 0.03,  # fraction of equity risked
     costs: Costs | None = None,
     mark_to_market: bool = True,
     mtm_price: str = "close",
-    model=None,
+    model=None,  # object with .allow() and .update(win: bool) or None
     init_equity: float = 100_000.0,
+    # Compatibility knobs used by some runners
     initial_equity: float | None = None,
     starting_equity: float | None = None,
     capital: float | None = None,
@@ -79,33 +79,38 @@ def backtest_long_only(
     **kwargs,
 ) -> Dict[str, Any]:
     """
-    A minimal long-only backtest engine.
+    Minimal long-only backtest engine with ATR-based position sizing and a trailing stop.
 
-    Args:
-        df (pd.DataFrame): A DataFrame with OHLC data.
-        entry (pd.Series): A Series of entry signals.
-        exit_ (pd.Series): A Series of exit signals.
-        atr (pd.Series): A Series of ATR values.
-        entry_price (str): The entry price to use.
-        atr_mult (float): The ATR multiplier for the stop loss.
-        risk_frac (float): The fraction of equity to risk per trade.
-        costs (Costs | None): The cost model to use.
-        mark_to_market (bool): Whether to mark to market.
-        mtm_price (str): The price to use for mark-to-market.
-        model: An optional model to use for gating trades.
-        init_equity (float): The initial equity.
-        initial_equity (float | None): The initial equity.
-        starting_equity (float | None): The initial equity.
-        capital (float | None): The initial equity.
-        integer_shares (bool | None): Whether to use integer shares.
-        allow_fractional (bool | None): Whether to allow fractional shares.
-        min_shares (float): The minimum number of shares to trade.
-        min_notional (float): The minimum notional value to trade.
-        **kwargs: Additional keyword arguments.
+    Parameters
+    ----------
+    df : DataFrame
+        Must contain columns: `open`, `high`, `low`, `close` (case sensitive).
+    entry, exit_ : Series[bool]
+        Boolean signals aligned to `df.index`. `entry` opens a long. `exit_` closes it.
+    atr : Series[float]
+        Average True Range used for stop distance and sizing. Must be > 0.
+    entry_price : {"close", "next_open"}
+        Fill model for entries.
+    atr_mult : float
+        Multiplier on ATR to set the initial stop below the fill price.
+    risk_frac : float
+        Fraction of equity risked per trade (clamped to (0, 0.25]).
+    costs : Costs | None
+        Slippage and per-share fees. Slippage is applied on both entry and exit.
+    mark_to_market : bool
+        If True, report an equity curve with unrealized PnL marked each bar.
+    mtm_price : {"close", "mid"}
+        Price source for mark-to-market; `mid` uses (high+low)/2.
+    model : Any | None
+        Optional gate with `.allow()` and `.update(win: bool)` methods.
 
-    Returns:
-        Dict[str, Any]: A dictionary with the backtest results.
+    Returns
+    -------
+    dict
+        `{ "equity": DataFrame(date, equity), "trades": List[dict] }`.
     """
+
+    # Normalize equity inputs
     if initial_equity is not None:
         init_equity = float(initial_equity)
     elif starting_equity is not None:
@@ -113,6 +118,7 @@ def backtest_long_only(
     elif capital is not None:
         init_equity = float(capital)
 
+    # Share discretization
     fractional_ok = True
     if integer_shares is not None:
         fractional_ok = not bool(integer_shares)
@@ -122,6 +128,7 @@ def backtest_long_only(
     if costs is None:
         costs = Costs()
 
+    # Defensive parameter guards
     atr_mult = float(atr_mult)
     if atr_mult <= 0:
         atr_mult = 2.0
@@ -129,6 +136,7 @@ def backtest_long_only(
     if not (rf > 0.0) or not (rf <= 0.25):
         rf = 0.03
 
+    # Ensure all inputs are series aligned to df.index
     idx = df.index
     px_open = _align_series(df["open"], idx)
     px_high = _align_series(df["high"], idx)
@@ -150,17 +158,22 @@ def backtest_long_only(
     for i in range(1, len(idx)):
         date = idx[i]
 
+        # -----------------
+        # Exit checks first
+        # -----------------
         if in_pos:
             low_i = float(px_low.iat[i])
             exit_hit = bool(exit_.iat[i])
             stop_hit = bool(low_i <= float(stop_px))
 
             if exit_hit or stop_hit:
+                # Exit fill at close (with slippage). If stop was pierced, cap at stop.
                 exit_px = float(px_close.iat[i])
                 exit_px *= 1 - costs.slippage_bps / 1e4
                 if stop_hit:
                     exit_px = min(exit_px, float(stop_px))
 
+                # Commissions/fees on exit as well
                 fee = float(shares) * float(costs.fee_per_share)
                 pnl = (exit_px - float(entry_px)) * float(shares) - fee
                 equity += pnl
@@ -178,6 +191,9 @@ def backtest_long_only(
                 in_pos = False
                 shares = 0.0
 
+        # --------------
+        # Entry if flat
+        # --------------
         if (not in_pos) and bool(entry.iat[i]):
             model_ok = (
                 (model is None)
@@ -185,17 +201,20 @@ def backtest_long_only(
                 or (len(trades) == 0)
             )
             if model_ok:
+                # Determine entry fill
                 if entry_price == "close":
                     fill_px = float(px_close.iat[i])
-                else:
+                else:  # next_open
                     next_i = i + 1
                     fill_px = (
                         float(px_open.iat[next_i])
                         if next_i < len(idx)
                         else float(px_close.iat[i])
                     )
+                # Entry slippage and entry fee
                 fill_px *= 1 + costs.slippage_bps / 1e4
 
+                # Risk-based sizing
                 risk_dollar = float(equity) * rf
                 this_atr = max(_DEF_MIN_EPS, float(atr.iat[i]))
                 stop_px = float(fill_px) - float(atr_mult) * this_atr
@@ -213,6 +232,7 @@ def backtest_long_only(
                     shares = float(int(max(0.0, raw_shares)))
 
                 if shares > 0.0:
+                    # Apply entry fees immediately (reduces equity)
                     equity -= shares * float(costs.fee_per_share)
                     entry_px = float(fill_px)
                     in_pos = True
@@ -225,6 +245,9 @@ def backtest_long_only(
                         }
                     )
 
+        # ----------------------
+        # Post-trade model update
+        # ----------------------
         if (
             model
             and trades
@@ -236,6 +259,9 @@ def backtest_long_only(
             finally:
                 trades[-1]["_accounted"] = True
 
+        # -----------------
+        # Per-bar equity mark
+        # -----------------
         if mark_to_market and in_pos and shares > 0.0:
             if mtm_price == "mid":
                 mtm_px = float((px_high.iat[i] + px_low.iat[i]) / 2.0)

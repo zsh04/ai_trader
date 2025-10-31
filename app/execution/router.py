@@ -9,20 +9,27 @@ def bracket_for_entry(
     entry_px: float, atr: float, tp_mult: float = 1.5, sl_mult: float = 1.0
 ) -> Tuple[float, float]:
     """
-    Computes take-profit and stop-loss price levels for an entry.
+    Compute take-profit and stop-loss price levels for an entry.
 
-    Args:
-        entry_px (float): The entry price of the position.
-        atr (float): The Average True Range (ATR) as a volatility measure.
-        tp_mult (float): The multiplier for the take-profit level.
-        sl_mult (float): The multiplier for the stop-loss level.
+    Parameters
+    ----------
+    entry_px : float
+        Entry price of the position.
+    atr : float
+        Average True Range — volatility measure.
+    tp_mult : float, default 1.5
+        Multiplier for the take-profit level.
+    sl_mult : float, default 1.0
+        Multiplier for the stop-loss level.
 
-    Returns:
-        Tuple[float, float]: A tuple of (take_profit, stop_loss).
+    Returns
+    -------
+    (tp, sl) : tuple[float, float]
+        Take-profit and stop-loss levels.
     """
     if not math.isfinite(entry_px) or not math.isfinite(atr) or atr <= 0:
         log.warning("Invalid bracket inputs: entry_px=%s atr=%s", entry_px, atr)
-        return entry_px, entry_px
+        return entry_px, entry_px  # neutral fallback
 
     tp = entry_px + tp_mult * atr
     sl = entry_px - sl_mult * atr

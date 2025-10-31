@@ -1,5 +1,10 @@
 """
 Probabilistic filter base classes.
+
+Integrates with existing ai_trader structure:
+- Uses app/strats/common.py utilities (pick_col, as_series, etc.)
+- Returns pandas Series with probabilistic scores [0,1]
+- Compatible with existing OHLCV data format
 """
 from __future__ import annotations
 
@@ -10,31 +15,43 @@ import pandas as pd
 
 
 class ProbabilisticFilter(ABC):
-    """
-    An abstract base class for probabilistic filters.
+    """Base class for probabilistic filters.
+
+    Unlike boolean filters, these return confidence scores [0,1]
+    representing belief that an asset satisfies the criterion.
+
+    Example:
+        filter = VolatilityRegimeFilter()
+        scores = filter.score(data, context={'vix': 18.5})
+        # Returns: pd.Series with index=symbols, values=[0,1]
+
+        # Can also use as boolean filter with threshold
+        mask = filter.filter(data, threshold=0.7)
     """
 
     def __init__(self, name: str | None = None):
-        """
-        Initializes the ProbabilisticFilter.
-
-        Args:
-            name (str | None): The name of the filter.
-        """
+        """Initialize filter with optional custom name."""
         self.name = name or self.__class__.__name__
         self._fitted = False
 
     @abstractmethod
     def score(self, data: pd.DataFrame, context: Dict[str, Any] | None = None) -> pd.Series:
-        """
-        Scores the data based on the filter's criteria.
+        """Return probability [0,1] for each symbol.
 
         Args:
-            data (pd.DataFrame): The data to score.
-            context (Dict[str, Any] | None): The context for scoring.
+            data: OHLCV DataFrame. Can be:
+                  - Single symbol: index=datetime, columns=[open,high,low,close,volume]
+                  - Multi-symbol: index=datetime, columns=MultiIndex[(symbol,field)]
+                  - Wide format: columns=[symbol1_close, symbol1_volume, symbol2_close, ...]
+            context: Optional dict with market state (vix, regime, etc.)
 
         Returns:
-            pd.Series: A Series of scores.
+            pd.Series with:
+                - index = symbol names (str)
+                - values = probability scores [0,1]
+
+        Raises:
+            ValueError: If data format is invalid or required columns missing
         """
         pass
 
@@ -44,39 +61,35 @@ class ProbabilisticFilter(ABC):
         threshold: float = 0.5,
         context: Dict[str, Any] | None = None
     ) -> pd.Series:
-        """
-        Filters the data based on a threshold.
+        """Binary filter using threshold on probability scores.
 
         Args:
-            data (pd.DataFrame): The data to filter.
-            threshold (float): The threshold to use for filtering.
-            context (Dict[str, Any] | None): The context for filtering.
+            data: OHLCV DataFrame
+            threshold: Minimum probability to pass filter [0,1]
+            context: Optional market context dict
 
         Returns:
-            pd.Series: A Series of booleans indicating which data points passed the filter.
+            pd.Series of booleans (True = passes filter)
         """
         scores = self.score(data, context or {})
         return scores >= threshold
 
     def fit(self, data: pd.DataFrame, labels: pd.Series | None = None) -> ProbabilisticFilter:
-        """
-        Fits the filter to the data.
+        """Train filter on historical data (optional, for ML-based filters).
 
         Args:
-            data (pd.DataFrame): The data to fit the filter to.
-            labels (pd.Series | None): The labels for the data.
+            data: Historical OHLCV data
+            labels: Optional binary labels (1=positive, 0=negative)
 
         Returns:
-            ProbabilisticFilter: The fitted filter.
+            self (for method chaining)
         """
         self._fitted = True
         return self
 
     @property
     def is_fitted(self) -> bool:
-        """
-        Whether the filter has been fitted.
-        """
+        """Check if filter has been trained (for ML filters)."""
         return self._fitted
 
     def __repr__(self) -> str:
@@ -84,8 +97,14 @@ class ProbabilisticFilter(ABC):
 
 
 class FilterPipeline:
-    """
-    A pipeline of probabilistic filters.
+    """Compose multiple probabilistic filters with different combination methods.
+
+    Example:
+        pipeline = FilterPipeline(
+            filters=[VolatilityFilter(), LiquidityFilter()],
+            combination_method='product'
+        )
+        final_scores = pipeline.score(data, context)
     """
 
     VALID_METHODS = {'product', 'weighted_avg', 'min', 'max', 'mean'}
@@ -96,13 +115,17 @@ class FilterPipeline:
         combination_method: str = 'product',
         weights: list[float] | None = None
     ):
-        """
-        Initializes the FilterPipeline.
+        """Initialize pipeline.
 
         Args:
-            filters (list[ProbabilisticFilter]): A list of filters to use.
-            combination_method (str): The method to use for combining scores.
-            weights (list[float] | None): The weights to use for the 'weighted_avg' method.
+            filters: List of ProbabilisticFilter instances
+            combination_method: How to combine scores:
+                - 'product': Multiply scores (assumes independence)
+                - 'weighted_avg': Weighted average (requires weights)
+                - 'min': Conservative (take minimum)
+                - 'max': Aggressive (take maximum)
+                - 'mean': Simple average
+            weights: Optional weights for weighted_avg method
         """
         if not filters:
             raise ValueError("filters list cannot be empty")
@@ -119,6 +142,7 @@ class FilterPipeline:
 
         if combination_method == 'weighted_avg':
             if weights is None:
+                # Default to equal weights
                 self.weights = [1.0 / len(filters)] * len(filters)
             elif len(weights) != len(filters):
                 raise ValueError(
@@ -127,18 +151,18 @@ class FilterPipeline:
                 )
 
     def score(self, data: pd.DataFrame, context: Dict[str, Any] | None = None) -> pd.Series:
-        """
-        Scores the data using the pipeline.
+        """Compute combined probability scores from all filters.
 
         Args:
-            data (pd.DataFrame): The data to score.
-            context (Dict[str, Any] | None): The context for scoring.
+            data: OHLCV DataFrame
+            context: Optional market context
 
         Returns:
-            pd.Series: A Series of scores.
+            pd.Series with combined scores [0,1]
         """
         context = context or {}
 
+        # Compute all filter scores
         scores_list = []
         for f in self.filters:
             try:
@@ -151,18 +175,23 @@ class FilterPipeline:
         if not scores_list:
             raise RuntimeError("All filters failed - no scores computed")
 
+        # Combine into DataFrame for easier manipulation
         scores_df = pd.concat(scores_list, axis=1, keys=[f.name for f in self.filters])
 
+        # Apply combination method
         if self.combination_method == 'product':
+            # Independent assumption: P(A and B) = P(A) * P(B)
             return scores_df.prod(axis=1)
 
         elif self.combination_method == 'weighted_avg':
             return scores_df.dot(self.weights)
 
         elif self.combination_method == 'min':
+            # Conservative: weakest link
             return scores_df.min(axis=1)
 
         elif self.combination_method == 'max':
+            # Aggressive: strongest signal
             return scores_df.max(axis=1)
 
         elif self.combination_method == 'mean':
@@ -177,17 +206,7 @@ class FilterPipeline:
         threshold: float = 0.5,
         context: Dict[str, Any] | None = None
     ) -> pd.Series:
-        """
-        Filters the data using the pipeline.
-
-        Args:
-            data (pd.DataFrame): The data to filter.
-            threshold (float): The threshold to use for filtering.
-            context (Dict[str, Any] | None): The context for filtering.
-
-        Returns:
-            pd.Series: A Series of booleans indicating which data points passed the filter.
-        """
+        """Binary filter using combined scores."""
         scores = self.score(data, context)
         return scores >= threshold
 

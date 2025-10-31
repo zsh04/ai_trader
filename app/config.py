@@ -8,61 +8,60 @@ from app.utils.env import ENV
 
 @dataclass(frozen=True)
 class Settings:
-    """
-    A data class for application settings.
+    """Application settings derived from environment variables."""
 
-    Attributes:
-        VERSION (str): The application version.
-        port (int): The port to run the application on.
-        tz (str): The timezone to use.
-        alpaca_key (str): The Alpaca API key.
-        alpaca_secret (str): The Alpaca API secret.
-        alpaca_base_url (str): The Alpaca base URL.
-        paper_trading (bool): Whether to use paper trading.
-        blob_account (str): The Azure blob storage account.
-        blob_key (str): The Azure blob storage key.
-        blob_container (str): The Azure blob storage container.
-        pg_host (str): The PostgreSQL host.
-        pg_port (int): The PostgreSQL port.
-        pg_db (str): The PostgreSQL database.
-        pg_user (str): The PostgreSQL user.
-        pg_password (str): The PostgreSQL password.
-        pg_sslmode (str): The PostgreSQL SSL mode.
-        database_url (str): The database URL.
-        price_min (float): The minimum price for a symbol.
-        price_max (float): The maximum price for a symbol.
-        gap_min_pct (float): The minimum gap percentage.
-        rvol_min (float): The minimum relative volume.
-        spread_max_pct_pre (float): The maximum pre-market spread percentage.
-        dollar_vol_min_pre (int): The minimum pre-market dollar volume.
-        max_watchlist (int): The maximum number of symbols in a watchlist.
-    """
-
+    #: Semantic version string exposed to FastAPI/open health endpoints.
     VERSION: str = __version__
+    #: HTTP port for the API server (used by CLI wrappers/process managers).
     port: int = ENV.PORT
+    #: Default timezone for scheduling/logging.
     tz: str = ENV.TZ
+
+    #: Alpaca API key ID.
     alpaca_key: str = ENV.ALPACA_API_KEY
+    #: Alpaca API secret.
     alpaca_secret: str = ENV.ALPACA_API_SECRET
+    #: Alpaca REST endpoint base URL.
     alpaca_base_url: str = ENV.ALPACA_BASE_URL
+    #: Whether the deployment is using paper trading.
     paper_trading: bool = ENV.PAPER_TRADING
+
+    #: Azure storage account name for blob access.
     blob_account: str = ENV.AZURE_STORAGE_ACCOUNT
+    #: Azure blob shared key credential (if not using connection string).
     blob_key: str = ENV.AZURE_STORAGE_ACCOUNT_KEY
+    #: Default blob container for persistent artifacts.
     blob_container: str = (
         ENV.AZURE_STORAGE_CONTAINER_NAME or ENV.AZURE_STORAGE_CONTAINER_DATA
     )
+
+    #: Postgres host.
     pg_host: str = ENV.PGHOST
+    #: Postgres port.
     pg_port: int = ENV.PGPORT
+    #: Postgres database name.
     pg_db: str = ENV.PGDATABASE
+    #: Postgres username.
     pg_user: str = ENV.PGUSER
+    #: Postgres password.
     pg_password: str = ENV.PGPASSWORD
+    #: Postgres SSL mode.
     pg_sslmode: str = ENV.PGSSLMODE
     database_url: str = ENV.DATABASE_URL
+
+    #: Minimum symbol price accepted by scanners.
     price_min: float = ENV.PRICE_MIN
+    #: Maximum symbol price accepted by scanners.
     price_max: float = ENV.PRICE_MAX
+    #: Minimum gap percentage filter.
     gap_min_pct: float = ENV.GAP_MIN_PCT
+    #: Minimum relative volume filter.
     rvol_min: float = ENV.RVOL_MIN
+    #: Maximum acceptable pre-market spread (percentage).
     spread_max_pct_pre: float = ENV.SPREAD_MAX_PCT_PRE
+    #: Minimum pre-market dollar volume.
     dollar_vol_min_pre: int = ENV.DOLLAR_VOL_MIN_PRE
+    #: Maximum symbols returned by watchlist builder.
     max_watchlist: int = ENV.MAX_WATCHLIST
 
 

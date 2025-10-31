@@ -20,38 +20,26 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 ALLOW_NO_SECRET = os.getenv("TELEGRAM_ALLOW_TEST_NO_SECRET") == "1"
 
-
+# ---------------------------
+# DI: Telegram client factory
+# ---------------------------
 def TelegramDep():
     """
-    Dependency injector for the Telegram client.
-
-    Returns:
-        Any: A Telegram client instance.
+    Build a Telegram client from env. In pytest, we force TELEGRAM_FAKE=1 so
+    the fake client + test outbox are always used even if overrides don't bind.
     """
     if os.getenv("PYTEST_CURRENT_TEST"):
         os.environ.setdefault("TELEGRAM_FAKE", "1")
     from app.adapters.notifiers.telegram import build_client_from_env
     return build_client_from_env()
 
-
+# Some test suites import this symbol explicitly.
 def get_telegram():
-    """
-    Returns a Telegram client instance.
-
-    Returns:
-        Any: A Telegram client instance.
-    """
     return TelegramDep()
 
 def _env():
-    """
-    Returns the environment variables.
-
-    Returns:
-        Any: An object with the environment variables.
-    """
     try:
-        from app.utils import env as ENV
+        from app.utils import env as ENV  # type: ignore
         return ENV
     except Exception:
         class F:
@@ -63,15 +51,6 @@ def _env():
 SYMBOL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9.\-]{0,20}$")
 
 def _mask(s: Optional[str]) -> str:
-    """
-    Masks a string.
-
-    Args:
-        s (Optional[str]): The string to mask.
-
-    Returns:
-        str: The masked string.
-    """
     if not s:
         return "<empty>"
     if len(s) <= 8:
@@ -90,20 +69,7 @@ def _dump_webhook_debug(
     env_name: str,
     bot_token_set: bool,
 ) -> None:
-    """
-    Dumps webhook debug information.
-
-    Args:
-        where (str): The location of the debug dump.
-        payload (Dict[str, Any]): The webhook payload.
-        hdr_primary (Optional[str]): The primary secret header.
-        hdr_legacy (Optional[str]): The legacy secret header.
-        env_secret (Optional[str]): The environment secret.
-        test_mode (bool): Whether test mode is enabled.
-        allow_empty (bool): Whether empty secrets are allowed.
-        env_name (str): The environment name.
-        bot_token_set (bool): Whether the bot token is set.
-    """
+    """Log a compact debug dump; keep it safe/noisy only in test/dev."""
     try:
         masked_hdr_primary = _mask(hdr_primary)
         masked_hdr_legacy = _mask(hdr_legacy)
@@ -127,15 +93,7 @@ def _dump_webhook_debug(
         logger.error("[tg-webhook:%s] debug dump failed: %s", where, e)
 
 def _is_authorized(user_id: Optional[int]) -> bool:
-    """
-    Checks if a user is authorized.
-
-    Args:
-        user_id (Optional[int]): The user ID.
-
-    Returns:
-        bool: True if the user is authorized, False otherwise.
-    """
+    """Allow all if no allowlist configured; else enforce match."""
     try:
         ENV = _env()
         allow_list = getattr(ENV, "TELEGRAM_ALLOWED_USER_IDS", []) or []
@@ -149,15 +107,6 @@ def _is_authorized(user_id: Optional[int]) -> bool:
     return s in {str(u) for u in allow_list}
 
 def _parse_command(text: str) -> Tuple[str, List[str]]:
-    """
-    Parses a command from a text message.
-
-    Args:
-        text (str): The text message.
-
-    Returns:
-        Tuple[str, List[str]]: A tuple of (command, arguments).
-    """
     t = (text or "").strip()
     if not t.startswith("/"):
         return "", []
@@ -167,13 +116,10 @@ def _parse_command(text: str) -> Tuple[str, List[str]]:
 
 def _reply(tg: Any, chat_id: int | str, text: str) -> None:
     """
-    Sends a reply to a chat.
-
-    Args:
-        tg (Any): The Telegram client.
-        chat_id (int | str): The chat ID.
-        text (str): The reply text.
+    Send a reply using whatever method the client supports.
+    In pytest, force the simplest call shape to the fake outbox.
     """
+    # Test-mode fast path: the fake always has smart_send(chat_id, text, ...)
     if os.getenv("PYTEST_CURRENT_TEST"):
         method = getattr(tg, "smart_send", None)
         if callable(method):
@@ -182,6 +128,7 @@ def _reply(tg: Any, chat_id: int | str, text: str) -> None:
                 return
             except Exception as exc:
                 logger.warning("Telegram test fast-path failed: %s", exc)
+        # fall through to generic path if needed
 
     candidates: list[tuple[str, dict]] = [
         ("smart_send", {"parse_mode": "Markdown", "chunk_size": 3500}),
@@ -197,6 +144,7 @@ def _reply(tg: Any, chat_id: int | str, text: str) -> None:
             method(chat_id, text, **kwargs)
             return
         except TypeError:
+            # Fallback for fakes that don't accept kwargs
             try:
                 method(chat_id, text)
                 return
@@ -211,12 +159,7 @@ _WATCHLIST_SOURCES = {"manual", "textlist", "finviz", "scanner"}
 
 @contextmanager
 def _temp_env(**pairs: str):
-    """
-    A context manager for temporarily setting environment variables.
-
-    Args:
-        **pairs (str): A dictionary of environment variables to set.
-    """
+    """Temporarily set environment variables and restore them afterward."""
     old: Dict[str, Optional[str]] = {}
     for k, v in pairs.items():
         old[k] = os.environ.get(k)
@@ -231,15 +174,6 @@ def _temp_env(**pairs: str):
                 os.environ[k] = v
 
 def _resolve_watchlist(source_override: str | None) -> tuple[str, list[str]]:
-    """
-    Resolves the watchlist.
-
-    Args:
-        source_override (str | None): The source override.
-
-    Returns:
-        tuple[str, list[str]]: A tuple of (source, symbols).
-    """
     from app.domain.watchlist_service import resolve_watchlist
     if not source_override:
         return resolve_watchlist()
@@ -250,21 +184,15 @@ def _resolve_watchlist(source_override: str | None) -> tuple[str, list[str]]:
         return resolve_watchlist()
 
 def _handle_watchlist(tg: Any, chat_id: int | str, args: list[str]) -> None:
-    """
-    Handles the /watchlist command.
-
-    Args:
-        tg (Any): The Telegram client.
-        chat_id (int | str): The chat ID.
-        args (list[str]): The command arguments.
-    """
+    """Build and send a watchlist."""
     cleaned = normalize_quotes_and_dashes(" ".join(args or []))
     kv_flags = parse_kv_flags(cleaned)
     parsed = parse_watchlist_args(cleaned)
 
+    # Optional source override flag
     source_flag = (kv_flags.get("source") or "").strip().lower() or None
     if source_flag and source_flag not in _WATCHLIST_SOURCES:
-        source_flag = None
+        source_flag = None  # ignore invalid value
 
     title = kv_flags.get("title") or parsed.get("title") or "AI Trader • Watchlist"
     limit = parsed.get("limit")
@@ -292,11 +220,13 @@ def _handle_watchlist(tg: Any, chat_id: int | str, args: list[str]) -> None:
             logger.warning("watchlist resolve failed: %s", exc)
             resolved_source, symbols_arg = "textlist", []
 
+    # Test-mode micro fake to guarantee a reply without heavy builders
     if os.getenv("PYTEST_CURRENT_TEST") and not symbols_arg:
         text = "*AI Trader • Watchlist*\n• Symbols: _(empty)_"
         _reply(tg, chat_id, text)
         return
 
+    # normalize manual symbols if provided
     if symbols_arg:
         tmp: list[str] = []
         for t in " ".join(symbols_arg).replace(",", " ").split():
@@ -329,25 +259,9 @@ def _handle_watchlist(tg: Any, chat_id: int | str, args: list[str]) -> None:
     _reply(tg, chat_id, text or "_(empty)_")
 
 def _handle_ping(tg: Any, chat_id: int | str, _args: list[str]) -> None:
-    """
-    Handles the /ping command.
-
-    Args:
-        tg (Any): The Telegram client.
-        chat_id (int | str): The chat ID.
-        _args (list[str]): The command arguments.
-    """
     _reply(tg, chat_id, "pong ✅")
 
 def _handle_help(tg: Any, chat_id: int | str, _args: list[str]) -> None:
-    """
-    Handles the /help command.
-
-    Args:
-        tg (Any): The Telegram client.
-        chat_id (int | str): The chat ID.
-        _args (list[str]): The command arguments.
-    """
     _reply(
         tg,
         chat_id,
@@ -366,14 +280,6 @@ def _handle_help(tg: Any, chat_id: int | str, _args: list[str]) -> None:
     )
 
 def _handle_start(tg: Any, chat_id: int | str, _args: list[str]) -> None:
-    """
-    Handles the /start command.
-
-    Args:
-        tg (Any): The Telegram client.
-        chat_id (int | str): The chat ID.
-        _args (list[str]): The command arguments.
-    """
     _reply(
         tg,
         chat_id,
@@ -382,14 +288,6 @@ def _handle_start(tg: Any, chat_id: int | str, _args: list[str]) -> None:
     )
 
 def _handle_summary(tg: Any, chat_id: int | str, _args: list[str]) -> None:
-    """
-    Handles the /summary command.
-
-    Args:
-        tg (Any): The Telegram client.
-        chat_id (int | str): The chat ID.
-        _args (list[str]): The command arguments.
-    """
     asof = _WATCH_META.get("asof_utc") or "never"
     session = _WATCH_META.get("session") or "regular"
     count = int(_WATCH_META.get("count") or 0)
@@ -419,24 +317,13 @@ def webhook(
     tg: Any = Depends(TelegramDep),
 ) -> Dict[str, Any]:
     """
-    Handles incoming Telegram webhooks.
-
-    Args:
-        request (Request): The incoming request.
-        payload (Dict[str, Any]): The webhook payload.
-        x_secret_primary (Optional[str]): The primary secret token.
-        x_secret_legacy (Optional[str]): The legacy secret token.
-        tg (Any): The Telegram client.
-
-    Returns:
-        Dict[str, Any]: A dictionary with the status of the request.
-
-    Raises:
-        HTTPException: If the payload is missing or the secret is invalid.
+    Accepts webhook events. In tests/dev, accepts missing/empty secret.
+    In production (ENV=prod), requires a matching secret if configured.
     """
     if not payload:
         raise HTTPException(status_code=400, detail="Missing payload")
 
+    # Secret gate: only enforce in prod unless test bypass flag
     env = (os.getenv("ENV") or "dev").lower()
     configured_secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "").strip()
     provided_secret = (x_secret_primary or x_secret_legacy or "").strip()
@@ -480,12 +367,14 @@ def webhook(
         )
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    # Extract chat/message
     msg = (payload.get("message") or payload.get("edited_message") or {})
     chat_id = (msg.get("chat") or {}).get("id") or os.getenv("TELEGRAM_DEFAULT_CHAT_ID")
     user_id = (msg.get("from") or {}).get("id")
     if not chat_id:
         raise HTTPException(status_code=400, detail="Missing chat id")
 
+    # Enforce allowed-user list if configured
     if not _is_authorized(user_id):
         logger.info("[tg] unauthorized user id=%s (ignored)", user_id)
         return {"ok": True, "ignored": True}
@@ -498,6 +387,7 @@ def webhook(
         handler(tg, chat_id, args)
         return {"ok": True, "cmd": cmd}
 
+    # Free-text fallback: attempt to parse tickers and run /watchlist
     if text and not text.startswith("/"):
         try_syms: list[str] = []
         for t in text.replace(",", " ").split():
