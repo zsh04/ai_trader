@@ -92,11 +92,6 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
         features = self._extract_features(data)
 
         if len(features) < self.lookback:
-            raise ValueError(
-                f"Need at least {self.lookback} periods of clean data, "
-                f"got {len(features)}"
-            )
-
             self._fitted = False
             return self
         
@@ -111,7 +106,7 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
             if len(state_data) > 0:
                 mean_atr = state_data[:, 0].mean()  # First column is ATR
                 state_means.append((i, mean_atr))
-
+        
         # Sort by volatility
         # self.hmm.means_ is shape (n_components, n_features)
         state_means = [(i, mean[0]) for i, mean in enumerate(self.hmm.means_)]
