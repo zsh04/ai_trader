@@ -188,16 +188,12 @@ jobs:
           docker build -t ${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }} -f otel.Dockerfile .
           docker push ${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }}
 
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
-
       - name: Deploy Main Container
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           images: "${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}"
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
 
       - name: Update Sidecar Container
         run: |
