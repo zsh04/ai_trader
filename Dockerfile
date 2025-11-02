@@ -30,4 +30,10 @@ EXPOSE 8000
 
 # The CMD remains the same.
 # The env vars will be provided by Docker Compose or Azure.
-CMD ["opentelemetry-instrument", "uvicorn", "app.main:app", "--host", "0.0.0.0"]
+CMD ["opentelemetry-instrument", \
+    "gunicorn", \
+    "-k", "uvicorn.workers.UvicornWorker", \
+    "-w", "2", \
+    "-t", "90", \
+    "app.main:app", \
+    "--bind", "0.0.0.0:8000"]

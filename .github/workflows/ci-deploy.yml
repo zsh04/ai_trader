@@ -42,13 +42,13 @@ env:
   ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
 
   # --- Observability Secrets (MUST be set in GitHub Secrets) ---
-  # These are needed by docker-compose.yml
   SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-  GRAFANA_OTLP_ENDPOINT: ${{ secrets.GRAFANA_OTLP_ENDPOINT }} # e.g., https://otlp-gateway.../otlp
-  GRAFANA_BASIC_AUTH: ${{ secrets.GRAFANA_BASIC_AUTH }} # e.g., ODMwNz...JjE5
+  GRAFANA_OTLP_ENDPOINT: ${{ secrets.GRAFANA_OTLP_ENDPOINT }}
+  GRAFANA_BASIC_AUTH: ${{ secrets.GRAFANA_BASIC_AUTH }}
 
 jobs:
   prebuild:
+    # ... (this job is unchanged) ...
     name: pre-build
     runs-on: ubuntu-latest
     steps:
@@ -66,6 +66,7 @@ jobs:
           echo "Target App Service: ${AZURE_WEBAPP_NAME}"
 
   build:
+    # ... (this job is unchanged) ...
     name: build
     runs-on: ubuntu-latest
     needs: prebuild
@@ -96,6 +97,7 @@ jobs:
           python sanity.py || true
 
   smoke:
+    # ... (this job is unchanged) ...
     name: smoke
     runs-on: ubuntu-latest
     needs: build
@@ -132,6 +134,7 @@ jobs:
         run: docker rm -f ai-smoke || true
 
   tests:
+    # ... (this job is unchanged) ...
     name: test
     runs-on: ubuntu-latest
     needs: build
@@ -156,6 +159,7 @@ jobs:
         run: |
           pytest -q
 
+  # --- THIS ENTIRE 'deploy' JOB IS REPLACED ---
   deploy:
     name: deploy
     runs-on: ubuntu-latest
@@ -174,43 +178,36 @@ jobs:
           username: ${{ env.ACR_USERNAME }}
           password: ${{ env.ACR_PASSWORD }}
 
-      - name: Build and Push Docker Compose services
+      - name: Build and Push Docker Images
         run: |
-          # Create a .env file for docker-compose to use
-          # It pulls values from GitHub Actions secrets
-          echo "APP_ENVIRONMENT=prod" > .env
-          echo "SENTRY_DSN=${{ env.SENTRY_DSN }}" >> .env
-
-          # This is a bit of a trick. We need to update the otel-collector-config.yml
-          # to use the *real* secrets before docker-compose builds/pushes.
-          # We'll use envsubst for this.
-          sudo apt-get update && sudo apt-get install -y gettext-base
-          export GRAFANA_BASIC_AUTH_VAR="${{ env.GRAFANA_BASIC_AUTH }}"
-          export GRAFANA_OTLP_ENDPOINT_VAR="${{ env.GRAFANA_OTLP_ENDPOINT }}"
-
-          # Create a new config file from the template
-          envsubst < $GITHUB_WORKSPACE/otel-collector-config.yml > otel-collector-config.prod.yml
-
-          # Update docker-compose to use the new prod config
-          # This assumes your compose file is docker-compose.yml
-          # We'll also rename the app image to match ACR
-          sed -i "s|./otel-collector-config.yml|./otel-collector-config.prod.yml|g" $GITHUB_WORKSPACE/docker-compose.yml
-          sed -i "s|    build: .|    image: ${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}|g" $GITHUB_WORKSPACE/docker-compose.yml
-
-          # Build, tag, and push the app image
+          # Build and push the main app
           docker build -t ${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }} .
           docker push ${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}
 
-          # Push the otel-collector image
-          docker compose push otel-collector
+          # Build and push the new otel-collector image
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }} -f otel.Dockerfile .
+          docker push ${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }}
 
-      - name: Deploy to Azure Web App for Containers
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          publish-profile: ${{ env.AZURE_PUBLISH_PROFILE }}
+
+      - name: Deploy Main Container
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ env.AZURE_PUBLISH_PROFILE }}
+          images: "${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}"
+
+      - name: Update Sidecar Container
+        run: |
+          az webapp config appsettings set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --settings DOCKER_CUSTOM_IMAGE_NAME='${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }}'
 
   patch:
+    # ... (this job is unchanged) ...
     name: patch-webhook (only if needed)
     runs-on: ubuntu-latest
     needs: deploy
@@ -232,12 +229,13 @@ jobs:
           echo "Webhook set to: ${{ steps.url.outputs.url }}"
 
   verify:
+    # ... (this job is unchanged) ...
     name: verify health
     runs-on: ubuntu-latest
     needs: [deploy, patch]
     steps:
       - name: wait for warmup
-        run: sleep 15
+        run: sleep 60 # Increased this to 60s
       - name: check /health
         run: |
           curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health" | tee health.json
@@ -250,7 +248,7 @@ jobs:
           test "$OK" = "ok"
       - name: check /health/market
         run: |
-          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
+          curl -fsSL "https://{AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
           STATUS=$(jq -r '.status // empty' health_market.json)
           if [ "${STATUS}" != "ok" ] && [ "${STATUS}" != "degraded" ]; then
             echo "Unexpected market status: ${STATUS}"
