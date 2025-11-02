@@ -21,7 +21,7 @@ exporters:
     endpoint: "${GRAFANA_OTLP_ENDPOINT_VAR}"
     headers:
       # This is the Base64 string you already have
-      Authorization: "Basic ${GRAFANA_BASIC_AUTH_VAR}
+      Authorization: "Basic ${GRAFANA_BASIC_AUTH_VAR}"
 
 service:
   telemetry:
