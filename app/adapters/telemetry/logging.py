@@ -43,7 +43,7 @@ def configure_logging(
     Returns:
         logging.Logger: The configured root logger.
     """
-    env = (os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or "local").lower()
+    env = (os.getenv("APP_ENVIRONMENT") or os.getenv("APP_ENV") or "local").lower()
     level_name = level or os.getenv("LOG_LEVEL", "INFO")
     log_level = _coerce_level(level_name)
 
@@ -89,7 +89,7 @@ def configure_logging(
         root.setLevel(log_level)
         return root
 
-    root.handlers.clear()
+    #root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(log_level)
     logging.captureWarnings(True)

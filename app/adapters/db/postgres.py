@@ -5,7 +5,7 @@ Postgres engine/session helpers with safe DSN building, minimal logging, and
 resilient health checks. Prefers DATABASE_URL when set; otherwise builds from
 individual PG* env vars with sslmode=require by default (works for Azure FS).
 """
-
+import contextlib
 import logging
 import os
 import time
@@ -30,12 +30,21 @@ log = logging.getLogger(__name__)
 # ----------------------------------------------------------------------------
 
 
-def _dsn_from_env() -> Optional[str]:
+def get_db_url() -> Optional[str]:
     """
     Retrieves the database DSN from environment variables.
 
     Returns:
         Optional[str]: The database DSN if found, otherwise None.
+    """
+    # Prefer production DSN; fall back to TEST_DATABASE_URL (e.g., CI) if present
+    return os.getenv("DATABASE_URL") or os.getenv("TEST_DATABASE_URL")
+
+
+def _dsn_from_env() -> Optional[str]:
+    """
+    DEPRECATED: Use get_db_url() instead.
+    Retrieves the database DSN from environment variables.
     """
     # Prefer production DSN; fall back to TEST_DATABASE_URL (e.g., CI) if present
     return os.getenv("DATABASE_URL") or os.getenv("TEST_DATABASE_URL")
@@ -87,7 +96,7 @@ def make_engine(
     Returns:
         Optional[Engine]: A new Engine instance, or None if no DSN is configured.
     """
-    dsn = dsn or _dsn_from_env()
+    dsn = dsn or get_db_url()
     if not dsn:
         try:
             log.warning("[postgres] no DSN in env; engine not created")
@@ -211,6 +220,7 @@ def ping(
                 return False
             time.sleep(backoff * attempts)
 
+@contextlib.contextmanager
 def get_db():
     """
     A generator function that yields a new SQLAlchemy Session.

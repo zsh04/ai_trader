@@ -1,0 +1,43 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317 # Your app will send data here
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch: {}
+  # This processor adds your environment label
+  resource:
+    attributes:
+      - key: "deployment.environment"
+        value: "${APP_ENVIRONMENT}" # Set by Docker Compose
+        action: upsert
+
+exporters:
+  otlphttp:
+    # This is your Grafana Cloud OTLP Endpoint
+    endpoint: "https://otlp-gateway-prod-us-west-0.grafana.net/otlp"
+    headers:
+      # This is the Base64 string you already have
+      Authorization: "Basic ODMwNzIwOmdsY19leUp2SWpvaU1UQXlPRGt6TkNJc0ltNGlPaUpoYVMxMGNtRmtaWEl0WVhCd0lpd2lheUk2SW14VWVIZEphV2RyZWtoQk16RXdOV0kwTWpNNVpUbFNOaUlzSW0waU9uc2ljaUk2SW5CeWIyUXRkWE10ZDJWemRDMHdJbjE5"
+
+service:
+  telemetry:
+    logs:
+      level: "debug"
+
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [otlphttp]
+    metrics:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [otlphttp]
+    logs:
+      receivers: [otlp]
+      processors: [batch, resource]
+      exporters: [otlphttp]

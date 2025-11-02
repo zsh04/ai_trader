@@ -1,5 +1,5 @@
 # Dockerfile
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 # System deps (psycopg2, uvicorn, etc.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -13,6 +13,14 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# --- ADD THESE TWO LINES ---
+# Install the OpenTelemetry packages
+RUN pip install --no-cache-dir "opentelemetry-distro[otlp]"
+
+# Run the auto-instrumentation (this installs opentelemetry-instrument)
+RUN opentelemetry-bootstrap -a install
+# --- END OF ADDED LINES ---
+
 # Copy app
 COPY . .
 
@@ -20,5 +28,6 @@ COPY . .
 ENV PORT=8000
 EXPOSE 8000
 
-# Gunicorn + Uvicorn worker is fine; keep it simple & prod-ish.
-CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-w", "2", "-t", "90", "app.main:app", "--bind=0.0.0.0:8000"]
+# The CMD remains the same.
+# The env vars will be provided by Docker Compose or Azure.
+CMD ["opentelemetry-instrument", "uvicorn", "app.main:app", "--host", "0.0.0.0"]

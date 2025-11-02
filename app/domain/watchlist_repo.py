@@ -2,12 +2,13 @@
 from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Optional, Dict
-from loguru import logger
+import logging
 
 from app.domain.watchlist_models import WatchlistDoc
 from app.adapters.storage.azure_blob import WatchlistBlobStore
 from app.repositories import watchlist_index as idx
 
+logger = logging.getLogger(__name__)
 class WatchlistRepo:
     def __init__(self):
         self.store = WatchlistBlobStore()
@@ -27,7 +28,7 @@ class WatchlistRepo:
         try:
             idx.insert_index(b, asof, wl.source, len(wl.symbols), wl.tags, blob_path)
         except Exception as e:
-            logger.warning("watchlist index insert failed: {}", e)
+            logger.warning("watchlist index insert failed: %s", e)
         return wl
 
     def latest(self, bucket: str) -> Optional[WatchlistDoc]:

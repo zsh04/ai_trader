@@ -1,0 +1,42 @@
+# docker-compose.yaml
+# Defines the services for your application and the OTel collector
+
+services:
+  app:
+    # This assumes your Dockerfile is in the current directory
+    build: .
+    ports:
+      # Exposes your FastAPI app
+      - "8000:8000"
+    environment:
+      # --- Sentry & App Env ---
+      # These values are read from your .env.dev file
+      - SENTRY_DSN=${SENTRY_DSN}
+      - APP_ENVIRONMENT=${APP_ENVIRONMENT} 
+      
+      # --- OpenTelemetry ---
+      # Tells the app to send telemetry to the collector service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      # This service name will show up in Grafana
+      - OTEL_SERVICE_NAME=ai-trader-app
+      - OTEL_LOGS_EXPORTER=otlp
+      # --- Other Secrets ---
+      # Add other env vars your app needs
+      # - DATABASE_URL=${DATABASE_URL}
+      # - ALPCA_API_KEY=${ALPCA_API_KEY}
+    depends_on:
+      - otel-collector
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    volumes:
+      # Mounts the config file into the container
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+    ports:
+      # Exposes OTLP ports to your local machine (for ./dev.sh)
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+    environment:
+      # Injects the environment variable into the collector's config
+      - APP_ENVIRONMENT=${APP_ENVIRONMENT}
+    restart: always

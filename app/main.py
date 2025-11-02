@@ -1,6 +1,6 @@
 # app/main.py
 from __future__ import annotations
-
+import sentry_sdk
 import logging
 import os
 import time
@@ -15,6 +15,14 @@ from app.config import settings
 from app.api.routes.health import router as health_router
 from app.api.routes.tasks import tasks_router, public_router
 from app.api.routes.telegram import router as telegram_router
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    traces_sample_rate=1.0,
+    profiles_sample_rate=1.0,
+    environment=os.getenv("APP_ENVIRONMENT", "dev")
+)
+
 
 __all__ = ["app"]
 

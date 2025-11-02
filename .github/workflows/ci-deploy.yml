@@ -23,6 +23,7 @@ permissions:
   deployments: write
 
 env:
+  # --- Core App ---
   AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
   AZURE_PUBLISH_PROFILE: ${{ secrets.AZURE_PUBLISH_PROFILE }}
   TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
@@ -30,15 +31,21 @@ env:
   TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
   PYTHON_VERSION: ${{ vars.PYTHON_VERSION || '3.12.6' }}
   APP_VERSION: ${{ github.ref_name }}
-  # Production DB (used by the app at runtime, NOT in tests)
+
+  # --- Database ---
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
-  # Test DB (keeps CI hermetic)
   TEST_DATABASE_URL: "sqlite:///:memory:"
-  # Make tests tolerant to missing Telegram secret in CI
-  TELEGRAM_ALLOW_TEST_NO_SECRET: "1"
+
+  # --- Container Registry ---
   ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
   ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
   ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+
+  # --- Observability Secrets (MUST be set in GitHub Secrets) ---
+  # These are needed by docker-compose.yaml
+  SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+  GRAFANA_OTLP_ENDPOINT: ${{ secrets.GRAFANA_OTLP_ENDPOINT }} # e.g., https://otlp-gateway.../otlp
+  GRAFANA_BASIC_AUTH: ${{ secrets.GRAFANA_BASIC_AUTH }} # e.g., ODMwNz...JjE5
 
 jobs:
   prebuild:
@@ -100,9 +107,10 @@ jobs:
       - name: docker run
         run: |
           docker run -d -p 8000:8000 --name ai-smoke \
-            -e ENV=ci \
+            -e APP_ENVIRONMENT=ci-test \
             -e TELEGRAM_FAKE=1 \
             -e TELEGRAM_ALLOW_TEST_NO_SECRET=1 \
+            -e OTEL_SDK_DISABLED=true \
             ai-trader:test
       - name: wait for app
         run: |
@@ -144,6 +152,7 @@ jobs:
           TEST_DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
           TELEGRAM_ALLOW_TEST_NO_SECRET: ${{ env.TELEGRAM_ALLOW_TEST_NO_SECRET }}
           TELEGRAM_FAKE: "1"
+          OTEL_SDK_DISABLED: "true" # Disable OTel for unit tests
         run: |
           pytest -q
 
@@ -158,30 +167,60 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: set image vars
-        run: |
-          echo "IMAGE_NAME=ai-trader" >> $GITHUB_ENV
-          echo "TAG=${GITHUB_SHA}" >> $GITHUB_ENV
-          echo "REG=${{ secrets.ACR_LOGIN_SERVER }}" >> $GITHUB_ENV
-
       - name: docker login (ACR)
         uses: docker/login-action@v3
         with:
-          registry: ${{ secrets.ACR_LOGIN_SERVER }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+          registry: ${{ env.ACR_LOGIN_SERVER }}
+          username: ${{ env.ACR_USERNAME }}
+          password: ${{ env.ACR_PASSWORD }}
 
-      - name: build & push image
+      - name: Build and Push Docker Compose services
         run: |
-          docker build -t ${REG}/${IMAGE_NAME}:${TAG} .
-          docker push  ${REG}/${IMAGE_NAME}:${TAG}
+          # Create a .env file for docker-compose to use
+          # It pulls values from GitHub Actions secrets
+          echo "APP_ENVIRONMENT=prod" > .env
+          echo "SENTRY_DSN=${{ env.SENTRY_DSN }}" >> .env
 
-      - name: update web app to new image
+          # This is a bit of a trick. We need to update the otel-collector-config.yaml
+          # to use the *real* secrets before docker-compose builds/pushes.
+          # We'll use envsubst for this.
+          apt-get update && apt-get install -y gettext-base
+          export GRAFANA_BASIC_AUTH_VAR="${{ env.GRAFANA_BASIC_AUTH }}"
+          export GRAFANA_OTLP_ENDPOINT_VAR="${{ env.GRAFANA_OTLP_ENDPOINT }}"
+
+          # Create a new config file from the template
+          envsubst < otel-collector-config.yaml > otel-collector-config.prod.yaml
+
+          # Update docker-compose to use the new prod config
+          # This assumes your compose file is docker-compose.yaml
+          # We'll also rename the app image to match ACR
+          sed -i "s|./otel-collector-config.yaml|./otel-collector-config.prod.yaml|g" docker-compose.yaml
+          sed -i "s|build: .|image: ${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}|g" docker-compose.yaml
+
+          # Build, tag, and push the app image
+          docker build -t ${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }} .
+          docker push ${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}
+
+          # Push the otel-collector image
+          docker-compose push otel-collector
+
+      - name: Deploy to Azure Web App for Containers
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ env.AZURE_PUBLISH_PROFILE }}
-          images: ${{ secrets.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}
+
+          # --- This is the new part ---
+          docker-compose-file-path: docker-compose.yaml
+
+          # We must also set the environment variables for the collector
+          # in the App Service. This is how Azure passes them.
+          # We pass the *name* of the secret, and Azure pulls it.
+          # NOTE: This requires you to add these to your App Service Configuration!
+          env-vars-for-otel-collector: |
+            APP_ENVIRONMENT=prod
+            GRAFANA_BASIC_AUTH=${{ secrets.GRAFANA_BASIC_AUTH }}
+            GRAFANA_OTLP_ENDPOINT=${{ secrets.GRAFANA_OTLP_ENDPOINT }}
 
   patch:
     name: patch-webhook (only if needed)
@@ -194,12 +233,12 @@ jobs:
           if [ -n "${{ github.event.inputs.override_url }}" ]; then
             echo "url=${{ github.event.inputs.override_url }}" >> $GITHUB_OUTPUT
           else
-            echo "url=https://${AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook" >> $GITHUB_OUTPUT
+            echo "url=https://s{AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook" >> $GITHUB_OUTPUT
           fi
       - name: setWebhook
         if: ${{ env.TELEGRAM_TOKEN && env.TELEGRAM_WEBHOOK_SECRET }}
         run: |
-          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
+          curl -sS -X POST "httpss://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
             -H "Content-Type: application/json" \
             -d "{\"url\":\"${{ steps.url.outputs.url }}\",\"secret_token\":\"${TELEGRAM_WEBHOOK_SECRET}\"}"
           echo "Webhook set to: ${{ steps.url.outputs.url }}"
@@ -213,17 +252,17 @@ jobs:
         run: sleep 15
       - name: check /health
         run: |
-          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health" | tee health.json
+          curl -fsSL "httpss://${AZURE_WEBAPP_NAME}.azurewebsites.net/health" | tee health.json
           STATUS=$(jq -r '.status // empty' health.json)
           echo "status=${STATUS}"
       - name: check /health/db
         run: |
-          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/db" | tee health_db.json
+          curl -fsSL "httpss://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/db" | tee health_db.json
           OK=$(jq -r '.ok // .status // empty' health_db.json)
           test "$OK" = "ok"
       - name: check /health/market
         run: |
-          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
+          curl -fsSL "httpss://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
           STATUS=$(jq -r '.status // empty' health_market.json)
           if [ "${STATUS}" != "ok" ] && [ "${STATUS}" != "degraded" ]; then
             echo "Unexpected market status: ${STATUS}"
