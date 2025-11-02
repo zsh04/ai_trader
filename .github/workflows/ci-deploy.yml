@@ -202,7 +202,7 @@ jobs:
           docker push ${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}
 
           # Push the otel-collector image
-          docker-compose push otel-collector
+          docker compose push otel-collector
 
       - name: Deploy to Azure Web App for Containers
         uses: azure/webapps-deploy@v3
