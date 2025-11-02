@@ -5,13 +5,13 @@ Postgres engine/session helpers with safe DSN building, minimal logging, and
 resilient health checks. Prefers DATABASE_URL when set; otherwise builds from
 individual PG* env vars with sslmode=require by default (works for Azure FS).
 """
-import contextlib
-import logging
+
 import os
 import time
 from typing import Optional
 from urllib.parse import quote_plus
 
+from loguru import logger
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker, declarative_base
@@ -19,11 +19,6 @@ from sqlalchemy.orm import Session, sessionmaker, declarative_base
 from app.utils import env as ENV
 
 Base = declarative_base()
-
-# ----------------------------------------------------------------------------
-# Logging
-# ----------------------------------------------------------------------------
-log = logging.getLogger(__name__)
 
 # ----------------------------------------------------------------------------
 # DSN helpers
@@ -99,7 +94,7 @@ def make_engine(
     dsn = dsn or get_db_url()
     if not dsn:
         try:
-            log.warning("[postgres] no DSN in env; engine not created")
+            logger.warning("[postgres] no DSN in env; engine not created")
         except Exception:
             pass
         return None
@@ -112,7 +107,7 @@ def make_engine(
         future=True,
     )
     try:
-        log.info("[postgres] engine created dsn=%s", _sanitize_dsn(dsn))
+        logger.info("[postgres] engine created dsn={}", _sanitize_dsn(dsn))
     except Exception:
         pass
     return eng
@@ -196,7 +191,7 @@ def ping(
 
     eng = engine or get_engine()
     if eng is None:
-        log.warning("[postgres] ping: no engine available (no DSN)")
+        logger.warning("[postgres] ping: no engine available (no DSN)")
         return False
 
     attempts = 0
@@ -213,8 +208,8 @@ def ping(
                 cx.execute(text("SELECT 1"))
             return True
         except Exception as e:
-            log.warning(
-                "[postgres] ping failed (attempt %s/%s): %s", attempts, retries + 1, e
+            logger.warning(
+                "[postgres] ping failed (attempt {}/{}): {}", attempts, retries + 1, e
             )
             if attempts > retries:
                 return False

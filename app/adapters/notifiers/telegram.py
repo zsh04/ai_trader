@@ -1,21 +1,21 @@
 from __future__ import annotations
 
-import logging
 import os
 import time
 from typing import Any, Dict, Iterable, Optional, Set, List
 
 import requests
+from loguru import logger
 
 from app.utils import env as ENV
 
-log = logging.getLogger(__name__)
 API_BASE = "https://api.telegram.org"
 
 # ---------------------------
 # Test-only in-memory outbox
 # ---------------------------
 _TEST_OUTBOX: List[Dict[str, Any]] = []
+
 
 def test_outbox() -> List[Dict[str, Any]]:
     """
@@ -26,9 +26,11 @@ def test_outbox() -> List[Dict[str, Any]]:
     """
     return list(_TEST_OUTBOX)
 
+
 def test_outbox_clear() -> None:
     """Clears the in-memory outbox for tests."""
     _TEST_OUTBOX.clear()
+
 
 class FakeTelegramClient:
     """
@@ -36,6 +38,7 @@ class FakeTelegramClient:
 
     Captures messages into an in-memory outbox for inspection during tests.
     """
+
     def __init__(self) -> None:
         """Initializes the FakeTelegramClient."""
         self.allowed: Set[int] = set()
@@ -77,7 +80,9 @@ class FakeTelegramClient:
             )
         return True
 
-    def send_message(self, chat_id: int | str, text: str, parse_mode: Optional[str] = None) -> bool:
+    def send_message(
+        self, chat_id: int | str, text: str, parse_mode: Optional[str] = None
+    ) -> bool:
         """
         Sends a message.
 
@@ -91,7 +96,9 @@ class FakeTelegramClient:
         """
         return self.smart_send(chat_id, text, parse_mode=parse_mode)
 
-    def send_text(self, chat_id: int | str, text: str, parse_mode: Optional[str] = None) -> bool:
+    def send_text(
+        self, chat_id: int | str, text: str, parse_mode: Optional[str] = None
+    ) -> bool:
         """
         Sends a message.
 
@@ -127,6 +134,7 @@ class FakeTelegramClient:
         """
         return True
 
+
 def _coerce_chat_id(cid: Optional[str | int]) -> Optional[str | int]:
     """
     Coerces a chat ID to an integer if possible.
@@ -143,6 +151,7 @@ def _coerce_chat_id(cid: Optional[str | int]) -> Optional[str | int]:
         return int(str(cid))
     except Exception:
         return str(cid)
+
 
 def _split_chunks(text: str, limit: int = 3500) -> list[str]:
     """
@@ -186,6 +195,7 @@ def _split_chunks(text: str, limit: int = 3500) -> list[str]:
 
 class TelegramClient:
     """A client for the Telegram Bot API."""
+
     def __init__(
         self,
         bot_token: str,
@@ -310,7 +320,7 @@ class TelegramClient:
             bool: True if the document was sent successfully, False otherwise.
         """
         if not self.base:
-            log.warning("[Telegram] Missing bot token; skipping document send")
+            logger.warning("[Telegram] Missing bot token; skipping document send")
             return False
         url = f"{self.base}/sendDocument"
         try:
@@ -319,15 +329,21 @@ class TelegramClient:
                 data: Dict[str, Any] = {"chat_id": _coerce_chat_id(chat_id)}
                 if caption:
                     data["caption"] = caption
-                resp = requests.post(url, data=data, files=files, timeout=self.timeout)
+                resp = requests.post(
+                    url, data=data, files=files, timeout=self.timeout
+                )
             if 200 <= resp.status_code < 300:
-                log.info("[Telegram] Document sent to %s: %s", chat_id, file_path)
+                logger.info(
+                    "[Telegram] Document sent to {}: {}", chat_id, file_path
+                )
                 return True
-            log.warning(
-                "[Telegram] Failed to send document: %s %s", resp.status_code, resp.text
+            logger.warning(
+                "[Telegram] Failed to send document: {} {}",
+                resp.status_code,
+                resp.text,
             )
         except Exception as e:
-            log.error("[Telegram] Error sending document: %s", e)
+            logger.error("[Telegram] Error sending document: {}", e)
         return False
 
     def smart_send(
@@ -363,8 +379,8 @@ class TelegramClient:
                     break
                 if attempt < retries:
                     delay = 1.5 * (attempt + 1)
-                    log.warning(
-                        "[Telegram] Retry %s sending chunk to %s in %.1fs",
+                    logger.warning(
+                        "[Telegram] Retry {} sending chunk to {} in {:.1f}s",
                         attempt + 1,
                         chat_id,
                         delay,
@@ -382,7 +398,7 @@ class TelegramClient:
             bool: True if the ping is successful, False otherwise.
         """
         if not self.base:
-            log.warning("[Telegram] Missing bot token; cannot ping")
+            logger.warning("[Telegram] Missing bot token; cannot ping")
             return False
         url = f"{self.base}/getMe"
         try:
@@ -398,13 +414,13 @@ class TelegramClient:
                 result = (data or {}).get("result") or {}
                 username = result.get("username") or "unknown"
                 bot_id = result.get("id") or "?"
-                log.info("[Telegram] Bot OK: @%s id=%s", username, bot_id)
+                logger.info("[Telegram] Bot OK: @{} id={}", username, bot_id)
                 return True
-            log.warning(
-                "[Telegram] Ping failed HTTP %s: %s", resp.status_code, resp.text
+            logger.warning(
+                "[Telegram] Ping failed HTTP {}: {}", resp.status_code, resp.text
             )
         except Exception as e:
-            log.error("[Telegram] Ping error: %s", e)
+            logger.error("[Telegram] Ping error: {}", e)
         return False
 
     def _send(
@@ -427,7 +443,7 @@ class TelegramClient:
             bool: True if the message was sent successfully, False otherwise.
         """
         if not self.base:
-            log.warning("[Telegram] Missing bot token; skipping send")
+            logger.warning("[Telegram] Missing bot token; skipping send")
             return False
         if len(text) > 4096:
             text = text[:4096]
@@ -442,19 +458,23 @@ class TelegramClient:
         try:
             resp = requests.post(url, json=payload, timeout=self.timeout)
             if 200 <= resp.status_code < 300:
-                log.debug("[Telegram] Sent %d chars to %s", len(text), chat_id)
+                logger.debug(
+                    "[Telegram] Sent {} chars to {}", len(text), chat_id
+                )
                 return True
             if resp.status_code == 429:
                 try:
                     retry_after = int(resp.headers.get("Retry-After", "2"))
                 except Exception:
                     retry_after = 2
-                log.warning("[Telegram] Rate-limited (429). Sleeping %ss", retry_after)
+                logger.warning(
+                    "[Telegram] Rate-limited (429). Sleeping {}s", retry_after
+                )
                 time.sleep(retry_after)
                 return False
-            log.warning("[Telegram] HTTP %s: %s", resp.status_code, resp.text)
+            logger.warning("[Telegram] HTTP {}: {}", resp.status_code, resp.text)
         except Exception as e:
-            log.error("[Telegram] Send error: %s", e)
+            logger.error("[Telegram] Send error: {}", e)
         return False
 
 
@@ -466,7 +486,7 @@ def build_client_from_env() -> TelegramClient | FakeTelegramClient:
         TelegramClient | FakeTelegramClient: A Telegram client.
     """
     if os.getenv("PYTEST_CURRENT_TEST") or os.getenv("TELEGRAM_FAKE") == "1":
-        log.debug("[Telegram] Using FakeTelegramClient (test mode)")
+        logger.debug("[Telegram] Using FakeTelegramClient (test mode)")
         return FakeTelegramClient()
 
     token = ENV.TELEGRAM_BOT_TOKEN
@@ -475,15 +495,15 @@ def build_client_from_env() -> TelegramClient | FakeTelegramClient:
     timeout = ENV.TELEGRAM_TIMEOUT_SECS
 
     if not token:
-        log.warning(
+        logger.warning(
             "[Telegram] TELEGRAM_BOT_TOKEN is not set — sending will be disabled"
         )
     if not secret:
-        log.info(
+        logger.info(
             "[Telegram] TELEGRAM_WEBHOOK_SECRET not configured (webhook auth disabled)"
         )
     if allowed:
-        log.info("[Telegram] Allowed users configured: %d", len(allowed))
+        logger.info("[Telegram] Allowed users configured: {}", len(allowed))
 
     return TelegramClient(
         bot_token=token,
@@ -546,7 +566,7 @@ def send_watchlist(
         else _coerce_chat_id(ENV.TELEGRAM_DEFAULT_CHAT_ID)
     )
     if target is None:
-        log.warning(
+        logger.warning(
             "[Telegram] No chat_id (arg or TELEGRAM_DEFAULT_CHAT_ID). Skipping send."
         )
         return False

@@ -7,8 +7,15 @@ import importlib
 from typing import Any, Dict, List
 
 import pytest
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*args, **kwargs):
+        pass
+
 from fastapi.testclient import TestClient
+
+from app.adapters.telemetry.loguru import configure_test_logging
 
 # -----------------------------------------------------------------------------
 # Test env — set BEFORE importing the app so the adapter boots predictably
@@ -34,6 +41,15 @@ from app.main import app
 import app.api.routes.telegram as telegram_module
 from app.api.routes.telegram import TelegramDep
 import app.adapters.notifiers.telegram as tgmod
+
+def pytest_sessionstart(session):
+    """
+    Called after the Session object has been created and
+    before performing collection and entering the run test loop.
+    """
+    from pathlib import Path
+    log_path = Path("ai-trader-logs/")
+    configure_test_logging(log_path)
 
 # -----------------------------------------------------------------------------
 # Local sink for Telegram messages (fully under test control)

@@ -1,8 +1,7 @@
-import logging
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
-log = logging.getLogger(__name__)
+from loguru import logger
 
 
 class SessionClock:
@@ -18,12 +17,12 @@ class SessionClock:
                 s = time.fromisoformat(start)
                 e = time.fromisoformat(end)
                 if s <= now < e:
-                    log.debug("SessionClock active: %s (%s-%s)", name, start, end)
+                    logger.debug("SessionClock active: {} ({}-{})", name, start, end)
                     return name
-            log.debug("SessionClock: no active session at %s", now)
+            logger.debug("SessionClock: no active session at {}", now)
             return "CLOSED"
         except Exception as e:
-            log.error("SessionClock error: %s", e)
+            logger.error("SessionClock error: {}", e)
             return "CLOSED"
 
     def next_session(self) -> tuple[str, str] | None:
@@ -35,5 +34,5 @@ class SessionClock:
                     return name, start
             return None
         except Exception as e:
-            log.error("SessionClock.next_session error: %s", e)
+            logger.error("SessionClock.next_session error: {}", e)
             return None

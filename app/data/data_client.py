@@ -1,35 +1,20 @@
 from __future__ import annotations
 
-import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.providers.alpaca_provider import (
-    day_bars as alpaca_day_bars,
-)
-from app.providers.alpaca_provider import (
-    minute_bars as alpaca_minute_bars,
-)
+from loguru import logger
 
-# Providers (all external I/O lives here)
-from app.providers.alpaca_provider import (
-    snapshots as alpaca_snapshots,
-)
-from app.providers.yahoo_provider import (
-    intraday_last as yf_intraday_last,
-)
-from app.providers.yahoo_provider import (
-    latest_close as yf_latest_close,
-)
-from app.providers.yahoo_provider import (
-    latest_volume as yf_latest_volume,
-)
-
-# Config flags (pure)
 from app.adapters.notifiers.telegram import TelegramClient
+from app.providers.alpaca_provider import day_bars as alpaca_day_bars
+from app.providers.alpaca_provider import minute_bars as alpaca_minute_bars
+# Providers (all external I/O lives here)
+from app.providers.alpaca_provider import snapshots as alpaca_snapshots
+from app.providers.yahoo_provider import intraday_last as yf_intraday_last
+from app.providers.yahoo_provider import latest_close as yf_latest_close
+from app.providers.yahoo_provider import latest_volume as yf_latest_volume
+# Config flags (pure)
 from app.utils import env as ENV
 from app.utils.env import PRICE_PROVIDERS
-
-log = logging.getLogger(__name__)
 
 # Yahoo enabled flag derived from PRICE_PROVIDERS
 YF_ENABLED: bool = any(p.lower() == "yahoo" for p in PRICE_PROVIDERS)
@@ -48,7 +33,7 @@ def _send_gap_alert(kind: str, symbol_count: int) -> None:
         try:
             _ALERT_CLIENT = TelegramClient(bot_token=token)
         except Exception as exc:
-            log.debug("Failed to initialize TelegramClient for alerts: %s", exc)
+            logger.debug("Failed to initialize TelegramClient for alerts: {}", exc)
             return
     try:
         _ALERT_CLIENT.send_text(
@@ -56,7 +41,7 @@ def _send_gap_alert(kind: str, symbol_count: int) -> None:
             f"⚠️ Alpaca {kind} feed empty twice consecutively for {symbol_count} symbols.",
         )
     except Exception as exc:
-        log.debug("Telegram alert send failed: %s", exc)
+        logger.debug("Telegram alert send failed: {}", exc)
 
 
 def _record_provider_gap(kind: str, is_empty: bool, symbol_count: int) -> None:
@@ -75,22 +60,26 @@ def _apply_yahoo_prices(target: Dict[str, Dict[str, Any]], symbols: List[str]) -
     if not symbols:
         return
     if not YF_ENABLED:
-        log.warning("Yahoo provider disabled; cannot fall back for %d symbols", len(symbols))
+        logger.warning(
+            "Yahoo provider disabled; cannot fall back for {} symbols", len(symbols)
+        )
         return
     try:
         intr = yf_intraday_last(symbols) or {}
     except Exception as exc:
-        log.debug("Yahoo intraday fallback failed: %s", exc)
+        logger.debug("Yahoo intraday fallback failed: {}", exc)
         intr = {}
     remaining = [s for s in symbols if s not in intr]
     try:
         close = yf_latest_close(remaining) if remaining else {}
     except Exception as exc:
-        log.debug("Yahoo close fallback failed: %s", exc)
+        logger.debug("Yahoo close fallback failed: {}", exc)
         close = {}
 
     for sym in symbols:
-        entry = target.setdefault(sym, {"last": 0.0, "price_source": "none", "ohlcv": {}})
+        entry = target.setdefault(
+            sym, {"last": 0.0, "price_source": "none", "ohlcv": {}}
+        )
         price = intr.get(sym)
         source = "yahoo_1m"
         if price is None:
@@ -99,6 +88,7 @@ def _apply_yahoo_prices(target: Dict[str, Dict[str, Any]], symbols: List[str]) -
         if price and float(price) > 0:
             entry["last"] = float(price)
             entry["price_source"] = source
+
 
 # --------------------------------------------------------------------------------------
 # Public: domain helpers (pure logic)
@@ -127,7 +117,7 @@ def snapshot_to_ohlcv(snap: Dict[str, Any]) -> Dict[str, Any]:
         try:
             return float(x or 0.0)
         except Exception:
-            log.debug("snapshot_to_ohlcv parse error kind=%s x=%s", kind, x)
+            logger.debug("snapshot_to_ohlcv parse error kind={} x={}", kind, x)
             return 0.0
 
     return {
@@ -164,7 +154,7 @@ def latest_price_with_source(snap: Dict[str, Any], symbol: str) -> Tuple[float, 
             if c is not None and float(c) > 0:
                 return float(c), "1m"
     except Exception as e:
-        log.debug("latest_price_with_source 1m error %s: %s", symbol, e)
+        logger.debug("latest_price_with_source 1m error {}: {}", symbol, e)
 
     # 4) daily bar close (today)
     try:
@@ -199,7 +189,9 @@ def latest_price_with_source(snap: Dict[str, Any], symbol: str) -> Tuple[float, 
 # --------------------------------------------------------------------------------------
 
 
-def batch_latest_ohlcv(symbols: List[str], feed: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+def batch_latest_ohlcv(
+    symbols: List[str], feed: Optional[str] = None
+) -> Dict[str, Dict[str, Any]]:
     """
     Returns a map:
       {
@@ -219,7 +211,10 @@ def batch_latest_ohlcv(symbols: List[str], feed: Optional[str] = None) -> Dict[s
     snaps = alpaca_snapshots(syms, feed=feed)
     snaps_empty = not snaps or all(not snaps.get(s) for s in syms)
     if snaps_empty:
-        log.warning("alpaca snapshots returned empty payload; falling back to Yahoo for %d symbols", len(syms))
+        logger.warning(
+            "alpaca snapshots returned empty payload; falling back to Yahoo for {} symbols",
+            len(syms),
+        )
     _record_provider_gap("snapshots", snaps_empty, len(syms))
     force_yahoo_fallback = snaps_empty
     out: Dict[str, Dict[str, Any]] = {}
@@ -247,8 +242,8 @@ def batch_latest_ohlcv(symbols: List[str], feed: Optional[str] = None) -> Dict[s
         bars_map = alpaca_day_bars(union_syms, limit=1, feed=feed)
         bars_empty = not bars_map or all(not bars_map.get(s) for s in union_syms)
         if bars_empty:
-            log.warning(
-                "alpaca day bars returned empty payload; falling back to Yahoo for %d symbols",
+            logger.warning(
+                "alpaca day bars returned empty payload; falling back to Yahoo for {} symbols",
                 len(union_syms),
             )
         _record_provider_gap("bars", bars_empty, len(union_syms))
@@ -304,10 +299,14 @@ def batch_latest_ohlcv(symbols: List[str], feed: Optional[str] = None) -> Dict[s
     unresolved_price = [s for s, d in out.items() if (d.get("last") or 0) <= 0]
     if YF_ENABLED and unresolved_price:
         y_intr_all = yf_intraday_last(unresolved_price)
-        ok_intr = {s: v for s, v in (y_intr_all or {}).items() if v and float(v) > 0}
+        ok_intr = {
+            s: v for s, v in (y_intr_all or {}).items() if v and float(v) > 0
+        }
         remaining = [s for s in unresolved_price if s not in ok_intr]
         y_close_all = yf_latest_close(remaining) if remaining else {}
-        ok_close = {s: v for s, v in (y_close_all or {}).items() if v and float(v) > 0}
+        ok_close = {
+            s: v for s, v in (y_close_all or {}).items() if v and float(v) > 0
+        }
         for sym in unresolved_price:
             if sym in ok_intr:
                 out[sym]["last"] = float(ok_intr[sym])
@@ -331,18 +330,27 @@ def batch_latest_ohlcv(symbols: List[str], feed: Optional[str] = None) -> Dict[s
 
     return out
 
+
 # --------------------------------------------------------------------------------------
 # Data diagnostics helper
 # --------------------------------------------------------------------------------------
 
-def data_health(symbols: List[str], feed: Optional[str] = None) -> Dict[str, Any]:
+
+def data_health(
+    symbols: List[str], feed: Optional[str] = None
+) -> Dict[str, Any]:
     """
     Lightweight diagnostics for upstream data availability.
     Returns counts and lists of symbols with empty Alpaca snapshots or day bars.
     """
     syms = sorted({s.strip().upper() for s in symbols if s and s.strip()})
     if not syms:
-        return {"count": 0, "feed": feed or "auto", "empty_snapshots": [], "empty_day_bars": []}
+        return {
+            "count": 0,
+            "feed": feed or "auto",
+            "empty_snapshots": [],
+            "empty_day_bars": [],
+        }
 
     snaps = alpaca_snapshots(syms, feed=feed)
     empty_snapshots = [s for s in syms if not snaps.get(s)]
@@ -407,8 +415,8 @@ def get_minutes_bars(
 ) -> Dict[str, List[Dict[str, Any]]]:
     # Only 1Min supported by the provider helper; keep timeframe param for legacy signature
     if timeframe not in ("1Min", "1min", "1MIN"):
-        log.debug(
-            "get_minutes_bars: non-1Min timeframe requested=%s; defaulting to 1Min",
+        logger.debug(
+            "get_minutes_bars: non-1Min timeframe requested={}; defaulting to 1Min",
             timeframe,
         )
     return alpaca_minute_bars(symbols, limit=limit, feed=feed)

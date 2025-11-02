@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import math
 import random
 import threading
@@ -9,11 +8,12 @@ from datetime import date, datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
 import requests
-from app.utils.http import http_get
+from loguru import logger
+
 from app.utils import env as ENV
+from app.utils.http import http_get
 
 # yfinance is optional at runtime; we guard imports and degrade gracefully.
-log = logging.getLogger(__name__)
 
 _CHUNK_SIZE = 50  # keep multi-symbol batches reasonable
 _YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
@@ -45,7 +45,7 @@ def _breaker_record_throttle() -> None:
         if _breaker_failures >= 5:
             _breaker_open_until = time.monotonic() + 60.0
             _breaker_failures = 0
-            log.warning("yahoo provider circuit opened for 60s due to throttling")
+            logger.warning("yahoo provider circuit opened for 60s due to throttling")
 
 
 def _breaker_record_success() -> None:
@@ -58,8 +58,8 @@ def _breaker_record_success() -> None:
 def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[int, Dict[str, Any]]:
     allowed, remaining = _breaker_allow_request()
     if not allowed:
-        log.debug(
-            "yahoo provider circuit open; skipping request (%.1fs remaining)",
+        logger.debug(
+            "yahoo provider circuit open; skipping request ({:.1f}s remaining)",
             remaining,
         )
         return 503, {"error": "yahoo_circuit_open"}
@@ -76,7 +76,7 @@ def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[i
                 timeout=timeout,
             )
         except requests.RequestException as exc:
-            log.warning("yahoo request error attempt=%s url=%s error=%s", attempt + 1, url, exc)
+            logger.warning("yahoo request error attempt={} url={} error={}", attempt + 1, url, exc)
             if attempt < len(_YAHOO_BACKOFF):
                 sleep = _YAHOO_BACKOFF[attempt] * random.uniform(0.75, 1.25)
                 time.sleep(sleep)
@@ -87,8 +87,8 @@ def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[i
         throttled = resp.status_code == 429 or "Edge: Too Many Requests" in text
 
         if throttled:
-            log.warning(
-                "yahoo throttled status=%s attempt=%s url=%s",
+            logger.warning(
+                "yahoo throttled status={} attempt={} url={}",
                 resp.status_code,
                 attempt + 1,
                 url,
@@ -106,7 +106,7 @@ def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[i
             try:
                 return resp.status_code, resp.json()
             except Exception:
-                log.debug("yahoo JSON decode failed for %s", url)
+                logger.debug("yahoo JSON decode failed for {}", url)
                 return resp.status_code, {}
 
         try:
@@ -128,8 +128,8 @@ def _try_import_yf():
 
         return yf
     except Exception as e:
-        log.warning(
-            "yahoo_provider: yfinance not available (%s); returning empty results", e
+        logger.warning(
+            "yahoo_provider: yfinance not available ({}); returning empty results", e
         )
         return None
 
@@ -231,19 +231,18 @@ def _fetch_chart_history(
 
     if status != 200:
         chart_err = ((data or {}).get("chart") or {}).get("error")
-        log.warning(
-            "yahoo history fetch failed status=%s symbol=%s start=%s end=%s error=%s",
+        logger.bind(
+            provider="yahoo",
+            op="history",
+            status=status,
+            symbol=symbol.upper(),
+        ).warning(
+            "yahoo history fetch failed status={} symbol={} start={} end={} error={}",
             status,
             symbol,
             start,
             end,
             chart_err,
-            extra={
-                "provider": "yahoo",
-                "op": "history",
-                "status": status,
-                "symbol": symbol.upper(),
-            },
         )
         return {}
     return data or {}
@@ -333,8 +332,8 @@ def intraday_last(symbols: List[str]) -> Dict[str, float]:
         try:
             tkrs = yf.Tickers(" ".join(batch))
         except Exception as e:
-            log.warning(
-                "yahoo intraday_last: failed to build Tickers for %s: %s", batch, e
+            logger.warning(
+                "yahoo intraday_last: failed to build Tickers for {}: {}", batch, e
             )
             continue
 
@@ -372,7 +371,7 @@ def intraday_last(symbols: List[str]) -> Dict[str, float]:
                     if last > 0:
                         out[sym] = last
             except Exception as e:
-                log.debug("yahoo intraday_last: fallback failed for %s: %s", sym, e)
+                logger.debug("yahoo intraday_last: fallback failed for {}: {}", sym, e)
 
     return out
 
@@ -391,8 +390,8 @@ def latest_close(symbols: List[str]) -> Dict[str, float]:
         try:
             tkrs = yf.Tickers(" ".join(batch))
         except Exception as e:
-            log.warning(
-                "yahoo latest_close: failed to build Tickers for %s: %s", batch, e
+            logger.warning(
+                "yahoo latest_close: failed to build Tickers for {}: {}", batch, e
             )
             continue
 
@@ -407,7 +406,7 @@ def latest_close(symbols: List[str]) -> Dict[str, float]:
                     if c > 0:
                         out[sym] = c
             except Exception as e:
-                log.debug("yahoo latest_close: history failed for %s: %s", sym, e)
+                logger.debug("yahoo latest_close: history failed for {}: {}", sym, e)
     return out
 
 
@@ -425,8 +424,8 @@ def latest_volume(symbols: List[str]) -> Dict[str, int]:
         try:
             tkrs = yf.Tickers(" ".join(batch))
         except Exception as e:
-            log.warning(
-                "yahoo latest_volume: failed to build Tickers for %s: %s", batch, e
+            logger.warning(
+                "yahoo latest_volume: failed to build Tickers for {}: {}", batch, e
             )
             continue
 
@@ -479,8 +478,8 @@ def latest_volume(symbols: List[str]) -> Dict[str, int]:
                     if v > 0:
                         out[sym] = v
             except Exception as e:
-                log.debug(
-                    "yahoo latest_volume: daily fallback failed for %s: %s", sym, e
+                logger.debug(
+                    "yahoo latest_volume: daily fallback failed for {}: {}", sym, e
                 )
 
     return out
@@ -504,8 +503,8 @@ def get_history_daily(
         try:
             return _chart_to_dataframe(payload, auto_adjust=auto_adjust)
         except Exception as exc:  # pragma: no cover - extremely rare parsing bug
-            log.warning(
-                "yahoo history parse failed symbol=%s start=%s end=%s err=%s",
+            logger.warning(
+                "yahoo history parse failed symbol={} start={} end={} err={}",
                 symbol,
                 start,
                 end,

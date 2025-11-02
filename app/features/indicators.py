@@ -5,12 +5,9 @@ Contains vectorized indicator calculations built on pandas.
 Designed for extensibility and unit testing.
 """
 
-import logging
-
 import numpy as np
 import pandas as pd
-
-log = logging.getLogger(__name__)
+from loguru import logger
 
 
 def rsi(series: pd.Series, period: int = 14) -> pd.Series:
@@ -30,8 +27,8 @@ def rsi(series: pd.Series, period: int = 14) -> pd.Series:
         RSI values scaled 0–100.
     """
     if series is None or len(series) < period:
-        log.warning(
-            "RSI input too short (len=%s < period=%s)",
+        logger.warning(
+            "RSI input too short (len={} < period={})",
             len(series) if series is not None else None,
             period,
         )
@@ -48,7 +45,7 @@ def rsi(series: pd.Series, period: int = 14) -> pd.Series:
     rsi_val = 100 - (100 / (1 + rs))
     rsi_val = rsi_val.fillna(method="bfill").clip(0, 100)
 
-    log.debug("RSI computed for %d bars", len(series))
+    logger.debug("RSI computed for {} bars", len(series))
     return rsi_val
 
 

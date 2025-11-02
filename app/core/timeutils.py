@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import logging
 import zoneinfo
 from datetime import datetime, time, timezone
 
-log = logging.getLogger(__name__)
+from loguru import logger
 
 # Eastern Timezone aware (handles DST via IANA database)
 ET = zoneinfo.ZoneInfo("America/New_York")
@@ -31,5 +30,5 @@ def session_for(dt_utc: datetime) -> str:
             return "after"
         return "closed"
     except Exception as e:
-        log.warning("session_for failed: %s", e)
+        logger.warning("session_for failed: {}", e)
         return "unknown"

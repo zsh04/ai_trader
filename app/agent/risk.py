@@ -1,8 +1,6 @@
 """Risk management primitives: concentration and exposure checks."""
 
-import logging
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 def exceeds_concentration(
@@ -26,6 +24,6 @@ def exceeds_concentration(
     ratio = notional / equity
 
     if ratio > threshold:
-        logger.warning(f"Concentration exceeded: {ratio:.2%} > {threshold:.2%}")
+        logger.warning("Concentration exceeded: {:.2%} > {:.2%}", ratio, threshold)
         return True
     return False

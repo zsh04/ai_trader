@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import importlib
-import logging
 import os
 import sys
 import time
 from typing import Dict, Iterable, List, Tuple
+
+from loguru import logger
 
 from app.domain.watchlist_utils import normalize_symbols
 
@@ -21,7 +22,6 @@ def _get_counter(name: str) -> Dict[str, int]:
 def get_counters() -> Dict[str, Dict[str, int]]:
     return {k: v.copy() for k, v in _COUNTERS.items()}
 
-logger = logging.getLogger(__name__)
 
 _DEFAULT_SOURCE = "textlist"
 _WARNED_KEYS: set[str] = set()
@@ -81,7 +81,7 @@ def _fetch_symbols(source: str) -> List[str]:
     try:
         module = _import_source(module_name)
     except ModuleNotFoundError:
-        _warn_once(f"import:{source}", "[watchlist] source=%s module missing", source)
+        _warn_once(f"import:{source}", "[watchlist] source={} module missing", source)
         return []
 
     for attr in ("get_symbols", "fetch_symbols", "load_symbols"):
@@ -92,7 +92,7 @@ def _fetch_symbols(source: str) -> List[str]:
             except Exception as exc:  # pragma: no cover (defensive)
                 _warn_once(
                     f"fetch:{source}",
-                    "[watchlist] source=%s failed: %s",
+                    "[watchlist] source={} failed: {}",
                     source,
                     exc,
                 )
@@ -101,7 +101,7 @@ def _fetch_symbols(source: str) -> List[str]:
 
     _warn_once(
         f"missing-fn:{source}",
-        "[watchlist] source=%s has no symbol provider",
+        "[watchlist] source={} has no symbol provider",
         source,
     )
     return []
@@ -137,7 +137,7 @@ def _apply_max_cap(symbols: List[str]) -> List[str]:
         except ValueError:
             _warn_once(
                 "bad-cap",
-                "[watchlist] invalid MAX_WATCHLIST=%r; ignoring cap",
+                "[watchlist] invalid MAX_WATCHLIST={!r}; ignoring cap",
                 cap_raw,
             )
     if cap and cap > 0 and len(symbols) > cap:
@@ -165,7 +165,7 @@ def resolve_watchlist() -> Tuple[str, List[str]]:
     elif source not in {"textlist", "finviz", "manual"}:
         _warn_once(
             f"unknown:{source}",
-            "[watchlist] unknown source=%s; falling back to %s",
+            "[watchlist] unknown source={}; falling back to {}",
             source,
             _DEFAULT_SOURCE,
         )
@@ -182,7 +182,7 @@ def resolve_watchlist() -> Tuple[str, List[str]]:
             symbols = _fetch_symbols(source)
     except Exception as exc:
         error = str(exc)
-        logger.exception("[watchlist:resolve] source=%s error=%s", source, exc)
+        logger.exception("[watchlist:resolve] source={} error={}", source, exc)
     duration_ms = (time.perf_counter() - start) * 1000.0
 
     # Normalize and cap
@@ -190,13 +190,13 @@ def resolve_watchlist() -> Tuple[str, List[str]]:
     if not normalized and symbols:
         _warn_once(
             f"normalization-empty:{source}",
-            "[watchlist] source=%s yielded unnormalized symbols; returning empty list",
+            "[watchlist] source={} yielded unnormalized symbols; returning empty list",
             source,
         )
     if not normalized and not symbols:
         _warn_once(
             f"empty:{source}",
-            "[watchlist] source=%s returned no symbols",
+            "[watchlist] source={} returned no symbols",
             source,
         )
 
@@ -212,7 +212,7 @@ def resolve_watchlist() -> Tuple[str, List[str]]:
     }
     if error:
         log_payload["error"] = error
-    logger.info("[watchlist:resolve] %s", log_payload)
+    logger.info("[watchlist:resolve] {}", log_payload)
     return source, capped
 
 

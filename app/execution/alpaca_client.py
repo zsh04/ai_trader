@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
-import logging
 import time
 from typing import Any, Dict, Optional
 
 import requests
+from loguru import logger
 
 
 class ExecutionError(RuntimeError):
@@ -37,7 +37,6 @@ class AlpacaClient:
         timeout: float = 10.0,
         retries: int = 2,
         backoff: float = 1.5,
-        logger: logging.Logger | None = None,
     ) -> None:
         self.key = key
         self.secret = secret
@@ -46,7 +45,6 @@ class AlpacaClient:
         self.timeout = timeout
         self.retries = max(0, retries)
         self.backoff = max(0.0, backoff)
-        self.log = logger or logging.getLogger(__name__)
 
     # -------------------------------------------------------------------------
     # Internal HTTP helpers
@@ -83,8 +81,8 @@ class AlpacaClient:
                     and attempt < self.retries
                 ):
                     delay = self.backoff * (attempt + 1)
-                    self.log.warning(
-                        "HTTP %s %s -> %s; retrying in %.1fs (attempt %s/%s)",
+                    logger.warning(
+                        "HTTP {} {} -> {}; retrying in {:.1f}s (attempt {}/{})",
                         method,
                         url,
                         resp.status_code,
@@ -99,8 +97,8 @@ class AlpacaClient:
             except requests.RequestException as e:
                 if attempt < self.retries:
                     delay = self.backoff * (attempt + 1)
-                    self.log.warning(
-                        "HTTP %s %s exception: %s; retrying in %.1fs (attempt %s/%s)",
+                    logger.warning(
+                        "HTTP {} {} exception: {}; retrying in {:.1f}s (attempt {}/{})",
                         method,
                         url,
                         e,
@@ -126,12 +124,12 @@ class AlpacaClient:
             r = self._request("GET", url)
             ok = 200 <= r.status_code < 300
             if not ok:
-                self.log.error(
-                    "Alpaca health_check failed: %s %s", r.status_code, r.text
+                logger.error(
+                    "Alpaca health_check failed: {} {}", r.status_code, r.text
                 )
             return ok
         except Exception as e:  # pragma: no cover - defensive
-            self.log.exception("Alpaca health_check exception: %s", e)
+            logger.exception("Alpaca health_check exception: {}", e)
             return False
 
     def get_last_price(self, symbol: str) -> float:
@@ -255,7 +253,7 @@ class AlpacaClient:
                 data = r.json()
             except Exception:
                 data = {"raw": r.text}
-            self.log.error("Order rejected (%s): %s", r.status_code, data)
+            logger.error("Order rejected ({}): {}", r.status_code, data)
             raise ExecutionError(f"Order rejected: {r.status_code} {data}")
         res = r.json()
         order_id = (res or {}).get("id")
@@ -263,8 +261,8 @@ class AlpacaClient:
             raise ExecutionError(
                 f"Missing order id in response: {json.dumps(res)[:200]}"
             )
-        self.log.info(
-            "Placed %s %s x%s (bracket=%s) → id=%s",
+        logger.info(
+            "Placed {} {} x{} (bracket={}) → id={}",
             side,
             symbol,
             qty,

@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import logging
 from typing import Dict, Iterable, List, Mapping, Optional
 
 import numpy as np
 import pandas as pd
-
-log = logging.getLogger(__name__)
+from loguru import logger
 
 # --------------------------------------------------------------------------------------
 # Column normalization
@@ -34,7 +32,9 @@ def _standardize_columns(df: pd.DataFrame) -> pd.DataFrame:
     Supported inputs: open/high/low/close/volume, o/h/l/lo/c/v, adj_close.
     Extra columns are preserved as-is.
     """
-    mapping = {col: _COL_ALIASES.get(str(col).lower(), col) for col in df.columns}
+    mapping = {
+        col: _COL_ALIASES.get(str(col).lower(), col) for col in df.columns
+    }
     out = df.rename(columns=mapping).copy()
     return out
 
@@ -62,7 +62,9 @@ def aggregate_ohlcv(
     label/closed : forwarded to `resample()` to use right-edge semantics (typical for markets)
     """
     if not isinstance(df.index, pd.DatetimeIndex):
-        raise TypeError("aggregate_ohlcv expects a DataFrame indexed by DatetimeIndex")
+        raise TypeError(
+            "aggregate_ohlcv expects a DataFrame indexed by DatetimeIndex"
+        )
 
     df_std = _standardize_columns(df)
 
@@ -104,7 +106,7 @@ def mtf_aggregate(
         try:
             out[rule] = aggregate_ohlcv(df, rule, tz=tz)
         except Exception as e:
-            log.warning("mtf_aggregate: failed rule=%s err=%s", rule, e)
+            logger.warning("mtf_aggregate: failed rule={} err={}", rule, e)
     return out
 
 
@@ -153,7 +155,7 @@ def mtf_rsi(
             out = rsi(ser, period=period).to_frame(name=f"{suffix}@{tf}")
             frames.append(out)
         except Exception as e:
-            log.warning("mtf_rsi: failed timeframe=%s err=%s", tf, e)
+            logger.warning("mtf_rsi: failed timeframe={} err={}", tf, e)
     if not frames:
         return pd.DataFrame()
     # Outer-join on the union of timestamps, forward-fill to align views
@@ -193,9 +195,13 @@ def build_mtf_features(
 
     # RSI per timeframe (based on close)
     if rsi_period is not None:
-        closes = {tf: bar["c"] for tf, bar in buckets.items() if "c" in bar.columns}
+        closes = {
+            tf: bar["c"] for tf, bar in buckets.items() if "c" in bar.columns
+        }
         if closes:
-            frames.append(mtf_rsi(closes, period=rsi_period, suffix="rsi"))
+            frames.append(
+                mtf_rsi(closes, period=rsi_period, suffix="rsi")
+            )
 
     if not frames:
         return pd.DataFrame()
