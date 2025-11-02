@@ -209,18 +209,7 @@ jobs:
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ env.AZURE_PUBLISH_PROFILE }}
-
-          # --- This is the new part ---
-          docker-compose-file-path: $GITHUB_WORKSPACE/docker-compose.yml
-
-          # We must also set the environment variables for the collector
-          # in the App Service. This is how Azure passes them.
-          # We pass the *name* of the secret, and Azure pulls it.
-          # NOTE: This requires you to add these to your App Service Configuration!
-          env-vars-for-otel-collector: |
-            APP_ENVIRONMENT=prod
-            GRAFANA_BASIC_AUTH=${{ secrets.GRAFANA_BASIC_AUTH }}
-            GRAFANA_OTLP_ENDPOINT=${{ secrets.GRAFANA_OTLP_ENDPOINT }}
+          configuration-file: $GITHUB_WORKSPACE/docker-compose.yml
 
   patch:
     name: patch-webhook (only if needed)
