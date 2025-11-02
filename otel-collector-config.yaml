@@ -18,10 +18,10 @@ processors:
 exporters:
   otlphttp:
     # This is your Grafana Cloud OTLP Endpoint
-    endpoint: "https://otlp-gateway-prod-us-west-0.grafana.net/otlp"
+    endpoint: "${GRAFANA_OTLP_ENDPOINT_VAR}"
     headers:
       # This is the Base64 string you already have
-      Authorization: "Basic ODMwNzIwOmdsY19leUp2SWpvaU1UQXlPRGt6TkNJc0ltNGlPaUpoYVMxMGNtRmtaWEl0WVhCd0lpd2lheUk2SW14VWVIZEphV2RyZWtoQk16RXdOV0kwTWpNNVpUbFNOaUlzSW0waU9uc2ljaUk2SW5CeWIyUXRkWE10ZDJWemRDMHdJbjE5"
+      Authorization: "Basic ${GRAFANA_BASIC_AUTH_VAR}
 
 service:
   telemetry:
