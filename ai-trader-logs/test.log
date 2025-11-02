@@ -1,0 +1,28 @@
+2025-11-01 19:15:06.425 | DEBUG    | app.backtest.metrics:equity_stats:149 - [metrics] 2024-01-01 00:00:00→2024-04-29 00:00:00 n=120 cagr=0.0000 tot=0.0000 vol=0.0000 sharpe=0.000 sortino=0.000 maxDD=0.0000 len=0 mar=0.000
+2025-11-01 19:15:06.427 | DEBUG    | app.backtest.metrics:equity_stats:149 - [metrics] 2024-01-01 00:00:00→2024-09-08 00:00:00 n=252 cagr=1.7459 tot=1.0020 vol=0.0138 sharpe=50.493 sortino=0.000 maxDD=0.0000 len=0 mar=0.000
+2025-11-01 19:15:06.428 | WARNING  | app.data.data_client:batch_latest_ohlcv:214 - alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-01 19:15:06.428 | WARNING  | app.data.data_client:batch_latest_ohlcv:214 - alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-01 19:15:06.620 | INFO     | app.main:request_logging_middleware:71 - request method=GET path=/health/live status=200 duration_ms=1.63 request_id=237d42bb1c3a49dcaad2da675806dd60
+2025-11-01 19:15:06.623 | DEBUG    | app.adapters.notifiers.telegram:build_client_from_env:489 - [Telegram] Using FakeTelegramClient (test mode)
+2025-11-01 19:15:06.624 | DEBUG    | app.api.routes.telegram:_dump_webhook_debug:102 - [tg-webhook:enter] DEBUG
+  hdr_primary: <empty>
+  hdr_legacy : <empty>
+  env_secret : <empty>
+  test_mode  : True
+  allow_empty: True
+  ENV        : test
+  BOT_TOKEN? : True
+  PAYLOAD    : {"message":{"chat":{"id":1},"text":"/ping"}}
+2025-11-01 19:15:06.624 | INFO     | app.api.routes.telegram:webhook:422 - [tg] unauthorized user id=None (ignored)
+2025-11-01 19:15:06.624 | INFO     | app.main:request_logging_middleware:71 - request method=POST path=/telegram/webhook status=200 duration_ms=1.68 request_id=51d8ea35e09d4977a66112bf6cf6d80a
+2025-11-01 19:15:06.627 | DEBUG    | app.adapters.notifiers.telegram:build_client_from_env:489 - [Telegram] Using FakeTelegramClient (test mode)
+2025-11-01 19:15:06.627 | DEBUG    | app.api.routes.telegram:_dump_webhook_debug:102 - [tg-webhook:enter] DEBUG
+  hdr_primary: <empty>
+  hdr_legacy : <empty>
+  env_secret : lS**********************************************************TAGa
+  test_mode  : True
+  allow_empty: True
+  ENV        : test
+  BOT_TOKEN? : True
+  PAYLOAD    : {"update_id":1001,"message":{"message_id":111,"from":{"id":999,"is_bot":false,"first_name":"Test"},"chat":{"id":42,"type":"private"},"date":1700000000,"text":"/ping"}}
+2025-11-01 19:15:06.628 | INFO     | app.main:request_logging_middleware:71 - request method=POST path=/telegram/webhook status=200 duration_ms=1.29 request_id=3c5b414943824960af69dd69ffb39338

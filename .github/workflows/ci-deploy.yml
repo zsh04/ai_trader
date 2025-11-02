@@ -184,7 +184,7 @@ jobs:
           # This is a bit of a trick. We need to update the otel-collector-config.yaml
           # to use the *real* secrets before docker-compose builds/pushes.
           # We'll use envsubst for this.
-          apt-get update && apt-get install -y gettext-base
+          sudo apt-get update && apt-get install -y gettext-base
           export GRAFANA_BASIC_AUTH_VAR="${{ env.GRAFANA_BASIC_AUTH }}"
           export GRAFANA_OTLP_ENDPOINT_VAR="${{ env.GRAFANA_OTLP_ENDPOINT }}"
 
