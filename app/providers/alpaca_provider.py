@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import logging
 from typing import Any, Dict, List, Optional
+
+from loguru import logger
 
 from app.utils.env import ALPACA_DATA_BASE_URL, ALPACA_FEED
 from app.utils.http import alpaca_headers, http_get
@@ -14,8 +15,6 @@ __all__ = [
     "day_bars",
     "latest_closes",
 ]
-
-log = logging.getLogger(__name__)
 
 
 def _normalize_symbols(symbols: List[str]) -> List[str]:
@@ -64,8 +63,8 @@ def snapshots(
         status, data = http_get(url, params, headers=alpaca_headers())
         if status != 200:
             err = (data or {}).get("message") or (data or {}).get("error")
-            log.warning(
-                "alpaca snapshots feed=%s status=%s err=%s batch=%s",
+            logger.warning(
+                "alpaca snapshots feed={} status={} err={} batch={}",
                 feed,
                 status,
                 err,
@@ -79,8 +78,8 @@ def snapshots(
             out[k.upper()] = v or {}
     # If everything came back empty, provide a helpful hint.
     if not out and symbols:
-        log.warning(
-            "alpaca snapshots returned empty for all symbols (feed=%s). "
+        logger.warning(
+            "alpaca snapshots returned empty for all symbols (feed={}). "
             "Check your Alpaca data plan (IEX vs SIP) and market hours.",
             feed,
         )
@@ -126,8 +125,8 @@ def bars(
         status, data = http_get(url, params, headers=alpaca_headers())
         if status != 200:
             err = (data or {}).get("message") or (data or {}).get("error")
-            log.warning(
-                "alpaca bars feed=%s tf=%s limit=%s status=%s err=%s batch=%s",
+            logger.warning(
+                "alpaca bars feed={} tf={} limit={} status={} err={} batch={}",
                 feed,
                 timeframe,
                 limit,
@@ -145,8 +144,8 @@ def bars(
             result.setdefault(sym, []).extend(seq)
     # If all returned series are empty, surface a clear hint for debugging.
     if result and not any(seq for seq in result.values()):
-        log.warning(
-            "alpaca bars returned empty for all symbols (feed=%s, tf=%s). "
+        logger.warning(
+            "alpaca bars returned empty for all symbols (feed={}, tf={}). "
             "Verify Alpaca data subscription and market hours.",
             feed,
             timeframe,
@@ -211,7 +210,7 @@ def latest_trades_from_snapshots(snaps: Dict[str, Dict[str, Any]]) -> Dict[str, 
         except Exception:
             continue
     if not out:
-        log.warning("no valid latest trade prices extracted from snapshots")
+        logger.warning("no valid latest trade prices extracted from snapshots")
     return out
 
 

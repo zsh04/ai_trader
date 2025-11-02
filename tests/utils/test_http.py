@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import logging
 from typing import Any, Dict, List
+
+from loguru import logger
 
 from app.utils import http
 
@@ -46,7 +47,8 @@ def test_http_get_retries_and_backoff(monkeypatch, caplog):
     perf_values = iter([0.0, 0.01, 1.0, 1.05])
     monkeypatch.setattr(http.time, "perf_counter", lambda: next(perf_values))
 
-    caplog.set_level(logging.INFO)
+    logger.remove()
+    logger.add(caplog.handler, level="INFO")
 
     status, data = http.http_get("https://example.com/api")
 

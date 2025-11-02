@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 import math
 import os
 import sys
@@ -14,6 +13,7 @@ from typing import Any, Callable, Dict, Tuple
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 from pandas import Timestamp
 
 from app.backtest import metrics as bt_metrics
@@ -25,22 +25,19 @@ from app.strats.breakout import BreakoutParams, generate_signals
 # ------------------------------------------------------------------------------
 # Logging
 # ------------------------------------------------------------------------------
-log = logging.getLogger(__name__)
 
 
-def _setup_cli_logging(level: int = logging.INFO) -> None:
+def _setup_cli_logging(level: str = "INFO") -> None:
     """
     Idempotent CLI logging initializer. Keeps uvicorn/fastapi logs quiet when used as a script,
     and provides consistent formatting for CI logs.
     """
-    root = logging.getLogger()
-    if not root.handlers:
-        logging.basicConfig(
-            level=level,
-            format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-        )
-    else:
-        root.setLevel(level)
+    logger.remove()
+    logger.add(
+        sys.stderr,
+        level=level.upper(),
+        format="{time} {level} {name}: {message}",
+    )
 
 
 def _roundish(x, ndigits=4):
@@ -106,11 +103,11 @@ def run(
     start_dt = pd.to_datetime(start).date()
     end_dt = pd.to_datetime(end).date() if end else datetime.now(UTC).date()
 
-    log.info("Fetching daily history for %s: %s → %s", symbol, start_dt, end_dt)
+    logger.info("Fetching daily history for {}: {} → {}", symbol, start_dt, end_dt)
     df = get_history_daily(symbol, start_dt, end_dt).dropna().copy()
     if df.empty:
-        log.error(
-            "No history returned for %s in [%s, %s]. Check data provider/API keys.",
+        logger.error(
+            "No history returned for {} in [{}, {}]. Check data provider/API keys.",
             symbol,
             start_dt,
             end_dt,
@@ -129,14 +126,16 @@ def run(
         df_engine = df.rename(
             columns={"Open": "open", "High": "high", "Low": "low", "Close": "close"}
         )
-        missing = [c for c in ["open", "high", "low", "close"] if c not in df_engine]
+        missing = [
+            c for c in ["open", "high", "low", "close"] if c not in df_engine
+        ]
         if missing:
             raise ValueError(f"OHLC columns missing for engine: {missing}")
 
     # Convert persistent states to one-bar events
-    entry_state = sig.get("long_entry", pd.Series(False, index=df_engine.index)).astype(
-        bool
-    )
+    entry_state = sig.get(
+        "long_entry", pd.Series(False, index=df_engine.index)
+    ).astype(bool)
     exit_state = sig.get("long_exit", pd.Series(False, index=df_engine.index)).astype(
         bool
     )
@@ -161,14 +160,16 @@ def run(
 
     # Diagnostics
     if debug:
-        log.debug(
-            "Signals: entries=%d exits=%d rows=%d",
-            int(sig.get("long_entry", pd.Series()).sum()) if "long_entry" in sig else 0,
+        logger.debug(
+            "Signals: entries={} exits={} rows={}",
+            int(sig.get("long_entry", pd.Series()).sum())
+            if "long_entry" in sig
+            else 0,
             int(sig.get("long_exit", pd.Series()).sum()) if "long_exit" in sig else 0,
             len(sig),
         )
-        log.debug(
-            "Events: entry_event=%d exit_event=%d",
+        logger.debug(
+            "Events: entry_event={} exit_event={}",
             int(entry_event.sum()),
             int(exit_event.sum()),
         )
@@ -198,18 +199,22 @@ def run(
         try:
             sig.tail(200)[cols_dbg_all].to_csv(f"signals_tail_{symbol}.csv")
             mask = sig.get("long_entry", False) | sig.get("long_exit", False)
-            sig.loc[mask, cols_dbg_all].tail(200).to_csv(f"signals_events_{symbol}.csv")
-            log.debug(
-                "Saved signal snapshots: signals_tail_%s.csv, signals_events_%s.csv",
+            sig.loc[mask, cols_dbg_all].tail(200).to_csv(
+                f"signals_events_{symbol}.csv"
+            )
+            logger.debug(
+                "Saved signal snapshots: signals_tail_{}.csv, signals_events_{}.csv",
                 symbol,
                 symbol,
             )
         except Exception as e_dump:
-            log.debug("Signal dump failed: %s", e_dump)
+            logger.debug("Signal dump failed: {}", e_dump)
 
     beta = BetaWinrate()
     default_risk = (
-        0.01 * beta.kelly_fraction() / max(beta.fmax, 1e-6) if beta.fmax > 0 else 0.01
+        0.01 * beta.kelly_fraction() / max(beta.fmax, 1e-6)
+        if beta.fmax > 0
+        else 0.01
     )
 
     atr_series = sig.get("atr")
@@ -224,7 +229,9 @@ def run(
         entry_price=p.entry_price,
         atr_mult=p.atr_mult,
         risk_frac=(
-            risk_frac_override if risk_frac_override is not None else default_risk
+            risk_frac_override
+            if risk_frac_override is not None
+            else default_risk
         ),
         costs=Costs(
             slippage_bps=slippage_bps if slippage_bps is not None else 1.0,
@@ -236,22 +243,22 @@ def run(
 
     res, used_extra = _try_backtest(backtest_long_only, bt_kwargs)
     if used_extra:
-        log.debug("backtest_long_only extra kwargs applied: %s", used_extra)
+        logger.debug("backtest_long_only extra kwargs applied: {}", used_extra)
 
     # Introspection
     try:
         trades_obj = res.get("trades")
         trades_len = len(trades_obj) if hasattr(trades_obj, "__len__") else -1
-        log.debug("trades_len=%s", trades_len)
+        logger.debug("trades_len={}", trades_len)
         if trades_len > 0:
             preview = trades_obj[: min(3, trades_len)]
-            log.debug("first_trades=%s", preview)
+            logger.debug("first_trades={}", preview)
     except Exception as e_tr:
-        log.debug("Trades introspection failed: %s", e_tr)
+        logger.debug("Trades introspection failed: {}", e_tr)
 
     try:
         keys = list(res.keys())
-        log.debug("result keys: %s", keys)
+        logger.debug("result keys: {}", keys)
         eq = res.get("equity")
         if eq is not None and hasattr(eq, "diff"):
             moved = (
@@ -259,9 +266,9 @@ def run(
                 if hasattr(eq, "to_numpy")
                 else float(np.nansum(np.abs(eq.diff().values)))
             )
-            log.debug("equity moved (abs sum diffs): %.6f", moved)
+            logger.debug("equity moved (abs sum diffs): {:.6f}", moved)
     except Exception as e_keys:
-        log.debug("Result introspection failed: %s", e_keys)
+        logger.debug("Result introspection failed: {}", e_keys)
 
     # Equity flatline diagnostics
     try:
@@ -275,16 +282,16 @@ def run(
                     moved = float(eq.diff().abs().sum())
                 flat = moved == 0.0
             except Exception as e_calc:
-                log.debug("Equity move calc failed: %s", e_calc)
+                logger.debug("Equity move calc failed: {}", e_calc)
                 flat = False
         if flat or debug_signals:
             invalid_atr = None
             if {"long_entry", "atr_ok"}.issubset(sig.columns):
                 invalid_atr = int((sig["long_entry"] & (~sig["atr_ok"])).sum())
-                log.debug("entries with invalid ATR: %s", invalid_atr)
+                logger.debug("entries with invalid ATR: {}", invalid_atr)
             elif {"long_entry", "atr"}.issubset(sig.columns):
                 invalid_atr = int((sig["long_entry"] & (~sig["atr"].gt(0))).sum())
-                log.debug("entries with invalid ATR(alt): %s", invalid_atr)
+                logger.debug("entries with invalid ATR(alt): {}", invalid_atr)
 
             cols_dbg2 = [
                 c
@@ -309,24 +316,24 @@ def run(
             snap = sig[cols_dbg2].tail(100) if cols_dbg2 else sig.tail(100)
             dbg2_path = f"signals_flat_debug_{symbol}.csv"
             snap.to_csv(dbg2_path)
-            log.debug("Equity flat; saved snapshot -> %s", dbg2_path)
+            logger.debug("Equity flat; saved snapshot -> {}", dbg2_path)
     except Exception as e_diag:
-        log.debug("Equity-flat diagnostics failed: %s", e_diag)
+        logger.debug("Equity-flat diagnostics failed: {}", e_diag)
 
     # Metrics & outputs
     m = bt_metrics.equity_stats(res["equity"], use_mtm=True)
     m_dict = asdict(m)
     m_pretty = {k: _roundish(v) for k, v in m_dict.items()}
-    log.info("[%s] equity metrics: %s", symbol, m_pretty)
+    logger.info("[{}] equity metrics: {}", symbol, m_pretty)
     out_dir = os.getenv("BACKTEST_OUT_DIR", ".")
     out_name = f"backtest_{symbol}.csv"
     out = os.path.join(out_dir, out_name)
     if os.getenv("BACKTEST_NO_SAVE", "0") == "1":
-        log.info("Skipping save of equity curve due to BACKTEST_NO_SAVE=1")
+        logger.info("Skipping save of equity curve due to BACKTEST_NO_SAVE=1")
     else:
         os.makedirs(os.path.dirname(out), exist_ok=True)
         res["equity"].to_csv(out)
-        log.info("Saved equity curve -> %s", out)
+        logger.info("Saved equity curve -> {}", out)
 
     if export_csv:
         export_dir = Path(export_csv).expanduser()
@@ -342,7 +349,7 @@ def run(
 
         equity_path = (export_dir / f"{symbol}_equity.csv").resolve()
         eq_df.to_csv(equity_path)
-        log.info("Exported equity CSV -> %s", equity_path)
+        logger.info("Exported equity CSV -> {}", equity_path)
 
         trades = res.get("trades")
         if isinstance(trades, pd.DataFrame):
@@ -354,12 +361,12 @@ def run(
 
         trades_path = (export_dir / f"{symbol}_trades.csv").resolve()
         trades_df.to_csv(trades_path, index=False)
-        log.info("Exported trades CSV -> %s", trades_path)
+        logger.info("Exported trades CSV -> {}", trades_path)
 
 
 if __name__ == "__main__":
     # Minimal logging config for CLI use; app runtime can configure root logging.
-    _setup_cli_logging(logging.INFO)
+    _setup_cli_logging("INFO")
 
     ap = argparse.ArgumentParser(
         description="Run breakout backtest with configurable parameters"
@@ -395,11 +402,15 @@ if __name__ == "__main__":
     )
 
     # --- Strategy Parameters ---
-    ap.add_argument("--lookback", type=int, help="Breakout lookback window length")
+    ap.add_argument(
+        "--lookback", type=int, help="Breakout lookback window length"
+    )
     ap.add_argument(
         "--ema", dest="ema_fast", type=int, help="EMA length for trend filter"
     )
-    ap.add_argument("--atr", dest="atr_len", type=int, help="ATR lookback period")
+    ap.add_argument(
+        "--atr", dest="atr_len", type=int, help="ATR lookback period"
+    )
     ap.add_argument(
         "--atr-mult",
         dest="atr_mult",
@@ -496,7 +507,10 @@ if __name__ == "__main__":
         help="Slippage in basis points",
     )
     ap.add_argument(
-        "--fee-per-share", dest="fee_per_share", type=float, help="Fee per share traded"
+        "--fee-per-share",
+        dest="fee_per_share",
+        type=float,
+        help="Fee per share traded",
     )
     ap.add_argument(
         "--risk-frac",
@@ -558,14 +572,20 @@ if __name__ == "__main__":
         "enter_on_break_bar",
     ]
     raw_kwargs = {
-        k: getattr(args, k) for k in candidate_keys if getattr(args, k) is not None
+        k: getattr(args, k)
+        for k in candidate_keys
+        if getattr(args, k) is not None
     }
     # Filter out any keys not supported by BreakoutParams (handles version drift)
     try:
-        allowed_keys = set(getattr(BreakoutParams, "__annotations__", {}).keys())
+        allowed_keys = set(
+            getattr(BreakoutParams, "__annotations__", {}).keys()
+        )
     except Exception:
         allowed_keys = set()
-    params_kwargs = {k: v for k, v in raw_kwargs.items() if k in allowed_keys}
+    params_kwargs = {
+        k: v for k, v in raw_kwargs.items() if k in allowed_keys
+    }
 
     try:
         run(
@@ -587,17 +607,23 @@ if __name__ == "__main__":
             out_dir = os.getenv("BACKTEST_OUT_DIR", ".")
             out = os.path.join(out_dir, f"backtest_{args.symbol}.csv")
             if os.path.exists(out):
-                eq = pd.read_csv(out, index_col=0, parse_dates=True).iloc[:, 0]
+                eq = pd.read_csv(out, index_col=0, parse_dates=True).iloc[
+                    :, 0
+                ]
                 m = bt_metrics.equity_stats(eq, use_mtm=True)
                 print(
                     json.dumps(
                         {
-                            k: (v.isoformat() if hasattr(v, "isoformat") else v)
+                            k: (
+                                v.isoformat()
+                                if hasattr(v, "isoformat")
+                                else v
+                            )
                             for k, v in asdict(m).items()
                         }
                     )
                 )
     except Exception as e:
-        log.error("Backtest run failed: %s", e)
-        log.debug("Traceback:\n%s", traceback.format_exc())
+        logger.error("Backtest run failed: {}", e)
+        logger.debug("Traceback:\n{}", traceback.format_exc())
         sys.exit(1)

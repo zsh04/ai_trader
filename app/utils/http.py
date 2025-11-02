@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-import logging
 import random
 import time
 from typing import Any, Dict, Optional, Tuple
 
 import requests
+from loguru import logger
 
 from app.utils import env as ENV
-
-log = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
 # Header helpers
@@ -67,7 +65,7 @@ def _compute_sleep(attempt: int, backoff: float, retry_after: Optional[str]) -> 
 
 def _log_http_event(
     *,
-    level: int,
+    level: str,
     method: str,
     url: str,
     status: int,
@@ -77,9 +75,9 @@ def _log_http_event(
     note: str = "",
 ) -> None:
     latency_ms = round((time.perf_counter() - start_time) * 1000.0, 1)
-    log.log(
+    logger.log(
         level,
-        "[http] method=%s url=%s status=%s latency_ms=%.1f attempt=%s/%s %s",
+        "[http] method={} url={} status={} latency_ms={:.1f} attempt={}/{} {}",
         method.upper(),
         url,
         status,
@@ -139,7 +137,7 @@ def request_json(
             # Success path
             if 200 <= resp.status_code < 300:
                 _log_http_event(
-                    level=logging.INFO,
+                    level="INFO",
                     method=method,
                     url=url,
                     status=resp.status_code,
@@ -151,7 +149,7 @@ def request_json(
                 try:
                     return resp.status_code, resp.json()
                 except Exception:
-                    log.exception("JSON decode failed for %s", url)
+                    logger.exception("JSON decode failed for {}", url)
                     return resp.status_code, {}
 
             # Retryable?
@@ -161,7 +159,7 @@ def request_json(
                     attempt, backoff, resp.headers.get("Retry-After")
                 )
                 _log_http_event(
-                    level=logging.WARNING,
+                    level="WARNING",
                     method=method,
                     url=url,
                     status=resp.status_code,
@@ -170,8 +168,8 @@ def request_json(
                     start_time=start_time,
                     note="retry",
                 )
-                log.warning(
-                    "HTTP %s %s -> %s — retry %s/%s in %.2fs",
+                logger.warning(
+                    "HTTP {} {} -> {} — retry {}/{} in {:.2f}s",
                     method.upper(),
                     url,
                     resp.status_code,
@@ -184,7 +182,7 @@ def request_json(
 
             # Non-retriable or exhausted
             _log_http_event(
-                level=logging.WARNING,
+                level="WARNING",
                 method=method,
                 url=url,
                 status=resp.status_code,
@@ -198,13 +196,13 @@ def request_json(
             except Exception:
                 # Truncate body for logging
                 body = (resp.text or "")[:400]
-                log.debug("Non-JSON response for %s: %s", url, body)
+                logger.debug("Non-JSON response for {}: {}", url, body)
                 return resp.status_code, {}
 
         except requests.RequestException as e:
             last_exc = e
             _log_http_event(
-                level=logging.WARNING,
+                level="WARNING",
                 method=method,
                 url=url,
                 status=599,
@@ -215,8 +213,8 @@ def request_json(
             )
             if attempt < retries:
                 sleep_s = _compute_sleep(attempt, backoff, None)
-                log.warning(
-                    "HTTP %s %s error — retry %s/%s in %.2fs: %s",
+                logger.warning(
+                    "HTTP {} {} error — retry {}/{} in {:.2f}s: {}",
                     method.upper(),
                     url,
                     attempt + 1,
@@ -229,7 +227,7 @@ def request_json(
             break
 
     if last_exc:
-        log.error("HTTP %s %s failed after retries: %s", method.upper(), url, last_exc)
+        logger.error("HTTP {} {} failed after retries: {}", method.upper(), url, last_exc)
     return 599, {}
 
 

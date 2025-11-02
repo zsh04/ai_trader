@@ -1,10 +1,14 @@
 # app/adapters/market/alpaca_client.py
 from __future__ import annotations
 
-import logging
-import time, ssl, socket
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+import ssl
+import socket
+import time
 from contextlib import closing
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+
+from loguru import logger
+
 from app.utils import env as ENV
 from app.utils.http import request_json
 
@@ -17,7 +21,9 @@ _ALLOWED_FEEDS = {"iex", "sip"}
 # --- Alpaca trading API ping helpers ---
 class AlpacaPingError(Exception):
     """Raised when the Alpaca trading API ping fails."""
+
     pass
+
 
 def _trading_base_url() -> str:
     """
@@ -28,11 +34,13 @@ def _trading_base_url() -> str:
     """
     # Prefer explicit trading base URL if present; fallback to paper trading.
     from app.utils import env as ENV
+
     return (
         getattr(ENV, "ALPACA_TRADING_BASE_URL", None)
         or getattr(ENV, "ALPACA_BASE_URL", None)
         or "https://paper-api.alpaca.markets"
     ).rstrip("/")
+
 
 def _api_headers() -> Dict[str, str]:
     """
@@ -45,10 +53,19 @@ def _api_headers() -> Dict[str, str]:
         AlpacaPingError: If API key or secret is missing.
     """
     from app.utils import env as ENV
-    key = getattr(ENV, "ALPACA_API_KEY", None) or getattr(ENV, "ALPACA_API_KEY_ID", None)
-    secret = getattr(ENV, "ALPACA_API_SECRET", None) or getattr(ENV, "ALPACA_API_SECRET_KEY", None)
+
+    key = (
+        getattr(ENV, "ALPACA_API_KEY", None)
+        or getattr(ENV, "ALPACA_API_KEY_ID", None)
+    )
+    secret = (
+        getattr(ENV, "ALPACA_API_SECRET", None)
+        or getattr(ENV, "ALPACA_API_SECRET_KEY", None)
+    )
     if not key or not secret:
-        raise AlpacaPingError("Missing ALPACA_API_KEY / ALPACA_API_SECRET in environment")
+        raise AlpacaPingError(
+            "Missing ALPACA_API_KEY / ALPACA_API_SECRET in environment"
+        )
     return {"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret}
 
 
@@ -114,7 +131,6 @@ class AlpacaMarketClient:
         force_yahoo_on_auth_error: Optional[bool] = None,
         transport=request_json,
         session=None,
-        logger: Optional[logging.Logger] = None,
     ) -> None:
         """
         Initializes the AlpacaMarketClient.
@@ -130,7 +146,6 @@ class AlpacaMarketClient:
             force_yahoo_on_auth_error (Optional[bool]): Whether to fallback to Yahoo on auth error.
             transport: The transport function.
             session: The request session.
-            logger (Optional[logging.Logger]): The logger.
         """
         self.api_key = api_key if api_key is not None else ENV.ALPACA_API_KEY
         self.api_secret = (
@@ -152,7 +167,6 @@ class AlpacaMarketClient:
         )
         self._transport = transport
         self._session = session
-        self.log = logger or logging.getLogger(__name__)
 
     # --------------------------------------------------------------------- #
     # Public API                                                            #
@@ -198,8 +212,8 @@ class AlpacaMarketClient:
         value = feed.strip().lower()
         if value in _ALLOWED_FEEDS:
             return value
-        self.log.warning(
-            "[alpaca] unknown feed=%s; defaulting to %s", feed, self.default_feed
+        logger.warning(
+            "[alpaca] unknown feed={}; defaulting to {}", feed, self.default_feed
         )
         return self.default_feed
 
@@ -263,8 +277,8 @@ class AlpacaMarketClient:
         if status != 401:
             return status, data
 
-        self.log.warning(
-            "[alpaca] auth 401 on %s feed=%s; retrying once", path, resolved_feed
+        logger.warning(
+            "[alpaca] auth 401 on {} feed={}; retrying once", path, resolved_feed
         )
         status, data = self._transport(
             "GET",
@@ -286,8 +300,8 @@ class AlpacaMarketClient:
         )
         if self.force_yahoo_on_auth_error:
             guidance += " Yahoo fallback will be triggered."
-        self.log.error(
-            "[alpaca] persistent 401 feed=%s detail=%s. %s "
+        logger.error(
+            "[alpaca] persistent 401 feed={} detail={}. {} "
             "Set ALPACA_FORCE_YAHOO_ON_AUTH_ERROR=1 to auto-route to Yahoo.",
             resolved_feed,
             detail,

@@ -1,17 +1,15 @@
 from __future__ import annotations
 
-import logging
+import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
-import json
-import time
+from loguru import logger
 
 from app.domain.watchlist_service import resolve_watchlist
 
 tasks_router = APIRouter(prefix="/tasks", tags=["tasks"])
 public_router = APIRouter(tags=["watchlist"])
-logger = logging.getLogger(__name__)
 
 
 def _send_watchlist(
@@ -100,7 +98,7 @@ def _build_watchlist(
         duration_ms = (time.perf_counter() - start) * 1000.0
         _increment_build_counter(source, True)
         logger.info(
-            "[watchlist:build] %s",
+            "[watchlist:build] {}",
             {
                 "source": source,
                 "count": result.get("count", 0) if isinstance(result, dict) else 0,
@@ -113,7 +111,7 @@ def _build_watchlist(
         duration_ms = (time.perf_counter() - start) * 1000.0
         _increment_build_counter(source, False)
         logger.warning(
-            "[watchlist:build] %s",
+            "[watchlist:build] {}",
             {
                 "source": source,
                 "count": 0,
@@ -164,6 +162,7 @@ def task_watchlist(
         )
     return wl
 
+
 def _get_watchlist_payload() -> Dict[str, Any]:
     """
     Resolves and returns the watchlist payload.
@@ -173,8 +172,9 @@ def _get_watchlist_payload() -> Dict[str, Any]:
     """
     source, symbols = resolve_watchlist()
     payload = {"source": source, "count": len(symbols), "symbols": symbols}
-    logger.info("[watchlist] source=%s count=%d", source, payload["count"])
+    logger.info("[watchlist] source={} count={}", source, payload["count"])
     return payload
+
 
 @tasks_router.get("/watchlist")
 def get_watchlist_tasks() -> Dict[str, Any]:
@@ -186,6 +186,7 @@ def get_watchlist_tasks() -> Dict[str, Any]:
     """
     return _get_watchlist_payload()
 
+
 @public_router.get("/watchlist")
 def get_watchlist_public() -> Dict[str, Any]:
     """
@@ -195,5 +196,6 @@ def get_watchlist_public() -> Dict[str, Any]:
         Dict[str, Any]: The current watchlist.
     """
     return _get_watchlist_payload()
+
 
 __all__ = ["tasks_router", "public_router"]

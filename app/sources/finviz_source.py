@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import logging
 import os
 from typing import List, Optional
+
+from loguru import logger
 
 try:
     from finvizfinance.screener import Screener
@@ -10,8 +11,6 @@ try:
     _FINVIZ_OK = True
 except Exception:
     _FINVIZ_OK = False
-
-log = logging.getLogger(__name__)
 
 
 def is_ready() -> bool:
@@ -42,7 +41,7 @@ def fetch_symbols(
         A list of uppercase ticker symbols (AAPL, TSLA, etc.).
     """
     if not _FINVIZ_OK:
-        log.warning("finvizfinance not installed; returning []")
+        logger.warning("finvizfinance not installed; returning []")
         return []
 
     try:
@@ -55,19 +54,23 @@ def fetch_symbols(
         if hasattr(df, "get"):
             tickers = df.get("Ticker", [])
         elif isinstance(df, list):
-            tickers = [row.get("Ticker") for row in df if isinstance(row, dict)]
+            tickers = [
+                row.get("Ticker") for row in df if isinstance(row, dict)
+            ]
         else:
-            log.warning("Unexpected Finviz schema type: %s", type(df))
+            logger.warning("Unexpected Finviz schema type: {}", type(df))
             tickers = []
 
         # Normalize and filter symbols
         symbols = [str(t).upper().strip() for t in tickers if t]
         symbols = [s for s in symbols if s.isalpha() and 1 <= len(s) <= 5]
 
-        log.info("Finviz returned %d tickers for preset='%s'", len(symbols), preset)
+        logger.info(
+            "Finviz returned {} tickers for preset='{}'", len(symbols), preset
+        )
         return symbols[:max_symbols]
     except Exception as e:
-        log.exception("Finviz fetch failed: %s", e)
+        logger.exception("Finviz fetch failed: {}", e)
         return []
 
 
@@ -79,16 +82,26 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
     max_symbols limits the final deduplicated list if provided.
     """
     preset = os.getenv("FINVIZ_PRESET", "most-active")
-    filters_raw = os.getenv("FINVIZ_FILTERS", "cap_large,sh_avgvol_o1000")
-    filter_list = [f.strip() for f in filters_raw.split(",") if f.strip()] or None
+    filters_raw = os.getenv(
+        "FINVIZ_FILTERS", "cap_large,sh_avgvol_o1000"
+    )
+    filter_list = (
+        [f.strip() for f in filters_raw.split(",") if f.strip()] or None
+    )
 
-    limit = max_symbols if isinstance(max_symbols, int) and max_symbols > 0 else None
+    limit = (
+        max_symbols
+        if isinstance(max_symbols, int) and max_symbols > 0
+        else None
+    )
     fetch_limit = limit if limit is not None else 100
 
     try:
-        symbols = fetch_symbols(preset=preset, filters=filter_list, max_symbols=fetch_limit)
+        symbols = fetch_symbols(
+            preset=preset, filters=filter_list, max_symbols=fetch_limit
+        )
     except Exception as exc:
-        log.warning("[FinvizSource] Failed to fetch symbols: %s", exc)
+        logger.warning("[FinvizSource] Failed to fetch symbols: {}", exc)
         return []
 
     seen: set[str] = set()
@@ -105,5 +118,6 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
     if limit is not None and len(result) > limit:
         return result[:limit]
     return result
+
 
 __all__ = ["fetch_symbols", "get_symbols"]
