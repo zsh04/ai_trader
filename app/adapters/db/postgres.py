@@ -8,6 +8,7 @@ individual PG* env vars with sslmode=require by default (works for Azure FS).
 
 import os
 import time
+import contextlib
 from typing import Optional
 from urllib.parse import quote_plus
 
