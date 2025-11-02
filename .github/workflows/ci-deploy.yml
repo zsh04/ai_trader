@@ -189,7 +189,7 @@ jobs:
           export GRAFANA_OTLP_ENDPOINT_VAR="${{ env.GRAFANA_OTLP_ENDPOINT }}"
 
           # Create a new config file from the template
-          envsubst < otel-collector-config.yaml > otel-collector-config.prod.yaml
+          envsubst < $GITHUB_WORKSPACE/otel-collector-config.yaml > otel-collector-config.prod.yaml
 
           # Update docker-compose to use the new prod config
           # This assumes your compose file is docker-compose.yaml
@@ -211,7 +211,7 @@ jobs:
           publish-profile: ${{ env.AZURE_PUBLISH_PROFILE }}
 
           # --- This is the new part ---
-          docker-compose-file-path: docker-compose.yaml
+          docker-compose-file-path: $GITHUB_WORKSPACE/docker-compose.yaml
 
           # We must also set the environment variables for the collector
           # in the App Service. This is how Azure passes them.
@@ -233,12 +233,12 @@ jobs:
           if [ -n "${{ github.event.inputs.override_url }}" ]; then
             echo "url=${{ github.event.inputs.override_url }}" >> $GITHUB_OUTPUT
           else
-            echo "url=https://s{AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook" >> $GITHUB_OUTPUT
+            echo "url=https://${AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook" >> $GITHUB_OUTPUT
           fi
       - name: setWebhook
         if: ${{ env.TELEGRAM_TOKEN && env.TELEGRAM_WEBHOOK_SECRET }}
         run: |
-          curl -sS -X POST "httpss://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
+          curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
             -H "Content-Type: application/json" \
             -d "{\"url\":\"${{ steps.url.outputs.url }}\",\"secret_token\":\"${TELEGRAM_WEBHOOK_SECRET}\"}"
           echo "Webhook set to: ${{ steps.url.outputs.url }}"
@@ -252,17 +252,17 @@ jobs:
         run: sleep 15
       - name: check /health
         run: |
-          curl -fsSL "httpss://${AZURE_WEBAPP_NAME}.azurewebsites.net/health" | tee health.json
+          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health" | tee health.json
           STATUS=$(jq -r '.status // empty' health.json)
           echo "status=${STATUS}"
       - name: check /health/db
         run: |
-          curl -fsSL "httpss://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/db" | tee health_db.json
+          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/db" | tee health_db.json
           OK=$(jq -r '.ok // .status // empty' health_db.json)
           test "$OK" = "ok"
       - name: check /health/market
         run: |
-          curl -fsSL "httpss://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
+          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
           STATUS=$(jq -r '.status // empty' health_market.json)
           if [ "${STATUS}" != "ok" ] && [ "${STATUS}" != "degraded" ]; then
             echo "Unexpected market status: ${STATUS}"
