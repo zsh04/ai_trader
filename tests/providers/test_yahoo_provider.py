@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import logging
+from loguru import logger
 
 from app.providers import yahoo_provider
 from app.utils import env as ENV
@@ -16,7 +16,8 @@ def test_fetch_chart_history_non_200(monkeypatch, caplog):
         return 500, {"chart": {"error": "nope"}}
 
     monkeypatch.setattr(yahoo_provider, "http_get", fake_http_get)
-    caplog.set_level(logging.WARNING)
+    logger.remove()
+    logger.add(caplog.handler, level="WARNING")
 
     data = yahoo_provider._fetch_chart_history("AAPL", "2024-01-01", "2024-01-10")
 
@@ -28,5 +29,5 @@ def test_fetch_chart_history_non_200(monkeypatch, caplog):
 
     assert any("yahoo history fetch failed" in rec.message for rec in caplog.records)
     record = caplog.records[0]
-    assert record.status == 500
-    assert record.provider == "yahoo"
+    assert record.extra["provider"] == "yahoo"
+    assert record.extra["status"] == 500

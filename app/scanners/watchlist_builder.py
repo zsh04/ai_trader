@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import logging
 from statistics import mean
 from typing import Iterable, List, Optional
+
+from loguru import logger
 
 from app.core.timeutils import now_utc, session_for
 from app.data.data_client import batch_latest_ohlcv, get_universe
 from app.utils.env import MAX_WATCHLIST
-
-log = logging.getLogger(__name__)
 
 FALLBACK_WATCHLIST_CAP = 15
 INVALID_SPREAD_PCT = 999.0
@@ -168,13 +167,13 @@ def build_watchlist(
                 or []
             )
         except Exception as e:
-            log.warning("finviz fetch failed: %s", e)
+            logger.warning("finviz fetch failed: {}", e)
             finviz_list = []
 
-    log.debug(
+    logger.debug(
         (
-            "watchlist sources: manual=%d scanner=%d finviz=%d "
-            "include_filters=%s limit=%s"
+            "watchlist sources: manual={} scanner={} finviz={} "
+            "include_filters={} limit={}"
         ),
         len(manual),
         len(scanner_default),
@@ -189,7 +188,7 @@ def build_watchlist(
     candidates = _cap_list(candidates, hard_cap)
 
     if not candidates:
-        log.info("watchlist: no candidates after merge; returning empty payload")
+        logger.info("watchlist: no candidates after merge; returning empty payload")
         return {
             "session": _session,
             "asof_utc": _ts.isoformat(),
@@ -201,13 +200,13 @@ def build_watchlist(
     if include_filters:
         candidates = apply_filters(candidates, limit=hard_cap)
 
-    log.debug("watchlist candidates (post-filters): %d", len(candidates))
+    logger.debug("watchlist candidates (post-filters): {}", len(candidates))
 
     # 3) enrich with latest price + OHLCV
     snap = batch_latest_ohlcv(candidates)
 
     if not isinstance(snap, dict):
-        log.warning("batch_latest_ohlcv returned non-dict type: %s", type(snap))
+        logger.warning("batch_latest_ohlcv returned non-dict type: {}", type(snap))
         snap = {}
 
     # 4) structure response
@@ -223,7 +222,7 @@ def build_watchlist(
             }
         )
 
-    log.info("watchlist built: %d items", len(items))
+    logger.info("watchlist built: {} items", len(items))
 
     # stable ordering
     items.sort(key=lambda x: x.get("symbol", ""))

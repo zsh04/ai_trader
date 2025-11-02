@@ -1,28 +1,24 @@
 # app/main.py
 from __future__ import annotations
 
-import logging
 import os
 import time
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
+from loguru import logger
 
-from app.config import settings
-
-# bring routers in explicitly
 from app.api.routes.health import router as health_router
-from app.api.routes.tasks import tasks_router, public_router
+from app.api.routes.tasks import public_router, tasks_router
 from app.api.routes.telegram import router as telegram_router
+from app.config import settings
 
 __all__ = ["app"]
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    import logging
-    logger = logging.getLogger(__name__)
-
     required = {
         "ALPACA_API_KEY": settings.alpaca_key,
         "ALPACA_API_SECRET": settings.alpaca_secret,
@@ -30,23 +26,27 @@ async def lifespan(app: FastAPI):
     }
     missing = [name for name, value in required.items() if not value]
     if missing:
-        logger.warning("Missing required env vars: %s", ",".join(missing))
+        logger.warning("Missing required env vars: {}", ",".join(missing))
 
     logger.info(
-        "AI Trader %s port=%s tz=%s env=%s",
-        settings.VERSION, settings.port, settings.tz, os.getenv("ENV", "local"),
+        "AI Trader {} port={} tz={} env={}",
+        settings.VERSION,
+        settings.port,
+        settings.tz,
+        os.getenv("ENV", "local"),
     )
     yield
 
-app = FastAPI(title="AI Trader", version=settings.VERSION, lifespan=lifespan)
+
+app = FastAPI(
+    title="AI Trader", version=settings.VERSION, lifespan=lifespan
+)
 
 # Give each router a non-empty prefix to avoid “Prefix and path cannot be both empty”
-app.include_router(health_router,   prefix="/health",   tags=["health"])
+app.include_router(health_router, prefix="/health", tags=["health"])
 app.include_router(telegram_router)
 app.include_router(tasks_router)
 app.include_router(public_router)
-
-_request_logger = logging.getLogger("request")
 
 
 @app.middleware("http")
@@ -57,8 +57,8 @@ async def request_logging_middleware(request: Request, call_next):
         response = await call_next(request)
     except Exception:
         duration_ms = (time.perf_counter() - start) * 1000.0
-        _request_logger.exception(
-            "request method=%s path=%s status=500 duration_ms=%.2f request_id=%s",
+        logger.exception(
+            "request method={} path={} status=500 duration_ms={:.2f} request_id={}",
             request.method,
             request.url.path,
             duration_ms,
@@ -68,8 +68,8 @@ async def request_logging_middleware(request: Request, call_next):
 
     duration_ms = (time.perf_counter() - start) * 1000.0
     response.headers["X-Request-ID"] = request_id
-    _request_logger.info(
-        "request method=%s path=%s status=%s duration_ms=%.2f request_id=%s",
+    logger.info(
+        "request method={} path={} status={} duration_ms={:.2f} request_id={}",
         request.method,
         request.url.path,
         response.status_code,

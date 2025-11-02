@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import logging
 from typing import Iterable, List, Set
 
-log = logging.getLogger(__name__)
+from loguru import logger
 
 
 def dedupe_merge(*groups: Iterable[str], limit: int | None = None) -> List[str]:
@@ -18,9 +17,9 @@ def dedupe_merge(*groups: Iterable[str], limit: int | None = None) -> List[str]:
             out.append(u)
             if limit and len(out) >= limit:
                 return out
-    log.debug(
-        "dedupe_merge merged %d tickers (%d duplicates skipped)",
+    logger.debug(
+        "dedupe_merge merged {} tickers ({} duplicates skipped)",
         len(out),
-        len(seen) - len(out),
+        sum(len(g) for g in groups) - len(out),
     )
     return out

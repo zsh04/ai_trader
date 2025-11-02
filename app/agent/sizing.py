@@ -1,8 +1,6 @@
 """Position sizing logic — calculates shares/contracts per trade based on risk budget and volatility."""
 
-import logging
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 def position_size(
@@ -28,7 +26,7 @@ def position_size(
         return 0
     if risk_pct <= 0 or atr <= 0 or stop_atr_mult <= 0:
         logger.debug(
-            "Sizing inputs below threshold: risk_pct=%s atr=%s stop_mult=%s",
+            "Sizing inputs below threshold: risk_pct={} atr={} stop_mult={}",
             risk_pct,
             atr,
             stop_atr_mult,
@@ -40,7 +38,7 @@ def position_size(
     size = max(int(raw_size), 0)
 
     logger.info(
-        "Position size computed: equity=%.2f risk_pct=%.3f atr=%.4f stop_mult=%.2f size=%d",
+        "Position size computed: equity={:.2f} risk_pct={:.3f} atr={:.4f} stop_mult={:.2f} size={}",
         equity,
         risk_pct,
         atr,

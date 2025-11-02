@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import importlib
-import logging
 import os
 import re
 from typing import Iterable, List
 
-log = logging.getLogger(__name__)
+from loguru import logger
 
 _TICKER_RE = re.compile(r"\b[A-Z]{1,5}(?:[.-][A-Z0-9]{1,3})?\b")
 _BLACKLIST = {"FOR", "AND", "THE", "ALL", "WITH", "USA", "CEO", "ETF"}
@@ -21,7 +20,7 @@ def extract_symbols(raw: str, max_symbols: int = 100) -> List[str]:
         "AAPL, TSLA, NVDA" → ["AAPL", "TSLA", "NVDA"]
     """
     if not raw:
-        log.debug("extract_symbols called with empty input.")
+        logger.debug("extract_symbols called with empty input.")
         return []
 
     raw_clean = raw.replace(",", " ").upper().strip()
@@ -31,7 +30,7 @@ def extract_symbols(raw: str, max_symbols: int = 100) -> List[str]:
     out = [s for s in out if 1 <= len(s) <= 5 and s.isalpha()]
 
     unique = list(dict.fromkeys(out))  # preserve order, dedupe
-    log.info("Extracted %d symbols: %s", len(unique), unique[:10])
+    logger.info("Extracted {} symbols: {}", len(unique), unique[:10])
     return unique[:max_symbols]
 
 
@@ -40,13 +39,17 @@ def _load_backend(name: str):
     try:
         return importlib.import_module(module_name)
     except ModuleNotFoundError:
-        log.warning("Textlist backend module missing: %s", module_name)
+        logger.warning("Textlist backend module missing: {}", module_name)
     except Exception as exc:  # pragma: no cover - defensive logging
-        log.warning("Textlist backend %s import failed: %s", module_name, exc)
+        logger.warning(
+            "Textlist backend {} import failed: {}", module_name, exc
+        )
     return None
 
 
-def _iter_symbols(symbols: Iterable[str], *, limit: int | None, seen: set[str]) -> List[str]:
+def _iter_symbols(
+    symbols: Iterable[str], *, limit: int | None, seen: set[str]
+) -> List[str]:
     out: List[str] = []
     for sym in symbols or []:
         ticker = (sym or "").strip().upper()
@@ -103,7 +106,11 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
     )
 
     backends_raw = os.getenv("TEXTLIST_BACKENDS", "")
-    backend_names = [name.strip().lower() for name in backends_raw.split(",") if name.strip()]
+    backend_names = [
+        name.strip().lower()
+        for name in backends_raw.split(",")
+        if name.strip()
+    ]
     use_env_fallback = os.getenv("TEXTLIST_USE_ENV_FALLBACK", "0") == "1"
 
     # If there are no backends and fallback is not explicitly enabled, return [] (test-friendly).
@@ -121,7 +128,7 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
 
         getter = getattr(module, "get_symbols", None)
         if not callable(getter):
-            log.warning("Textlist backend %s missing get_symbols()", name)
+            logger.warning("Textlist backend {} missing get_symbols()", name)
             continue
 
         remaining = None
@@ -137,18 +144,28 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
                 symbols = getter(max_symbols=None)
         except TypeError:
             try:
-                symbols = getter(remaining if remaining is not None else limit)
+                symbols = getter(
+                    remaining if remaining is not None else limit
+                )
             except Exception as exc:
-                log.warning("Textlist backend %s get_symbols error: %s", name, exc)
+                logger.warning(
+                    "Textlist backend {} get_symbols error: {}", name, exc
+                )
                 continue
         except Exception as exc:  # pragma: no cover
-            log.warning("Textlist backend %s get_symbols error: %s", name, exc)
+            logger.warning(
+                "Textlist backend {} get_symbols error: {}", name, exc
+            )
             continue
 
         aggregated.extend(
             _iter_symbols(
                 symbols or [],
-                limit=None if limit is None else max(limit - len(aggregated), 0),
+                limit=(
+                    None
+                    if limit is None
+                    else max(limit - len(aggregated), 0)
+                ),
                 seen=seen,
             )
         )
@@ -161,7 +178,11 @@ def get_symbols(*, max_symbols: int | None = None) -> List[str]:
         aggregated.extend(
             _iter_symbols(
                 env_syms,
-                limit=None if limit is None else max(limit - len(aggregated), 0),
+                limit=(
+                    None
+                    if limit is None
+                    else max(limit - len(aggregated), 0)
+                ),
                 seen=seen,
             )
         )
