@@ -188,6 +188,11 @@ jobs:
           docker build -t ${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }} -f otel.Dockerfile .
           docker push ${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }}
 
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Deploy Main Container
         uses: azure/webapps-deploy@v3
         with:
