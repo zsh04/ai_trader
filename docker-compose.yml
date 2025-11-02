@@ -1,4 +1,3 @@
-# docker-compose.yaml
 # Defines the services for your application and the OTel collector
 
 services:
