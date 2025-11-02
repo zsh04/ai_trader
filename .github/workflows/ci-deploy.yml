@@ -195,7 +195,7 @@ jobs:
           # This assumes your compose file is docker-compose.yml
           # We'll also rename the app image to match ACR
           sed -i "s|./otel-collector-config.yml|./otel-collector-config.prod.yml|g" $GITHUB_WORKSPACE/docker-compose.yml
-          sed -i "s|    build: .|image: ${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}|g" $GITHUB_WORKSPACE/docker-compose.yml
+          sed -i "s|    build: .|    image: ${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}|g" $GITHUB_WORKSPACE/docker-compose.yml
 
           # Build, tag, and push the app image
           docker build -t ${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }} .
