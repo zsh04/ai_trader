@@ -31,7 +31,7 @@ services:
     image: otel/opentelemetry-collector-contrib:latest
     volumes:
       # Mounts the config file into the container
-      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml
+      - ./otel-collector-config.yml:/etc/otelcol-contrib/config.yml
     ports:
       # Exposes OTLP ports to your local machine (for ./dev.sh)
       - "4317:4317" # OTLP gRPC
