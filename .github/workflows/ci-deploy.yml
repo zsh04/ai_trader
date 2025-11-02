@@ -249,7 +249,7 @@ jobs:
           test "$OK" = "ok"
       - name: check /health/market
         run: |
-          curl -fsSL "https://{AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
+          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
           STATUS=$(jq -r '.status // empty' health_market.json)
           if [ "${STATUS}" != "ok" ] && [ "${STATUS}" != "degraded" ]; then
             echo "Unexpected market status: ${STATUS}"
