@@ -1,0 +1,43 @@
+{
+  "properties": {
+    "siteConfig": {
+      "alwaysOn": true,
+      "containers": [
+        {
+          "name": "app",
+          "image": "__APP_IMAGE__",
+          "resources": { "cpu": 1.0, "memoryInGb": 1.5 },
+          "ports": [{ "port": 8000 }],
+          "environmentVariables": [
+            { "name": "APP_ENVIRONMENT", "value": "production" },
+            { "name": "APP_VERSION", "value": "__APP_VERSION__" },
+            { "name": "DATABASE_URL", "value": "__DATABASE_URL__" },
+            { "name": "SENTRY_DSN", "value": "__SENTRY_DSN__" },
+            { "name": "GRAFANA_OTLP_ENDPOINT", "value": "__GRAFANA_OTLP_ENDPOINT__" },
+            { "name": "GRAFANA_BASIC_AUTH", "value": "__GRAFANA_BASIC_AUTH__" },
+            { "name": "TELEGRAM_TOKEN", "value": "__TELEGRAM_TOKEN__" },
+            { "name": "TELEGRAM_WEBHOOK_URL", "value": "__TELEGRAM_WEBHOOK_URL__" },
+            { "name": "TELEGRAM_WEBHOOK_SECRET", "value": "__TELEGRAM_WEBHOOK_SECRET__" },
+            { "name": "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "value": "grpc" },
+            { "name": "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "value": "http://localhost:4317" },
+            { "name": "OTEL_SERVICE_NAME", "value": "ai-trader-app" },
+            { "name": "OTEL_RESOURCE_ATTRIBUTES", "value": "deployment.environment=prod,service.version=__APP_VERSION__" },
+            { "name": "WEBSITES_PORT", "value": "8000" }
+          ]
+        },
+        {
+          "name": "otel-collector",
+          "image": "__OTEL_IMAGE__",
+          "resources": { "cpu": 0.5, "memoryInGb": 0.75 },
+          "ports": [
+            { "port": 4317 },
+            { "port": 4318 }
+          ],
+          "environmentVariables": [
+            { "name": "APP_ENVIRONMENT", "value": "production" }
+          ]
+        }
+      ]
+    }
+  }
+}

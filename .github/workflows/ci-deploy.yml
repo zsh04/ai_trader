@@ -41,7 +41,7 @@ env:
   ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
   ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
 
-  # Observability secrets (must be set)
+  # Observability
   SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
   GRAFANA_OTLP_ENDPOINT: ${{ secrets.GRAFANA_OTLP_ENDPOINT }}
   GRAFANA_BASIC_AUTH: ${{ secrets.GRAFANA_BASIC_AUTH }}
@@ -156,7 +156,7 @@ jobs:
           pytest -q
 
   deploy:
-    name: deploy (compose + sidecar)
+    name: deploy (sidecar)
     runs-on: ubuntu-latest
     needs: [tests]
     environment:
@@ -192,42 +192,55 @@ jobs:
             ${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }}
             ${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:latest
 
-      - name: Render/patch docker-compose for prod images
+      - name: Render sidecar config
         run: |
-          # Produce a deploy compose file that references the ACR-tagged images
-          cp docker-compose.yml docker-compose.deploy.yml
-          # Replace service image placeholders (assumes services named 'app' and 'otel-collector')
-          sed -i "s|image: .*ai-trader:.*|image: ${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}|g" docker-compose.deploy.yml || true
-          sed -i "s|image: .*ai-trader-otel-collector:.*|image: ${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }}|g" docker-compose.deploy.yml || true
-          echo "---- docker-compose.deploy.yml ----"
-          cat docker-compose.deploy.yml
+          cp containers.appservice.json containers.appservice.rendered.json
+          sed -i "s|__APP_IMAGE__|${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}|g" containers.appservice.rendered.json
+          sed -i "s|__OTEL_IMAGE__|${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }}|g" containers.appservice.rendered.json
+          sed -i "s|__APP_VERSION__|${{ env.APP_VERSION }}|g" containers.appservice.rendered.json
+          sed -i "s|__DATABASE_URL__|${{ env.DATABASE_URL }}|g" containers.appservice.rendered.json
+          sed -i "s|__SENTRY_DSN__|${{ env.SENTRY_DSN }}|g" containers.appservice.rendered.json
+          sed -i "s|__GRAFANA_OTLP_ENDPOINT__|${{ env.GRAFANA_OTLP_ENDPOINT }}|g" containers.appservice.rendered.json
+          sed -i "s|__GRAFANA_BASIC_AUTH__|${{ env.GRAFANA_BASIC_AUTH }}|g" containers.appservice.rendered.json
+          sed -i "s|__TELEGRAM_TOKEN__|${{ env.TELEGRAM_TOKEN }}|g" containers.appservice.rendered.json
+          sed -i "s|__TELEGRAM_WEBHOOK_URL__|${{ env.TELEGRAM_WEBHOOK_URL }}|g" containers.appservice.rendered.json
+          sed -i "s|__TELEGRAM_WEBHOOK_SECRET__|${{ env.TELEGRAM_WEBHOOK_SECRET }}|g" containers.appservice.rendered.json
+          echo "---- containers.appservice.rendered.json (secrets masked) ----"
+          cat containers.appservice.rendered.json \
+           | sed 's/\("DATABASE_URL":\) *"[^"]*"/\1 "***"/' \
+           | sed 's/\("TELEGRAM_TOKEN":\) *"[^"]*"/\1 "***"/'
 
-      - name: Upload compose file (artifact)
+      - name: Upload sidecar config (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: docker-compose.deploy.yml
-          path: docker-compose.deploy.yml
+          name: containers.appservice.rendered.json
+          path: containers.appservice.rendered.json
 
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Ensure Web App set to multi-container (compose)
+      - name: Apply sidecar container config
         run: |
-          az webapp config container set \
+          az webapp config set \
             --name "${{ env.AZURE_WEBAPP_NAME }}" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --multicontainer-config-file docker-compose.deploy.yml \
-            --multicontainer-config-type compose
-          az webapp restart --name "${{ env.AZURE_WEBAPP_NAME }}" --resource-group "${{ env.AZURE_RESOURCE_GROUP }}"
-        env:
-          AZURE_WEBAPP_NAME: ${{ env.AZURE_WEBAPP_NAME }}
-          AZURE_RESOURCE_GROUP: ${{ env.AZURE_RESOURCE_GROUP }}
+            --generic-configurations @containers.appservice.rendered.json
 
-      - name: Wait for app warm-up (short)
+          # ensure WEBSITES_PORT is set (App Service -> app container mapping)
+          az webapp config appsettings set \
+            --name "${{ env.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --settings WEBSITES_PORT=8000
+
+          az webapp restart \
+            --name "${{ env.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}"
+
+      - name: Wait for app warm-up
         run: |
-          for i in {1..30}; do
+          for i in {1..45}; do
             if curl -fsS "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/live" >/dev/null 2>&1; then
               echo "app is live"
               exit 0
