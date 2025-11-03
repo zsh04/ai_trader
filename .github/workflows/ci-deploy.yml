@@ -195,29 +195,67 @@ jobs:
       - name: Render sidecar config (safe JSON)
         run: |
           cat > render_sidecar.py << 'PY'
-          import json, os, sys
+          import json, os, sys, pathlib
+
           src = "containers.appservice.json"
           dst = "containers.appservice.rendered.json"
-          with open(src, "r", encoding="utf-8") as f:
-              data = json.load(f)
 
-          # Find containers array
-          containers = data.get("properties", {}) \
-                           .get("siteConfig", {}) \
-                           .get("containers", [])
+          def find_containers_root(doc):
+              """
+              Return a tuple (containers_array, path_setter) where:
+                - containers_array is the list of container dicts
+                - path_setter is a function that, given a new containers list,
+                  writes it back into the document in-place.
+              Supports both shapes:
+                A) {"siteConfig": {"containers": {"containers": [...]}}}
+                B) {"properties": {"siteConfig": {"containers": {"containers": [...]}}}}
+              """
+              # Shape A
+              if isinstance(doc.get("siteConfig"), dict):
+                  sc = doc["siteConfig"]
+                  if isinstance(sc.get("containers"), dict):
+                      croot = sc["containers"]
+                      if isinstance(croot.get("containers"), list):
+                          def setter(new_list):
+                              doc["siteConfig"]["containers"]["containers"] = new_list
+                          return croot["containers"], setter
+
+              # Shape B
+              if isinstance(doc.get("properties"), dict):
+                  prop = doc["properties"]
+                  if isinstance(prop.get("siteConfig"), dict):
+                      sc = prop["siteConfig"]
+                      if isinstance(sc.get("containers"), dict):
+                          croot = sc["containers"]
+                          if isinstance(croot.get("containers"), list):
+                              def setter(new_list):
+                                  doc["properties"]["siteConfig"]["containers"]["containers"] = new_list
+                              return croot["containers"], setter
+
+              return None, None
+
           def set_env(env_list, name, value):
               for item in env_list:
                   if item.get("name") == name:
                       item["value"] = value
-                      return True
-              # if placeholder was missing, append it
+                      return
               env_list.append({"name": name, "value": value})
-              return True
 
-          # Replace images + envs
+          with open(src, "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          containers, set_back = find_containers_root(data)
+          if containers is None:
+              print("ERROR: couldn't locate containers array in containers.appservice.json", file=sys.stderr)
+              sys.exit(2)
+
+          app_image = os.environ["APP_IMAGE"]
+          otel_image = os.environ["OTEL_IMAGE"]
+
           for c in containers:
-              if c.get("name") == "app":
-                  c["image"] = os.environ["APP_IMAGE"]
+              name = c.get("name")
+              if name == "app":
+                  c["image"] = app_image
                   envs = c.get("environmentVariables", [])
                   set_env(envs, "APP_VERSION", os.environ.get("APP_VERSION",""))
                   set_env(envs, "DATABASE_URL", os.environ.get("DATABASE_URL",""))
@@ -228,8 +266,11 @@ jobs:
                   set_env(envs, "TELEGRAM_WEBHOOK_URL", os.environ.get("TELEGRAM_WEBHOOK_URL",""))
                   set_env(envs, "TELEGRAM_WEBHOOK_SECRET", os.environ.get("TELEGRAM_WEBHOOK_SECRET",""))
                   c["environmentVariables"] = envs
-              elif c.get("name") == "otel-collector":
-                  c["image"] = os.environ["OTEL_IMAGE"]
+              elif name == "otel-collector":
+                  c["image"] = otel_image
+
+          # Set back (no-op for found shape A/B)
+          set_back(containers)
 
           with open(dst, "w", encoding="utf-8") as f:
               json.dump(data, f, ensure_ascii=False, indent=2)
@@ -242,20 +283,27 @@ jobs:
           python3 render_sidecar.py
 
           echo "---- containers.appservice.rendered.json (masked preview) ----"
-          jq '.properties.siteConfig.containers[].environmentVariables
-               |= (map(if .name=="DATABASE_URL" or .name=="TELEGRAM_TOKEN" then .value="***" else . end))' \
-             containers.appservice.rendered.json | sed -e 's|"GRAFANA_BASIC_AUTH": *"[^"]*"|"GRAFANA_BASIC_AUTH": "***"|' -e 's|"SENTRY_DSN": *"[^"]*"|"SENTRY_DSN": "***"|'
+          jq '
+            (.. | .environmentVariables? // empty)
+            |= (map(
+                 if .name=="DATABASE_URL"
+                    or .name=="TELEGRAM_TOKEN"
+                    or .name=="TELEGRAM_WEBHOOK_SECRET"
+                    or .name=="GRAFANA_BASIC_AUTH"
+                    or .name=="SENTRY_DSN"
+                 then .value="***" else . end
+               ))
+          ' containers.appservice.rendered.json
 
-      - name: Upload sidecar config (artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: containers.appservice.rendered.json
-          path: containers.appservice.rendered.json
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Clear legacy runtime fields (code→container)
+        run: |
+          az webapp config set \
+            --name "${{ env.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --generic-configurations '{
+              "linuxFxVersion": "",
+              "appCommandLine": ""
+            }'
 
       - name: Apply sidecar container config
         run: |
@@ -274,9 +322,15 @@ jobs:
             --name "${{ env.AZURE_WEBAPP_NAME }}" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}"
 
+          echo "---- post-apply containers dump ----"
+          az webapp show \
+            --name "${{ env.AZURE_WEBAPP_NAME }}" \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --query "siteConfig.containers" -o jsonc || true
+
       - name: Wait for app warm-up
         run: |
-          for i in {1..45}; do
+          for i in {1..60}; do
             if curl -fsS "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/live" >/dev/null 2>&1; then
               echo "app is live"
               exit 0

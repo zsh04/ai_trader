@@ -1,41 +1,63 @@
 {
-  "properties": {
-    "siteConfig": {
-      "alwaysOn": true,
+  "acrUseManagedIdentityCreds": true,
+  "alwaysOn": true,
+  "httpLoggingEnabled": true,
+  "siteConfig": {
+    "containers": {
+      "applicationLogs": {
+        "azureBlobStorage": { "level": "Information" }
+      },
       "containers": [
         {
           "name": "app",
-          "image": "__APP_IMAGE__",
-          "resources": { "cpu": 1.0, "memoryInGb": 1.5 },
-          "ports": [{ "port": 8000 }],
+          "image": "__APP_IMAGE__",              // ACR image (sha tag)
+          "command": [],                         // optional; prefer image CMD
+          "args": [],
+          "ports": [ { "port": 8000 } ],
+          "resources": { "cpu": 1, "memoryInGb": 1.5 },
           "environmentVariables": [
             { "name": "APP_ENVIRONMENT", "value": "production" },
-            { "name": "APP_VERSION", "value": "__APP_VERSION__" },
             { "name": "DATABASE_URL", "value": "__DATABASE_URL__" },
             { "name": "SENTRY_DSN", "value": "__SENTRY_DSN__" },
-            { "name": "GRAFANA_OTLP_ENDPOINT", "value": "__GRAFANA_OTLP_ENDPOINT__" },
-            { "name": "GRAFANA_BASIC_AUTH", "value": "__GRAFANA_BASIC_AUTH__" },
+            { "name": "OTEL_EXPORTER_OTLP_ENDPOINT", "value": "__GRAFANA_OTLP_ENDPOINT__" },
+            { "name": "OTEL_EXPORTER_OTLP_HEADERS", "value": "__GRAFANA_BASIC_AUTH__" },
             { "name": "TELEGRAM_TOKEN", "value": "__TELEGRAM_TOKEN__" },
             { "name": "TELEGRAM_WEBHOOK_URL", "value": "__TELEGRAM_WEBHOOK_URL__" },
             { "name": "TELEGRAM_WEBHOOK_SECRET", "value": "__TELEGRAM_WEBHOOK_SECRET__" },
-            { "name": "OTEL_EXPORTER_OTLP_TRACES_PROTOCOL", "value": "grpc" },
-            { "name": "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "value": "http://localhost:4317" },
-            { "name": "OTEL_SERVICE_NAME", "value": "ai-trader-app" },
-            { "name": "OTEL_RESOURCE_ATTRIBUTES", "value": "deployment.environment=prod,service.version=__APP_VERSION__" },
-            { "name": "WEBSITES_PORT", "value": "8000" }
-          ]
+            { "name": "APP_VERSION", "value": "__APP_VERSION__" }
+          ],
+          "volumeMounts": []
         },
         {
           "name": "otel-collector",
-          "image": "__OTEL_IMAGE__",
-          "resources": { "cpu": 0.5, "memoryInGb": 0.75 },
+          "image": "__OTEL_IMAGE__",             // ACR image for collector
+          "command": [],                         // use default entrypoint
+          "args": ["--config=/etc/otelcol-config.yaml"],
           "ports": [
-            { "port": 4317 },
-            { "port": 4318 }
+            { "port": 4317, "protocol": "tcp" },
+            { "port": 4318, "protocol": "tcp" }
           ],
+          "resources": { "cpu": 0.5, "memoryInGb": 0.5 },
           "environmentVariables": [
             { "name": "APP_ENVIRONMENT", "value": "production" }
+          ],
+          "volumeMounts": [
+            {
+              "mountPath": "/etc/otelcol-config.yaml",
+              "readOnly": true,
+              "volumeName": "otel-conf"
+            }
           ]
+        }
+      ],
+      "volumes": [
+        {
+          "name": "otel-conf",
+          "storageType": "Local",
+          "readOnly": true,
+          "content": {
+            "base64": "__OTEL_CONFIG_B64__"
+          }
         }
       ]
     }
