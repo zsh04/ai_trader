@@ -25,7 +25,7 @@ permissions:
 env:
   # --- Core App ---
   AZURE_WEBAPP_NAME: ${{ secrets.AZURE_WEBAPP_NAME }}
-  AZURE_PUBLISH_PROFILE: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+  # AZURE_PUBLISH_PROFILE: ${{ secrets.AZURE_PUBLISH_PROFILE }} # No longer used
   TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
   TELEGRAM_WEBHOOK_URL: ${{ secrets.TELEGRAM_WEBHOOK_URL }}
   TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
@@ -48,7 +48,6 @@ env:
 
 jobs:
   prebuild:
-    # ... (this job is unchanged) ...
     name: pre-build
     runs-on: ubuntu-latest
     steps:
@@ -66,7 +65,6 @@ jobs:
           echo "Target App Service: ${AZURE_WEBAPP_NAME}"
 
   build:
-    # ... (this job is unchanged) ...
     name: build
     runs-on: ubuntu-latest
     needs: prebuild
@@ -97,7 +95,6 @@ jobs:
           python sanity.py || true
 
   smoke:
-    # ... (this job is unchanged) ...
     name: smoke
     runs-on: ubuntu-latest
     needs: build
@@ -134,7 +131,6 @@ jobs:
         run: docker rm -f ai-smoke || true
 
   tests:
-    # ... (this job is unchanged) ...
     name: test
     runs-on: ubuntu-latest
     needs: build
@@ -153,13 +149,13 @@ jobs:
       - name: run pytest
         env:
           TEST_DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
-          TELEGRAM_ALLOW_TEST_NO_SECRET: ${{ env.TELEGRAM_ALLOW_TEST_NO_SECRET }}
+          TELEGRAM_ALLOW_TEST_NO_SECRET: "1"
           TELEGRAM_FAKE: "1"
           OTEL_SDK_DISABLED: "true" # Disable OTel for unit tests
         run: |
           pytest -q
 
-  # --- THIS ENTIRE 'deploy' JOB IS REPLACED ---
+  # --- DEPLOY JOB IS FULLY REPLACED ---
   deploy:
     name: deploy
     runs-on: ubuntu-latest
@@ -193,14 +189,14 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy Main Container
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          images: "${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}"
-          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+      - name: Update Main Container Image
+        run: |
+          az webapp config set \
+            --name ${{ env.AZURE_WEBAPP_NAME }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --linux-fx-version "DOCKER|${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}"
 
-      - name: Update Sidecar Container
+      - name: Update Sidecar Container Image
         run: |
           az webapp config appsettings set \
             --name ${{ env.AZURE_WEBAPP_NAME }} \
@@ -208,7 +204,6 @@ jobs:
             --settings DOCKER_CUSTOM_IMAGE_NAME='${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }}'
 
   patch:
-    # ... (this job is unchanged) ...
     name: patch-webhook (only if needed)
     runs-on: ubuntu-latest
     needs: deploy
@@ -219,7 +214,7 @@ jobs:
           if [ -n "${{ github.event.inputs.override_url }}" ]; then
             echo "url=${{ github.event.inputs.override_url }}" >> $GITHUB_OUTPUT
           else
-            echo "url=https://${AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook" >> $GITHUB_OUTPUT
+            echo "url=https://{AZURE_WEBAPP_NAME}.azurewebsites.net/telegram/webhook" >> $GITHUB_OUTPUT
           fi
       - name: setWebhook
         if: ${{ env.TELEGRAM_TOKEN && env.TELEGRAM_WEBHOOK_SECRET }}
@@ -230,26 +225,25 @@ jobs:
           echo "Webhook set to: ${{ steps.url.outputs.url }}"
 
   verify:
-    # ... (this job is unchanged) ...
     name: verify health
     runs-on: ubuntu-latest
     needs: [deploy, patch]
     steps:
       - name: wait for warmup
-        run: sleep 60 # Increased this to 60s
+        run: sleep 60 # Increased from 15
       - name: check /health
         run: |
-          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health" | tee health.json
+          curl -fsSL "https://{AZURE_WEBAPP_NAME}.azurewebsites.net/health" | tee health.json
           STATUS=$(jq -r '.status // empty' health.json)
           echo "status=${STATUS}"
       - name: check /health/db
         run: |
-          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/db" | tee health_db.json
+          curl -fsSL "https://{AZURE_WEBAPP_NAME}.azurewebsites.net/health/db" | tee health_db.json
           OK=$(jq -r '.ok // .status // empty' health_db.json)
           test "$OK" = "ok"
       - name: check /health/market
         run: |
-          curl -fsSL "https://${AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
+          curl -fsSL "https://{AZURE_WEBAPP_NAME}.azurewebsites.net/health/market" | tee health_market.json
           STATUS=$(jq -r '.status // empty' health_market.json)
           if [ "${STATUS}" != "ok" ] && [ "${STATUS}" != "degraded" ]; then
             echo "Unexpected market status: ${STATUS}"
