@@ -192,23 +192,59 @@ jobs:
             ${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }}
             ${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:latest
 
-      - name: Render sidecar config
+      - name: Render sidecar config (safe JSON)
         run: |
-          cp containers.appservice.json containers.appservice.rendered.json
-          sed -i "s|__APP_IMAGE__|${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}|g" containers.appservice.rendered.json
-          sed -i "s|__OTEL_IMAGE__|${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }}|g" containers.appservice.rendered.json
-          sed -i "s|__APP_VERSION__|${{ env.APP_VERSION }}|g" containers.appservice.rendered.json
-          sed -i "s|__DATABASE_URL__|${{ env.DATABASE_URL }}|g" containers.appservice.rendered.json
-          sed -i "s|__SENTRY_DSN__|${{ env.SENTRY_DSN }}|g" containers.appservice.rendered.json
-          sed -i "s|__GRAFANA_OTLP_ENDPOINT__|${{ env.GRAFANA_OTLP_ENDPOINT }}|g" containers.appservice.rendered.json
-          sed -i "s|__GRAFANA_BASIC_AUTH__|${{ env.GRAFANA_BASIC_AUTH }}|g" containers.appservice.rendered.json
-          sed -i "s|__TELEGRAM_TOKEN__|${{ env.TELEGRAM_TOKEN }}|g" containers.appservice.rendered.json
-          sed -i "s|__TELEGRAM_WEBHOOK_URL__|${{ env.TELEGRAM_WEBHOOK_URL }}|g" containers.appservice.rendered.json
-          sed -i "s|__TELEGRAM_WEBHOOK_SECRET__|${{ env.TELEGRAM_WEBHOOK_SECRET }}|g" containers.appservice.rendered.json
-          echo "---- containers.appservice.rendered.json (secrets masked) ----"
-          cat containers.appservice.rendered.json \
-           | sed 's/\("DATABASE_URL":\) *"[^"]*"/\1 "***"/' \
-           | sed 's/\("TELEGRAM_TOKEN":\) *"[^"]*"/\1 "***"/'
+          cat > render_sidecar.py << 'PY'
+          import json, os, sys
+          src = "containers.appservice.json"
+          dst = "containers.appservice.rendered.json"
+          with open(src, "r", encoding="utf-8") as f:
+              data = json.load(f)
+
+          # Find containers array
+          containers = data.get("properties", {}) \
+                           .get("siteConfig", {}) \
+                           .get("containers", [])
+          def set_env(env_list, name, value):
+              for item in env_list:
+                  if item.get("name") == name:
+                      item["value"] = value
+                      return True
+              # if placeholder was missing, append it
+              env_list.append({"name": name, "value": value})
+              return True
+
+          # Replace images + envs
+          for c in containers:
+              if c.get("name") == "app":
+                  c["image"] = os.environ["APP_IMAGE"]
+                  envs = c.get("environmentVariables", [])
+                  set_env(envs, "APP_VERSION", os.environ.get("APP_VERSION",""))
+                  set_env(envs, "DATABASE_URL", os.environ.get("DATABASE_URL",""))
+                  set_env(envs, "SENTRY_DSN", os.environ.get("SENTRY_DSN",""))
+                  set_env(envs, "GRAFANA_OTLP_ENDPOINT", os.environ.get("GRAFANA_OTLP_ENDPOINT",""))
+                  set_env(envs, "GRAFANA_BASIC_AUTH", os.environ.get("GRAFANA_BASIC_AUTH",""))
+                  set_env(envs, "TELEGRAM_TOKEN", os.environ.get("TELEGRAM_TOKEN",""))
+                  set_env(envs, "TELEGRAM_WEBHOOK_URL", os.environ.get("TELEGRAM_WEBHOOK_URL",""))
+                  set_env(envs, "TELEGRAM_WEBHOOK_SECRET", os.environ.get("TELEGRAM_WEBHOOK_SECRET",""))
+                  c["environmentVariables"] = envs
+              elif c.get("name") == "otel-collector":
+                  c["image"] = os.environ["OTEL_IMAGE"]
+
+          with open(dst, "w", encoding="utf-8") as f:
+              json.dump(data, f, ensure_ascii=False, indent=2)
+          print(f"Wrote {dst}")
+          PY
+
+          # Prepare envs for the renderer (no echoing secrets)
+          export APP_IMAGE="${{ env.ACR_LOGIN_SERVER }}/ai-trader:${{ github.sha }}"
+          export OTEL_IMAGE="${{ env.ACR_LOGIN_SERVER }}/ai-trader-otel-collector:${{ github.sha }}"
+          python3 render_sidecar.py
+
+          echo "---- containers.appservice.rendered.json (masked preview) ----"
+          jq '.properties.siteConfig.containers[].environmentVariables
+               |= (map(if .name=="DATABASE_URL" or .name=="TELEGRAM_TOKEN" then .value="***" else . end))' \
+             containers.appservice.rendered.json | sed -e 's|"GRAFANA_BASIC_AUTH": *"[^"]*"|"GRAFANA_BASIC_AUTH": "***"|' -e 's|"SENTRY_DSN": *"[^"]*"|"SENTRY_DSN": "***"|'
 
       - name: Upload sidecar config (artifact)
         uses: actions/upload-artifact@v4
