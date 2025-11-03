@@ -17,7 +17,7 @@ services:
       
       # --- OpenTelemetry ---
       # Tells the app to send telemetry to the collector service
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http:///otel-collector:4317
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http:///localhost:4317
       # This service name will show up in Grafana
       - OTEL_SERVICE_NAME=ai-trader-app
       - OTEL_LOGS_EXPORTER=otlp
