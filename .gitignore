@@ -31,3 +31,8 @@ data/
 # Runtime artefacts
 ai-trader-logs/
 *.log
+
+# Local ops artifacts
+ops/delta/
+*.env
+.env.local
