@@ -27,3 +27,7 @@ data/
 *.csv
 *.zip
 *.tar.gz
+
+# Runtime artefacts
+ai-trader-logs/
+*.log

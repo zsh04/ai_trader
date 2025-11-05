@@ -7,6 +7,9 @@ from typing import Any, Dict, Optional
 import requests
 from loguru import logger
 
+from app.utils import env as ENV
+from app.utils.http import compute_backoff_delay
+
 
 class ExecutionError(RuntimeError):
     """Raised when an order placement or broker interaction fails."""
@@ -34,17 +37,22 @@ class AlpacaClient:
         base_url: str,
         *,
         data_url: str | None = None,
-        timeout: float = 10.0,
-        retries: int = 2,
-        backoff: float = 1.5,
+        timeout: float | None = None,
+        retries: int | None = None,
+        backoff: float | None = None,
     ) -> None:
         self.key = key
         self.secret = secret
         self.base_url = base_url.rstrip("/")
         self.data_url = (data_url or "https://data.alpaca.markets").rstrip("/")
-        self.timeout = timeout
-        self.retries = max(0, retries)
-        self.backoff = max(0.0, backoff)
+        env_timeout = float(getattr(ENV, "HTTP_TIMEOUT", 10))
+        env_retries = getattr(ENV, "HTTP_RETRIES", 2)
+        env_backoff = float(getattr(ENV, "HTTP_BACKOFF", 1.5))
+        self.timeout = float(timeout) if timeout is not None else env_timeout
+        self.retries = max(0, int(retries)) if retries is not None else env_retries
+        self.backoff = (
+            max(0.0, float(backoff)) if backoff is not None else env_backoff
+        )
 
     # -------------------------------------------------------------------------
     # Internal HTTP helpers
@@ -76,11 +84,11 @@ class AlpacaClient:
                     **kwargs,
                 )
                 # Retry on 429/5xx (except 501/505 etc — handled generically)
-                if (
-                    resp.status_code in (429, 500, 502, 503, 504)
-                    and attempt < self.retries
-                ):
-                    delay = self.backoff * (attempt + 1)
+                retryable = resp.status_code in (408, 429, 500, 502, 503, 504)
+                if retryable and attempt < self.retries:
+                    delay = compute_backoff_delay(
+                        attempt, self.backoff, resp.headers.get("Retry-After")
+                    )
                     logger.warning(
                         "HTTP {} {} -> {}; retrying in {:.1f}s (attempt {}/{})",
                         method,
@@ -96,7 +104,7 @@ class AlpacaClient:
                 return resp
             except requests.RequestException as e:
                 if attempt < self.retries:
-                    delay = self.backoff * (attempt + 1)
+                    delay = compute_backoff_delay(attempt, self.backoff, None)
                     logger.warning(
                         "HTTP {} {} exception: {}; retrying in {:.1f}s (attempt {}/{})",
                         method,

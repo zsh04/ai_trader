@@ -11,8 +11,7 @@ def test_sources_export_get_symbols():
     sources = [
         "app.sources.text.signal_text",
         "app.sources.text.discord_text",
-        "app.sources.textlist_source",     # core textlist extractor wrapper
-        "app.sources.finviz_source",
+        "app.sources.textlist_source",  # core textlist extractor wrapper
     ]
 
     for s in sources:

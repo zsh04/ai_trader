@@ -20,6 +20,7 @@
 - **Trading Agent Suite:** Policy, sizing, execution, and journaling agents with PDT & drawdown gates.
 - **Backtesting:** Breakout strategy engine with metrics, CSV exports, and debug snapshots.
 - **Integrations:** Alpaca market/execution data, PostgreSQL persistence, Azure Blob storage, Telegram bot.
+- **Probabilistic Market Data Layer:** Unified DAL that normalizes Alpaca, Alpha Vantage, and Finnhub feeds (HTTP + WebSocket) and emits Kalman-filtered probabilistic signals with parquet/Postgres persistence.
 
 ## Architecture
 
@@ -55,7 +56,7 @@ All modules are import-safe, follow snake_case for files/functions, and use stru
    export PYTHONPATH=.
    ```
 
-3. Create a `.env` file in the repo root with broker, storage, database, and Telegram credentials (see `app/config.py` for required keys). Never check secrets into source control.
+3. Create a `.env` file in the repo root with broker, storage, database, Telegram, and market data credentials (see `app/settings.py`). Never check secrets into source control.
 4. Launch the FastAPI app locally:
 
    ```bash
@@ -83,6 +84,8 @@ python3 -m app.backtest.run_breakout --symbol AAPL --start 2021-01-01 --debug
 # optional
 #   --min-notional <USD>
 #   --debug-entries   # emit CSV snapshots for inspection
+#   --use-probabilistic --dal-vendor finnhub --regime-aware-sizing
+#     # pull MarketDataDAL signals/regimes and scale risk via latest regime snapshot
 ```
 
 ## Operations & Observability
@@ -108,6 +111,40 @@ Logs rotate daily and retain seven days by default.
        -H "Content-Type: application/json" \
        -d '{"url":"<APP_SERVICE_URL>/telegram/webhook","secret_token":"<TELEGRAM_WEBHOOK_SECRET>"}'
   ```
+
+### Market Data DAL
+
+The probabilistic data abstraction layer (`app/dal/`) consolidates vendor access, Kalman filtering, caching, and streaming:
+
+- **Vendors:** Alpaca (HTTP + streaming), Alpha Vantage (HTTP), Finnhub (HTTP + streaming). Additional vendors plug in via the `VendorClient` interface.
+- **Normalization:** `Bars`/`SignalFrame` schemas enforce UTC timestamps, corporate-action aware pricing, and deterministic replay.
+- **Probabilistic signals:** Each fetch/stream run produces Kalman-filtered price, velocity, and state uncertainty.
+- **Persistence:** Parquet snapshots stored under `artifacts/marketdata/cache/` (configurable) with optional metadata in Postgres (`market_data_snapshots`).
+- **Streaming manager:** Converts Alpaca/Finnhub WebSocket ticks into normalized frames with automatic gap backfill via HTTP.
+
+Set the following environment variables to activate non-Alpaca vendors:
+
+```bash
+ALPHAVANTAGE_API_KEY=...   # retrieved from https://www.alphavantage.co/
+FINNHUB_API_KEY=...        # retrieved from https://finnhub.io/
+```
+
+Instantiate the DAL from your module or notebook:
+
+```python
+from app.dal.manager import MarketDataDAL
+
+dal = MarketDataDAL()
+batch = dal.fetch_bars("AAPL", interval="1Min", vendor="finnhub",
+                       start=..., end=...)
+print(batch.bars.symbol, len(batch.signals), batch.regimes[-1].regime)
+
+# async streaming example
+async for payload in dal.stream_bars(["AAPL", "MSFT"], vendor="alpaca"):
+    print(payload.signal.price, payload.regime.regime)
+```
+
+Unit/regression tests covering the DAL live under `tests/dal/`. Running `pytest -q` exercises both the fetch and streaming pipelines (using stub vendors for deterministic behavior).
 
 ## Additional Docs
 

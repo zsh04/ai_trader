@@ -33,15 +33,20 @@ def make_client(monkeypatch):
 
     fake_db.make_engine = lambda: DummyEngine()
     fake_db.ping = lambda retries=1: True
-    sys.modules["app.adapters.db.postgres"] = fake_db
-    sys.modules.setdefault("app.adapters.db", types.ModuleType("app.adapters.db"))
-    fake_loguru = types.ModuleType("loguru")
-    fake_loguru.logger = types.SimpleNamespace(debug=lambda *_, **__: None)
-    sys.modules["loguru"] = fake_loguru
+    monkeypatch.setitem(sys.modules, "app.adapters.db.postgres", fake_db)
+    monkeypatch.setitem(
+        sys.modules,
+        "app.adapters.db",
+        sys.modules.get("app.adapters.db", types.ModuleType("app.adapters.db")),
+    )
 
     fake_notifier = types.ModuleType("app.adapters.notifiers.telegram_notifier")
     fake_notifier.TelegramNotifier = object
-    sys.modules["app.adapters.notifiers.telegram_notifier"] = fake_notifier
+    monkeypatch.setitem(
+        sys.modules,
+        "app.adapters.notifiers.telegram_notifier",
+        fake_notifier,
+    )
 
     import app.main as main_module
 

@@ -5,8 +5,6 @@ Postgres engine/session helpers with safe DSN building, minimal logging, and
 resilient health checks. Prefers DATABASE_URL when set; otherwise builds from
 individual PG* env vars with sslmode=require by default (works for Azure FS).
 """
-
-import os
 import time
 import contextlib
 from typing import Optional
@@ -17,7 +15,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker, declarative_base
 
-from app.utils import env as ENV
+from app.settings import get_database_settings
 
 Base = declarative_base()
 
@@ -33,8 +31,7 @@ def get_db_url() -> Optional[str]:
     Returns:
         Optional[str]: The database DSN if found, otherwise None.
     """
-    # Prefer production DSN; fall back to TEST_DATABASE_URL (e.g., CI) if present
-    return os.getenv("DATABASE_URL") or os.getenv("TEST_DATABASE_URL")
+    return get_database_settings().primary_dsn
 
 
 def _dsn_from_env() -> Optional[str]:
@@ -42,8 +39,7 @@ def _dsn_from_env() -> Optional[str]:
     DEPRECATED: Use get_db_url() instead.
     Retrieves the database DSN from environment variables.
     """
-    # Prefer production DSN; fall back to TEST_DATABASE_URL (e.g., CI) if present
-    return os.getenv("DATABASE_URL") or os.getenv("TEST_DATABASE_URL")
+    return get_db_url()
 
 
 def _sanitize_dsn(dsn: str) -> str:

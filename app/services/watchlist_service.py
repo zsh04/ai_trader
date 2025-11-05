@@ -4,8 +4,12 @@ from __future__ import annotations
 from typing import Iterable, List, Optional
 
 # Existing sources you already have
-from app.source.finviz_source import get_symbols as finviz_symbols
 from app.source.textlist_source import get_symbols as textlist_symbols
+from app.services.watchlist_sources import (
+    fetch_alpha_vantage_symbols,
+    fetch_finnhub_symbols,
+    fetch_twelvedata_symbols,
+)
 
 
 def _dedupe(seq: Iterable[str]) -> List[str]:
@@ -31,7 +35,7 @@ def build_watchlist(
     """
     Return a deduped list of symbols from the requested source.
 
-    source: 'auto' | 'finviz' | 'textlist'
+    source: 'auto' | 'alpha' | 'finnhub' | 'textlist' | 'manual'
     scanner: optional scanner name (e.g., 'top_gainers'); handled by source
     limit: cap result length
     sort: 'alpha' or None
@@ -42,9 +46,21 @@ def build_watchlist(
 
     symbols: List[str] = []
 
-    def _fetch_finviz() -> List[str]:
+    def _fetch_alpha() -> List[str]:
         try:
-            return list(finviz_symbols(scanner=scanner))
+            return list(fetch_alpha_vantage_symbols(scanner=scanner))
+        except Exception:
+            return []
+
+    def _fetch_finnhub() -> List[str]:
+        try:
+            return list(fetch_finnhub_symbols(scanner=scanner))
+        except Exception:
+            return []
+
+    def _fetch_twelvedata() -> List[str]:
+        try:
+            return list(fetch_twelvedata_symbols(scanner=scanner))
         except Exception:
             return []
 
@@ -54,15 +70,21 @@ def build_watchlist(
         except Exception:
             return []
 
-    if source == "finviz":
-        symbols = _fetch_finviz()
+    if source == "alpha":
+        symbols = _fetch_alpha()
+    elif source == "finnhub":
+        symbols = _fetch_finnhub()
     elif source == "textlist":
         symbols = _fetch_textlist()
     else:
-        # auto: prefer finviz, fallback to textlist
-        symbols = _fetch_finviz()
+        # auto: Alpha Vantage, fallback to Finnhub then textlist, then Twelve Data
+        symbols = _fetch_alpha()
+        if not symbols:
+            symbols = _fetch_finnhub()
         if not symbols:
             symbols = _fetch_textlist()
+        if not symbols:
+            symbols = _fetch_twelvedata()
 
     symbols = _dedupe(symbols)
 

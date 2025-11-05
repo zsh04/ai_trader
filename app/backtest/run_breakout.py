@@ -7,9 +7,9 @@ import os
 import sys
 import traceback
 from dataclasses import asdict
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -19,8 +19,13 @@ from pandas import Timestamp
 from app.backtest import metrics as bt_metrics
 from app.backtest.engine import Costs, backtest_long_only
 from app.backtest.model import BetaWinrate
+from app.dal.manager import MarketDataDAL
+from app.dal.results import ProbabilisticBatch
+from app.dal.schemas import SignalFrame
+from app.agent.probabilistic.regime import RegimeSnapshot
 from app.providers.yahoo_provider import get_history_daily
 from app.strats.breakout import BreakoutParams, generate_signals
+from app.logging_utils import setup_logging
 
 # ------------------------------------------------------------------------------
 # Logging
@@ -32,12 +37,63 @@ def _setup_cli_logging(level: str = "INFO") -> None:
     Idempotent CLI logging initializer. Keeps uvicorn/fastapi logs quiet when used as a script,
     and provides consistent formatting for CI logs.
     """
-    logger.remove()
-    logger.add(
-        sys.stderr,
-        level=level.upper(),
-        format="{time} {level} {name}: {message}",
-    )
+    setup_logging(force=True, level=level)
+
+
+def _normalize_index(index: List[datetime]) -> pd.DatetimeIndex:
+    idx = pd.to_datetime(index)
+    tz = getattr(idx, "tz", None)
+    if tz is not None:
+        idx = idx.tz_convert("UTC").tz_localize(None)
+    return idx
+
+
+def _signal_frames_to_dataframe(signals: List[SignalFrame]) -> pd.DataFrame:
+    if not signals:
+        return pd.DataFrame()
+    records = [
+        {
+            "timestamp": frame.timestamp,
+            "prob_price": frame.price,
+            "prob_volume": frame.volume,
+            "prob_filtered_price": frame.filtered_price,
+            "prob_velocity": frame.velocity,
+            "prob_uncertainty": frame.uncertainty,
+            "prob_butterworth_price": frame.butterworth_price,
+            "prob_ema_price": frame.ema_price,
+        }
+        for frame in signals
+    ]
+    df = pd.DataFrame(records)
+    idx = _normalize_index(df.pop("timestamp").tolist())
+    df.index = idx
+    df = df.groupby(level=0).last()
+    return df.sort_index()
+
+
+def _regime_snapshots_to_dataframe(regimes: List[RegimeSnapshot]) -> pd.DataFrame:
+    if not regimes:
+        return pd.DataFrame()
+    records = []
+    for snapshot in regimes:
+        if snapshot.timestamp is None:
+            continue
+        records.append(
+            {
+                "timestamp": snapshot.timestamp,
+                "regime_label": snapshot.regime,
+                "regime_volatility": snapshot.volatility,
+                "regime_uncertainty": snapshot.uncertainty,
+                "regime_momentum": snapshot.momentum,
+            }
+        )
+    if not records:
+        return pd.DataFrame()
+    df = pd.DataFrame(records)
+    idx = _normalize_index(df.pop("timestamp").tolist())
+    df.index = idx
+    df = df.groupby(level=0).last()
+    return df.sort_index()
 
 
 def _roundish(x, ndigits=4):
@@ -95,6 +151,10 @@ def run(
     debug: bool = False,
     debug_signals: bool = False,
     debug_entries: bool = False,
+    regime_aware_sizing: bool = False,
+    use_probabilistic: bool = False,
+    dal_vendor: str = "alpaca",
+    dal_interval: str = "1Day",
     export_csv: str | None = None,
 ) -> None:
     """
@@ -114,9 +174,69 @@ def run(
         )
         return
 
+    start_ts = datetime.combine(start_dt, datetime.min.time(), tzinfo=UTC)
+    end_ts = (
+        datetime.combine(end_dt, datetime.min.time(), tzinfo=UTC) + timedelta(days=1)
+        if end
+        else None
+    )
+
     # Strategy params
     p = BreakoutParams(**params_kwargs)
     sig = generate_signals(df, asdict(p))
+
+    prob_batch: ProbabilisticBatch | None = None
+    if use_probabilistic:
+        try:
+            dal = MarketDataDAL(enable_postgres_metadata=False)
+            prob_batch = dal.fetch_bars(
+                symbol=symbol,
+                start=start_ts,
+                end=end_ts,
+                interval=dal_interval,
+                vendor=dal_vendor,
+            )
+            logger.info(
+                "Probabilistic DAL fetch ok vendor={} interval={} bars={} signals={} regimes={}",
+                dal_vendor,
+                dal_interval,
+                len(prob_batch.bars.data),
+                len(prob_batch.signals),
+                len(prob_batch.regimes),
+            )
+            if prob_batch.cache_paths:
+                logger.debug("Probabilistic cache artifacts: {}", prob_batch.cache_paths)
+
+            prob_signal_df = _signal_frames_to_dataframe(prob_batch.signals)
+            prob_regime_df = _regime_snapshots_to_dataframe(prob_batch.regimes)
+
+            if not prob_signal_df.empty:
+                sig = sig.join(prob_signal_df, how="left")
+            if not prob_regime_df.empty:
+                sig = sig.join(prob_regime_df, how="left")
+            joined_cols = [
+                col
+                for col in ("prob_filtered_price", "regime_label")
+                if col in sig.columns
+            ]
+            if joined_cols:
+                nonnull = sig[joined_cols].count()
+                logger.debug(
+                    "Probabilistic features joined: {}",
+                    {col: int(nonnull.get(col, 0)) for col in joined_cols},
+                )
+        except Exception as err:
+            logger.warning(
+                "Probabilistic DAL fetch failed (vendor={}, interval={}): {}",
+                dal_vendor,
+                dal_interval,
+                err,
+            )
+            prob_batch = None
+    elif regime_aware_sizing:
+        logger.warning(
+            "Regime-aware sizing requested but --use-probabilistic disabled; ignoring regime sizing toggle."
+        )
 
     # Engine OHLC input (ensure lowercase columns)
     if all(c in sig.columns for c in ["open", "high", "low", "close"]):
@@ -191,6 +311,15 @@ def run(
                 "trail_stop",
                 "trend_ok",
                 "trigger",
+                "prob_filtered_price",
+                "prob_velocity",
+                "prob_uncertainty",
+                "prob_butterworth_price",
+                "prob_ema_price",
+                "regime_label",
+                "regime_volatility",
+                "regime_uncertainty",
+                "regime_momentum",
                 "long_entry",
                 "long_exit",
             ]
@@ -217,6 +346,56 @@ def run(
         else 0.01
     )
 
+    base_risk_frac = (
+        risk_frac_override if risk_frac_override is not None else default_risk
+    )
+    risk_multiplier = 1.0
+    applied_regime = None
+    applied_uncertainty = None
+    if regime_aware_sizing and prob_batch:
+        regime_series = sig.get("regime_label")
+        if regime_series is not None:
+            regime_values = regime_series.dropna()
+            if not regime_values.empty:
+                applied_regime = str(regime_values.iloc[-1])
+                regime_scalers = {
+                    "trend_up": 1.0,
+                    "trend_down": 0.6,
+                    "high_volatility": 0.5,
+                    "uncertain": 0.4,
+                    "sideways": 0.7,
+                    "calm": 0.85,
+                }
+                risk_multiplier = regime_scalers.get(applied_regime, 1.0)
+                uncertainty_series = sig.get("regime_uncertainty")
+                if uncertainty_series is not None:
+                    uncertainty_values = uncertainty_series.dropna()
+                    if not uncertainty_values.empty:
+                        applied_uncertainty = float(uncertainty_values.iloc[-1])
+                        if applied_uncertainty > 0.05:
+                            risk_multiplier *= 0.7
+                risk_multiplier = max(min(risk_multiplier, 1.0), 0.1)
+                logger.info(
+                    "Regime-aware sizing applied: regime={} uncertainty={} scale={:.3f}",
+                    applied_regime,
+                    (
+                        f"{applied_uncertainty:.4f}"
+                        if applied_uncertainty is not None
+                        else "n/a"
+                    ),
+                    risk_multiplier,
+                )
+            else:
+                logger.warning(
+                    "Regime-aware sizing enabled but regime series contained only NaNs."
+                )
+        else:
+            logger.warning(
+                "Regime-aware sizing enabled but regime_label column not found."
+            )
+
+    risk_frac_value = base_risk_frac * risk_multiplier
+
     atr_series = sig.get("atr")
     if atr_series is None:
         raise ValueError("Signal frame must contain 'atr' column")
@@ -228,11 +407,7 @@ def run(
         atr=atr_series,
         entry_price=p.entry_price,
         atr_mult=p.atr_mult,
-        risk_frac=(
-            risk_frac_override
-            if risk_frac_override is not None
-            else default_risk
-        ),
+        risk_frac=risk_frac_value,
         costs=Costs(
             slippage_bps=slippage_bps if slippage_bps is not None else 1.0,
             fee_per_share=fee_per_share if fee_per_share is not None else 0.0,
@@ -308,6 +483,15 @@ def run(
                     "trail_stop",
                     "trend_ok",
                     "trigger",
+                    "prob_filtered_price",
+                    "prob_velocity",
+                    "prob_uncertainty",
+                    "prob_butterworth_price",
+                    "prob_ema_price",
+                    "regime_label",
+                    "regime_volatility",
+                    "regime_uncertainty",
+                    "regime_momentum",
                     "long_entry",
                     "long_exit",
                 ]
@@ -399,6 +583,32 @@ if __name__ == "__main__":
         dest="export_csv",
         default=None,
         help="Directory to write <symbol>_equity.csv and <symbol>_trades.csv exports",
+    )
+    ap.add_argument(
+        "--use-probabilistic",
+        dest="use_probabilistic",
+        action="store_true",
+        default=False,
+        help="Fetch bars via MarketDataDAL and join probabilistic signals/regimes into the breakout frame.",
+    )
+    ap.add_argument(
+        "--dal-vendor",
+        dest="dal_vendor",
+        default="alpaca",
+        help="MarketDataDAL vendor key when --use-probabilistic is enabled (default: alpaca).",
+    )
+    ap.add_argument(
+        "--dal-interval",
+        dest="dal_interval",
+        default="1Day",
+        help="MarketDataDAL bar interval when --use-probabilistic is enabled (default: 1Day).",
+    )
+    ap.add_argument(
+        "--regime-aware-sizing",
+        dest="regime_aware_sizing",
+        action="store_true",
+        default=False,
+        help="Scale breakout risk fraction using the latest probabilistic regime snapshot (requires --use-probabilistic).",
     )
 
     # --- Strategy Parameters ---
@@ -600,6 +810,10 @@ if __name__ == "__main__":
             debug=args.debug,
             debug_signals=args.debug_signals or args.debug,
             debug_entries=args.debug_entries or args.debug,
+            regime_aware_sizing=args.regime_aware_sizing,
+            use_probabilistic=args.use_probabilistic,
+            dal_vendor=args.dal_vendor,
+            dal_interval=args.dal_interval,
             export_csv=args.export_csv,
         )
         if args.print_metrics_json:

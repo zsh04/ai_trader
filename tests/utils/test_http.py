@@ -47,16 +47,18 @@ def test_http_get_retries_and_backoff(monkeypatch, caplog):
     perf_values = iter([0.0, 0.01, 1.0, 1.05])
     monkeypatch.setattr(http.time, "perf_counter", lambda: next(perf_values))
 
-    logger.remove()
-    logger.add(caplog.handler, level="INFO")
+    handler_id = logger.add(caplog.handler, level="INFO")
 
-    status, data = http.http_get("https://example.com/api")
+    try:
+        status, data = http.http_get("https://example.com/api")
 
-    assert status == 200
-    assert data == {"ok": True}
-    assert len(fake_requests.calls) == 2
-    assert sleeps == [1.5]
-    assert any(
-        "method=GET url=https://example.com/api status=500" in record.message
-        for record in caplog.records
-    )
+        assert status == 200
+        assert data == {"ok": True}
+        assert len(fake_requests.calls) == 2
+        assert sleeps == [1.5]
+        assert any(
+            "method=GET url=https://example.com/api status=500" in record.message
+            for record in caplog.records
+        )
+    finally:
+        logger.remove(handler_id)

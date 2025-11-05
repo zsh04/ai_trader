@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import argparse
-import logging
 from datetime import date
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 
 # Try to import your provider; otherwise fallback
 try:
@@ -21,8 +21,10 @@ from app.strats import (
     breakout_signals,
     momentum_signals,
 )
+from app.logging_utils import setup_logging
 
-log = logging.getLogger(__name__)
+
+log = logger
 
 
 def _load_data(symbol: str, start: str | None, end: str | None) -> pd.DataFrame:
@@ -76,10 +78,7 @@ def main() -> None:
     ap.add_argument("--debug", action="store_true")
     args = ap.parse_args()
 
-    logging.basicConfig(
-        level=logging.DEBUG if args.debug else logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    setup_logging(force=True, level="DEBUG" if args.debug else "INFO")
 
     log.info("Loading %s from %s → %s", args.symbol, args.start, args.end or "today")
     df = _load_data(args.symbol, args.start, args.end)

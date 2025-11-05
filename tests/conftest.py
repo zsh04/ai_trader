@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import sys
 import importlib
+import warnings
 from typing import Any, Dict, List
 
 import pytest
@@ -15,7 +16,37 @@ except ImportError:
 
 from fastapi.testclient import TestClient
 
-from app.adapters.telemetry.loguru import configure_test_logging
+from app.logging_utils import setup_test_logging
+from tests.support import telegram_sink
+
+# Silence third-party DeprecationWarnings (Python 3.14 compatibility noise)
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    module="sentry_sdk.integrations.fastapi",
+)
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    module="sentry_sdk.integrations.starlette",
+)
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    message=".*asyncio\\.iscoroutinefunction.*",
+)
+
+def pytest_configure(config):
+    warnings.filterwarnings(
+        "ignore",
+        category=DeprecationWarning,
+        module=r"sentry_sdk\.integrations\.fastapi",
+    )
+    warnings.filterwarnings(
+        "ignore",
+        category=DeprecationWarning,
+        message=".*asyncio\\.iscoroutinefunction.*",
+    )
 
 # -----------------------------------------------------------------------------
 # Test env — set BEFORE importing the app so the adapter boots predictably
@@ -49,19 +80,16 @@ def pytest_sessionstart(session):
     """
     from pathlib import Path
     log_path = Path("ai-trader-logs/")
-    configure_test_logging(log_path)
+    setup_test_logging(log_path)
 
 # -----------------------------------------------------------------------------
 # Local sink for Telegram messages (fully under test control)
 # -----------------------------------------------------------------------------
-_FAKE_TG_SINK: List[Dict[str, Any]] = []
-_HTTP_OUTBOX: list[dict] = []
-
 def _sink_clear() -> None:
-    _FAKE_TG_SINK.clear()
+    telegram_sink.sink_clear()
 
 def _sink_snapshot() -> List[Dict[str, Any]]:
-    return list(_FAKE_TG_SINK)
+    return telegram_sink.sink_snapshot()
 
 # Expose helpers expected by tests (return just text strings)
 def _outbox():
@@ -72,17 +100,14 @@ def _outbox():
       3) Patched requests.post capture (HTTP)
     """
     from app.adapters.notifiers.telegram import test_outbox
-    sink_msgs = [m.get("text", "") for m in _FAKE_TG_SINK]
-    adapter_msgs = [m.get("text", "") for m in test_outbox()]
-    http_msgs = [m.get("text", "") for m in _HTTP_OUTBOX]
-    # preserve intuitive order: sink -> adapter -> http
-    return sink_msgs + adapter_msgs + http_msgs
+    adapter_msgs = list(test_outbox())
+    return telegram_sink.merged_outbox(adapter_msgs)
 
 def _clear_outbox():
     from app.adapters.notifiers.telegram import test_outbox_clear
     test_outbox_clear()
-    _HTTP_OUTBOX.clear()
-    _FAKE_TG_SINK.clear()
+    telegram_sink.http_clear()
+    telegram_sink.sink_clear()
 
 # Helper to extract the actual dependency callable from an Annotated alias like TelegramDep
 def _dep_callable_from_alias(alias):
@@ -129,14 +154,11 @@ if _requests:
                 elif "data" in kwargs and isinstance(kwargs["data"], dict):
                     payload = dict(kwargs["data"])
                 # Capture to HTTP outbox for visibility
-                try:
-                    _HTTP_OUTBOX.append({
-                        "chat_id": payload.get("chat_id"),
-                        "text": payload.get("text", ""),
-                        "parse_mode": payload.get("parse_mode")
-                    })
-                except Exception:
-                    pass
+                telegram_sink.http_append(
+                    payload.get("chat_id"),
+                    payload.get("text", ""),
+                    payload.get("parse_mode"),
+                )
                 return _FakeResp(
                     200,
                     json_body={
@@ -281,7 +303,7 @@ def _telegram_fake_layer():
     _orig_send_message = getattr(tgmod.TelegramClient, "send_message", None)
 
     def _sink_append(chat_id: int | str, text: str, parse_mode: str | None):
-        _FAKE_TG_SINK.append({"chat_id": chat_id, "text": text or "", "parse_mode": parse_mode})
+        telegram_sink.sink_append(chat_id, text, parse_mode)
 
     def smart_send_stub(self, chat_id, text, *, parse_mode=None, mode=None, chunk_size=3500, retries=2, **_kw):
         eff_mode = parse_mode or mode
@@ -366,11 +388,7 @@ def _reassert_telegram_override_per_test():
 
     # Local sink appender
     def _sink_append(chat_id, text, parse_mode):
-        _FAKE_TG_SINK.append({
-            "chat_id": chat_id,
-            "text": text or "",
-            "parse_mode": parse_mode,
-        })
+        telegram_sink.sink_append(chat_id, text, parse_mode)
 
     # Stub TelegramClient methods (covers Fake/Real instances)
     def _smart_send(self, chat_id, text, *, parse_mode=None, mode=None, chunk_size=3500, **_kw):

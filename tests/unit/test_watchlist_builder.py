@@ -25,8 +25,20 @@ def test_build_watchlist_merges_sources_case_insensitive(monkeypatch):
     )
     monkeypatch.setattr(
         watchlist_builder,
-        "finviz_fetch",
-        lambda **_: ["TSLA", "msft", "goog"],
+        "fetch_alpha_vantage_symbols",
+        lambda **_: ["TSLA", "msft"],
+        raising=True,
+    )
+    monkeypatch.setattr(
+        watchlist_builder,
+        "fetch_finnhub_symbols",
+        lambda **_: ["goog"],
+        raising=True,
+    )
+    monkeypatch.setattr(
+        watchlist_builder,
+        "fetch_twelvedata_symbols",
+        lambda **_: [],
         raising=True,
     )
 
@@ -48,8 +60,20 @@ def test_build_watchlist_applies_limit_after_sort(monkeypatch):
     )
     monkeypatch.setattr(
         watchlist_builder,
-        "finviz_fetch",
-        lambda **_: ["TSLA", "amd"],
+        "fetch_alpha_vantage_symbols",
+        lambda **_: ["TSLA"],
+        raising=True,
+    )
+    monkeypatch.setattr(
+        watchlist_builder,
+        "fetch_finnhub_symbols",
+        lambda **_: ["amd"],
+        raising=True,
+    )
+    monkeypatch.setattr(
+        watchlist_builder,
+        "fetch_twelvedata_symbols",
+        lambda **_: [],
         raising=True,
     )
 
@@ -70,7 +94,13 @@ def test_build_watchlist_manual_only_dedup(monkeypatch):
         watchlist_builder, "scan_candidates", lambda: [], raising=True
     )
     monkeypatch.setattr(
-        watchlist_builder, "finviz_fetch", lambda **_: [], raising=True
+        watchlist_builder, "fetch_alpha_vantage_symbols", lambda **_: [], raising=True
+    )
+    monkeypatch.setattr(
+        watchlist_builder, "fetch_finnhub_symbols", lambda **_: [], raising=True
+    )
+    monkeypatch.setattr(
+        watchlist_builder, "fetch_twelvedata_symbols", lambda **_: [], raising=True
     )
 
     result = watchlist_builder.build_watchlist(
