@@ -1,0 +1,95 @@
+D	.env.example
+M	.gitignore
+M	.tool-versions
+M	README.md
+A	ai-trader-logs
+D	ai-trader-logs/test.log
+M	app/__init__.py
+M	app/adapters/db/postgres.py
+M	app/adapters/notifiers/telegram.py
+D	app/adapters/telemetry/__init__.py
+D	app/adapters/telemetry/logging.py
+D	app/adapters/telemetry/loguru.py
+A	app/agent/probabilistic/__init__.py
+A	app/agent/probabilistic/regime.py
+A	app/agent/probabilistic/signal_filter.py
+M	app/api/routes/health.py
+M	app/api/routes/telegram.py
+M	app/backtest/run_breakout.py
+A	app/dal/__init__.py
+A	app/dal/cache.py
+A	app/dal/kalman.py
+A	app/dal/manager.py
+A	app/dal/results.py
+A	app/dal/schemas.py
+A	app/dal/streaming.py
+A	app/dal/vendors/__init__.py
+A	app/dal/vendors/alpaca.py
+A	app/dal/vendors/alphavantage.py
+A	app/dal/vendors/base.py
+A	app/dal/vendors/finnhub.py
+M	app/execution/alpaca_client.py
+A	app/logging_utils.py
+M	app/main.py
+M	app/monitoring/dashboard.py
+A	app/observability/__init__.py
+M	app/providers/yahoo_provider.py
+A	app/services/market_data.py
+M	app/services/watchlist_service.py
+A	app/services/watchlist_sources.py
+A	app/settings.py
+A	app/source/__init__.py
+A	app/source/textlist_source.py
+D	app/sources/finviz_source.py
+M	app/utils/env.py
+M	app/utils/http.py
+M	app/wiring/__init__.py
+D	appsettings.txt
+D	connect.py
+D	debug_webhook_call.py
+D	dev.sh
+M	docs/architecture/PHASE3_BACKTESTING.md
+D	dump_json
+D	ecosystem.config.cjs
+R087	containers.appservice.json	infra/azure/containers.appservice.json
+A	infra/azure/render_sidecar.py
+R100	Dockerfile	infra/docker/Dockerfile
+A	infra/docker/Dockerfile.ui
+R063	docker-compose.yml	infra/docker/docker-compose.yml
+A	infra/otel/collector-config.yml
+R078	otel.Dockerfile	infra/otel/otel.Dockerfile
+D	otel-collector-config.yml
+D	pm2-logrotate.config.js
+M	project_structure.txt
+M	pytest.ini
+D	refactor: finalize architecture diagrams and DAL.md
+M	requirements.txt
+R100	"M1 \342\200\223 Foundational Architecture & Data Layer.md"	"research-docs/M1 \342\200\223 Foundational Architecture & Data Layer.md"
+R100	Phase 1 - Foundational Hardening & Data Resilience (P0).md	research-docs/Phase 1 - Foundational Hardening & Data Resilience (P0).md
+R100	Phase 2 - Probabilistic Core Integration (P1).md	research-docs/Phase 2 - Probabilistic Core Integration (P1).md
+R100	Phase 3 - Orchestration & Risk Control (P2P3).md	research-docs/Phase 3 - Orchestration & Risk Control (P2P3).md
+R100	Phase 4 - Final Validation and Scaling (P4).md	research-docs/Phase 4 - Final Validation and Scaling (P4).md
+M	runtime.txt
+M	scripts/strat_preview.py
+D	test_format.py
+A	tests/adapters/test_telegram_http.py
+A	tests/backtest/test_run_breakout_probabilistic.py
+M	tests/conftest.py
+A	tests/dal/test_kalman.py
+A	tests/dal/test_manager.py
+A	tests/dal/test_probabilistic_pipeline.py
+A	tests/execution/test_alpaca_client_http.py
+M	tests/integration/test_app.py
+A	tests/observability/test_observability.py
+A	tests/probability/test_regime_analysis_agent.py
+A	tests/probability/test_signal_filter_agent.py
+M	tests/providers/test_yahoo_provider.py
+A	tests/support/__init__.py
+A	tests/support/telegram_sink.py
+A	tests/test_logging_utils.py
+A	tests/test_settings.py
+M	tests/unit/test_health_config.py
+M	tests/utils/test_env.py
+M	tests/utils/test_http.py
+A	ui/pages/Monitoring Dashboard.py
+A	ui/streamlit_app.py
