@@ -122,11 +122,12 @@ The probabilistic data abstraction layer (`app/dal/`) consolidates vendor access
 - **Persistence:** Parquet snapshots stored under `artifacts/marketdata/cache/` (configurable) with optional metadata in Postgres (`market_data_snapshots`).
 - **Streaming manager:** Converts Alpaca/Finnhub WebSocket ticks into normalized frames with automatic gap backfill via HTTP.
 
-Set the following environment variables to activate non-Alpaca vendors:
+Set the following environment variables to activate the primary data providers:
 
 ```bash
 ALPHAVANTAGE_API_KEY=...   # retrieved from https://www.alphavantage.co/
 FINNHUB_API_KEY=...        # retrieved from https://finnhub.io/
+TWELVEDATA_API_KEY=...     # retrieved from https://twelvedata.com/
 ```
 
 Instantiate the DAL from your module or notebook:
@@ -154,10 +155,11 @@ Unit/regression tests covering the DAL live under `tests/dal/`. Running `pytest 
 
 ### Watchlist Sources
 
-- `manual` → parses `WATCHLIST_TEXT` (comma-separated user symbols).
+- `auto` → Alpha Vantage first, then Finnhub, then Twelve Data/textlist fallback.
+- `alpha` → direct pull from Alpha Vantage.
+- `finnhub` → direct pull from Finnhub.
 - `textlist` → aggregates from backends listed in `TEXTLIST_BACKENDS` (e.g., `discord,signal`).
-- `finviz` → pulls via the Finviz screener wrapper.
-- `scanner` → reserved; currently warns and falls back to `textlist`.
+- `manual` → parses `WATCHLIST_TEXT` (comma-separated user symbols).
 
 Example env:
 

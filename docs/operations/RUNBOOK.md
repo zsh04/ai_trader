@@ -37,5 +37,5 @@
 ## Telegram Watchlist Examples
 - `/watchlist` → auto-selects Finviz and falls back to TextList if Finviz is unavailable.
 - `/watchlist auto 30` → same as above but limits the response to 30 symbols.
-- `/watchlist finviz breakout 20 momentum` → Finviz with `scanner=breakout`, `limit=20`, sorted by momentum.
+- `/watchlist alpha breakout 20 momentum` → Alpha Vantage with `scanner=breakout`, `limit=20`, sorted by momentum.
 - `/watchlist textlist` → bypasses external calls and uses the curated TextList source.

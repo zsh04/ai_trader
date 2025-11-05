@@ -12,24 +12,26 @@
 **Outputs:** `data/watchlists/YYYY-MM-DD.json` with fields: symbol, price, gap_pct, rvol, spread_pct, dollar_vol, float_est, session_eligibility.
 
 ## Data Sources
-- **"finviz"** — Pulls symbols via `app.source.finviz_source.get_symbols`, applying the Finviz preset defined by `FINVIZ_WATCHLIST_PRESET`. Ideal for live scanner feeds.
+- **"alpha"** — Pulls symbols via Alpha Vantage (`watchlist_sources.fetch_alpha_vantage_symbols`).
+- **"finnhub"** — Pulls symbols via Finnhub (`watchlist_sources.fetch_finnhub_symbols`).
+- **"twelvedata"** — Optional fallback using Twelve Data (`watchlist_sources.fetch_twelvedata_symbols`).
 - **"textlist"** — Parses a curated list from `WATCHLIST_TEXTLIST`, `WATCHLIST_TEXT`, or `WATCHLIST_TEXTLIST_FILE` using `app.source.textlist_source.get_symbols`. Intended for manual overrides or fallback lists.
 
 ## Request Parameters
-- `source` (optional): `"finviz"` or `"textlist"`; defaults to environment variable `WATCHLIST_SOURCE`, falling back to `"textlist"`.
+- `source` (optional): `"alpha"`, `"finnhub"`, `"twelvedata"`, or `"textlist"`; defaults to environment variable `WATCHLIST_SOURCE`, falling back to `"textlist"`.
 - `scanner` (optional): Named preset or strategy indicator (e.g., `"auto"`, `"breakout"`). Used by downstream builders where implemented.
 - `limit` (optional): Integer cap on the number of symbols returned. Defaults to 15, maximum 100.
 - `sort` (optional): Sort key for ordered outputs (e.g., `"momentum"`, `"gap_pct"`).
 
 ### Telegram Positional Syntax
 - `/watchlist auto 30` → `source=auto`, `limit=30`, default sort.
-- `/watchlist finviz breakout 20 momentum` → `source=finviz`, `scanner=breakout`, `limit=20`, `sort=momentum`.
+- `/watchlist alpha breakout 20 momentum` → `source=alpha`, `scanner=breakout`, `limit=20`, `sort=momentum`.
 - `/watchlist textlist` → forces `source=textlist` with no overrides.
-- Positional order: `source` (auto|finviz|textlist) → `scanner` → `limit` → `sort`; switches back to flag parsing (`--limit=`, `--sort=`) when additional options appear.
+- Positional order: `source` (auto|alpha|finnhub|textlist|twelvedata) → `scanner` → `limit` → `sort`; switches back to flag parsing (`--limit=`, `--sort=`) when additional options appear.
 
 ## Auto-Fallback Logic
 1. Attempt to resolve the requested `source`.
-2. `auto` maps to `"finviz"` first; if Finviz fails (missing module, import error, timeout, or empty result), log a warning and retry with `"textlist"`.
+2. `auto` maps to `"alpha"` first; if Alpha Vantage fails (missing key, rate limit, empty result), fall back to `"finnhub"`, then `"textlist"`, then `"twelvedata"`.
 3. If `"scanner"` is requested but not implemented, emit a single warning and fall back to `"textlist"`.
 4. Unknown values default to `"textlist"` with a warning.
 
@@ -51,7 +53,7 @@ All consumers (API route `/tasks/watchlist`, Telegram `/watchlist`, backend serv
 ## Telegram Command Syntax
 - `/watchlist` — Fetches the current symbols via the resolver (uses auto-fallback).
 - `/watchlist auto 30` — Invokes the scanner-aware builder with `scanner="auto"` and `limit=30`.
-- `/watchlist finviz --limit=20` — Overrides the source to Finviz, limiting output to 20 symbols.
+- `/watchlist alpha --limit=20` — Overrides the source to Alpha Vantage, limiting output to 20 symbols.
 - `/watchlist textlist AAPL TSLA` — Uses manual symbols while preserving normalization.
 
 ## Example Integration Test Response

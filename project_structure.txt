@@ -127,7 +127,6 @@
 │   ├── settings.py
 │   ├── sources
 │   │   ├── __init__.py
-│   │   ├── finviz_source.py
 │   │   ├── text
 │   │   │   ├── discord_text.py
 │   │   │   └── signal_text.py

@@ -52,7 +52,7 @@
 | --- | --- | --- |
 | `/watchlist` | Returns the current symbol universe using dynamic source selection. | Resolves `auto` → Finviz, then falls back to TextList if needed. |
 | `/watchlist auto 30` | Sets `source=auto` with `limit=30`. | Positional order: `source [scanner] [limit] [sort]`. |
-| `/watchlist finviz breakout 20 momentum` | Pulls Finviz symbols for the `breakout` scanner, limiting to 20 and sorting by momentum. | Same resolver logic shared with REST `/tasks/watchlist`. |
+| `/watchlist alpha breakout 20 momentum` | Pulls Alpha Vantage symbols for the `breakout` preset, limiting to 20 and sorting by momentum. | Same resolver logic shared with REST `/tasks/watchlist`. |
 | `/watchlist textlist` | Forces TextList symbols even if Finviz is online. | Useful during Finviz outages or manual overrides. |
 | `/summary` | Displays last watchlist build metadata. | Helps confirm which source and limit were applied. |
 | `/help` | Lists Telegram bot commands and usage tips. | Includes flag-based overrides like `--limit=` when needed. |

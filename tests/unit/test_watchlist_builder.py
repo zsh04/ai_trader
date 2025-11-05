@@ -45,7 +45,7 @@ def test_build_watchlist_merges_sources_case_insensitive(monkeypatch):
     result = watchlist_builder.build_watchlist(
         symbols=None,
         include_filters=False,
-        include_finviz=True,
+        include_external=True,
     )
 
     symbols = [item["symbol"] for item in result["items"]]
@@ -79,7 +79,7 @@ def test_build_watchlist_applies_limit_after_sort(monkeypatch):
 
     result = watchlist_builder.build_watchlist(
         include_filters=True,
-        include_finviz=True,
+        include_external=True,
         limit=3,
     )
 

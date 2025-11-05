@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import os
-import time
-from typing import Iterable, Iterator, List, Optional
+from typing import Iterable, List, Optional
 
 import requests
 

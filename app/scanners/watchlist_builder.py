@@ -127,10 +127,9 @@ def build_watchlist(
     passthrough: bool = False,  # reserved for future use
     include_ohlcv: bool = True,  # kept for compatibility; batch already returns OHLCV
     *,
-    # New knobs for external sources
-    include_finviz: bool = False,
-    finviz_preset: Optional[str] = None,
-    finviz_filters: Optional[list[str]] = None,
+    include_external: bool = False,
+    external_preset: Optional[str] = None,
+    external_filters: Optional[list[str]] = None,
     limit: Optional[int] = None,
 ) -> dict:
     """
@@ -153,19 +152,25 @@ def build_watchlist(
     scanner_default = [] if manual else scan_candidates()  # only when no manual symbols
 
     external_list: list[str] = []
-    if include_finviz:  # repurposed knob for external data providers
+    if include_external:
         try:
-            external_list.extend(fetch_alpha_vantage_symbols(limit=EXTERNAL_MAX_SYMBOLS))
+            external_list.extend(
+                fetch_alpha_vantage_symbols(scanner=external_preset, limit=EXTERNAL_MAX_SYMBOLS)
+            )
         except Exception as exc:
             logger.warning("alpha vantage watchlist fetch failed: {}", exc)
         if len(external_list) < EXTERNAL_MAX_SYMBOLS:
             try:
-                external_list.extend(fetch_finnhub_symbols(limit=EXTERNAL_MAX_SYMBOLS))
+                external_list.extend(
+                    fetch_finnhub_symbols(scanner=external_preset, limit=EXTERNAL_MAX_SYMBOLS)
+                )
             except Exception as exc:
                 logger.warning("finnhub watchlist fetch failed: {}", exc)
         if len(external_list) < EXTERNAL_MAX_SYMBOLS:
             try:
-                external_list.extend(fetch_twelvedata_symbols(limit=EXTERNAL_MAX_SYMBOLS))
+                external_list.extend(
+                    fetch_twelvedata_symbols(scanner=external_preset, limit=EXTERNAL_MAX_SYMBOLS)
+                )
             except Exception as exc:
                 logger.warning("twelve data watchlist fetch failed: {}", exc)
 

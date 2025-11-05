@@ -136,6 +136,19 @@ class EnvSettings:
         default_factory=lambda: get_bool("ALPACA_FORCE_YAHOO_ON_AUTH_ERROR", False)
     )
 
+    #: Alpha Vantage market data API key.
+    ALPHAVANTAGE_API_KEY: str = field(
+        default_factory=lambda: get_str("ALPHAVANTAGE_API_KEY", "")
+    )
+    #: Finnhub API token.
+    FINNHUB_API_KEY: str = field(
+        default_factory=lambda: get_str("FINNHUB_API_KEY", "")
+    )
+    #: Twelve Data API key for redundancy.
+    TWELVEDATA_API_KEY: str = field(
+        default_factory=lambda: get_str("TWELVEDATA_API_KEY", "")
+    )
+
     #: Ordered preference of upstream price providers.
     PRICE_PROVIDERS: List[str] = field(
         default_factory=lambda: _list_lower("PRICE_PROVIDERS", "alpaca,yahoo")
@@ -282,6 +295,9 @@ ALPACA_BASE_URL = ENV.ALPACA_BASE_URL
 ALPACA_DATA_BASE_URL = ENV.ALPACA_DATA_BASE_URL
 ALPACA_FEED = ENV.ALPACA_FEED
 ALPACA_FORCE_YAHOO_ON_AUTH_ERROR = ENV.ALPACA_FORCE_YAHOO_ON_AUTH_ERROR
+ALPHAVANTAGE_API_KEY = ENV.ALPHAVANTAGE_API_KEY
+FINNHUB_API_KEY = ENV.FINNHUB_API_KEY
+TWELVEDATA_API_KEY = ENV.TWELVEDATA_API_KEY
 PRICE_PROVIDERS = ENV.PRICE_PROVIDERS
 YF_ENABLED = ENV.YF_ENABLED
 

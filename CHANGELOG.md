@@ -34,7 +34,6 @@
 - `app/core/timeutils.py`
 - `app/sources/textlist_source.py`
 - `app/sources/__init__.py`
-- `app/sources/finviz_source.py`
 - `app/agent/sizing.py`
 - `app/agent/risk.py`
 - `tests/utils/test_http.py`

@@ -269,8 +269,8 @@ def _render_symbol_detail(symbol: str, row: pd.Series, history: pd.DataFrame) ->
             delta="—" if pd.isna(pct) else f"{pct:+.2f}%",
         )
         st.caption(
-            "Charts sourced from Alpaca / Yahoo Finance fallback. "
-            "Historical candle resolution: 1H (configurable)."
+            "Charts sourced via Alpha Vantage → Finnhub → Twelve Data (fallback to Yahoo/Alpaca). "
+            "Adjust timeframe using the selector above."
         )
 
 

@@ -416,11 +416,13 @@ def get_intraday_bars(symbol: str, *, timeframe: str = "1H") -> pd.DataFrame:
         return pd.DataFrame(columns=["close"])
     timeframe = timeframe or "1H"
     interval_mapping = {
-        "1H": ("60min", "60", "1h"),
-        "15m": ("15min", "15", "15m"),
-        "5m": ("5min", "5", "5m"),
+        "1H": ("60min", "60", "1h", "1Hour"),
+        "15m": ("15min", "15", "15m", "15Min"),
+        "5m": ("5min", "5", "5m", "5Min"),
     }
-    alpha_interval, finnhub_interval, twelve_interval = interval_mapping.get(timeframe, ("60min", "60", "1h"))
+    alpha_interval, finnhub_interval, twelve_interval, alpaca_interval = interval_mapping.get(
+        timeframe, ("60min", "60", "1h", "1Hour")
+    )
     limit = 200 if timeframe == "5m" else 120
 
     providers = [
@@ -428,7 +430,7 @@ def get_intraday_bars(symbol: str, *, timeframe: str = "1H") -> pd.DataFrame:
         lambda: _finnhub_bars(symbol, finnhub_interval, limit),
         lambda: _twelvedata_bars(symbol, twelve_interval, limit),
         lambda: _yahoo_bars(symbol, interval=timeframe.lower(), period="5d" if timeframe != "1H" else "1mo"),
-        lambda: _alpaca_bars(symbol, timeframe.upper(), limit),
+        lambda: _alpaca_bars(symbol, alpaca_interval, limit),
     ]
 
     for fetch in providers:

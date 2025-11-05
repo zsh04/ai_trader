@@ -1,9 +1,6 @@
 default:
-  include_finviz: true
-  finviz_preset: "Top Gainers"
-  finviz_filters:
-    - "sh_avgvol_o300"     # average volume > 300k
-    - "sh_price_o5"        # price > 5
-    - "ta_perf_4w20o"      # 4 week performance > +20%
+  include_external: true
+  external_preset: null
+  external_filters: []
   include_xtrades_bucket: true
   limit: 25

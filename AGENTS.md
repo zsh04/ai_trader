@@ -133,7 +133,9 @@ pm2 logs ai_trader   # rotated daily, 7 days retained
 ### Watchlist Source Summary
 - `manual` → reads `WATCHLIST_TEXT` for a user-defined list.
 - `textlist` → aggregates backends declared in `TEXTLIST_BACKENDS` (e.g., `discord,signal`).
-- `finviz` → uses the Finviz adapter `get_symbols`.
+- `alpha` → powered by Alpha Vantage (GLOBAL_QUOTE / LISTING_STATUS).
+- `finnhub` → uses Finnhub's symbol/quote endpoints.
+- `twelvedata` → optional fallback when primary feeds are exhausted.
 - `scanner` → not yet implemented; warns and falls back to `textlist`.
 
 Example configuration:
