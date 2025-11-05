@@ -37,6 +37,8 @@ flowchart LR
   CFG --> STRAT
   PQ --> DL
   PG <--> MTRX
+  MKT -->|streams| DL
+  DL -->|Kalman (x, v, P)| STRAT
   CLI --> DL
   CLI --> STRAT
   API --> DL
@@ -85,11 +87,12 @@ classDiagram
   }
 
   class SignalFrame {
-    +index: datetime
-    +momentum: float
-    +rank: float
-    +long_entry: bool
-    +long_exit: bool
+    +timestamp: datetime
+    +filtered_price: float
+    +velocity: float
+    +uncertainty: float
+    +price: float
+    +volume: float
   }
 
   class Order {
@@ -157,6 +160,39 @@ classDiagram
   Position --> Trade : close_to_trade
   Position --> EquityCurve : mark_to_market
   EquityCurve --> Metrics : compute
+
+%% ------------------------------------------------------------
+%% 4) Probabilistic Data Abstraction Layer (new)
+%% ------------------------------------------------------------
+
+```mermaid
+flowchart LR
+  subgraph DAL[MarketDataDAL]
+    VC[VendorClient
+    (Alpaca/AlphaVantage/Finnhub)] --> NM[Normalizer
+    (Bars, SignalFrame)]
+    NM --> KF[KalmanFilter1D
+    (x, v, P)]
+    KF --> PC[Parquet Cache]
+    KF --> PG[Postgres Metadata]
+  end
+
+  AlpacaWS -.-> VC
+  AlpacaHTTP --> VC
+  FinnhubWS -.-> VC
+  FinnhubHTTP --> VC
+  AlphaVantageHTTP --> VC
+
+  VC -. gap repair .-> NM
+```
+
+### Implementation Notes
+
+- `app/dal/` houses the new probabilistic DAL. `MarketDataDAL.fetch_bars()` returns a `ProbabilisticBatch` (bars + signal frames + regime snapshots) and `.stream_bars()` yields `ProbabilisticStreamFrame` objects with synchronized signal/regime views.
+- Vendors are pluggable via `VendorClient` implementations (`alpaca`, `alphavantage`, `finnhub`) supporting HTTP and/or WebSocket transports. Streaming gaps trigger automatic HTTP backfill.
+- Cached parquet data lives under `artifacts/marketdata/cache/` by default; the DAL writes bars, probabilistic signals, and regimes alongside optional metadata rows (`market_data_snapshots`) in Postgres.
+- `SignalFrame` now carries filtered price, velocity, and covariance-derived uncertainty to feed probabilistic strategies.
+- Tests covering Kalman and DAL flows live in `tests/dal/`.
 
 %% ------------------------------------------------------------
 %% 4) Parameter sweep & parallelization

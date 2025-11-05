@@ -1,0 +1,96 @@
+ .env.example                                       |  38 --
+ .gitignore                                         |   4 +
+ .tool-versions                                     |   2 +-
+ README.md                                          |  39 +-
+ ai-trader-logs                                     | 122 +++++
+ ai-trader-logs/test.log                            |  28 -
+ app/__init__.py                                    |  28 +
+ app/adapters/db/postgres.py                        |  10 +-
+ app/adapters/notifiers/telegram.py                 | 300 +++++++----
+ app/adapters/telemetry/__init__.py                 |  49 --
+ app/adapters/telemetry/logging.py                  |  24 -
+ app/adapters/telemetry/loguru.py                   |  21 -
+ app/agent/probabilistic/__init__.py                |  11 +
+ app/agent/probabilistic/regime.py                  | 101 ++++
+ app/agent/probabilistic/signal_filter.py           | 156 ++++++
+ app/api/routes/health.py                           |  10 +-
+ app/api/routes/telegram.py                         |  81 ++-
+ app/backtest/run_breakout.py                       | 240 ++++++++-
+ app/dal/__init__.py                                |  24 +
+ app/dal/cache.py                                   | 106 ++++
+ app/dal/kalman.py                                  |  69 +++
+ app/dal/manager.py                                 | 221 ++++++++
+ app/dal/results.py                                 |  29 ++
+ app/dal/schemas.py                                 | 153 ++++++
+ app/dal/streaming.py                               | 200 ++++++++
+ app/dal/vendors/__init__.py                        |  12 +
+ app/dal/vendors/alpaca.py                          | 134 +++++
+ app/dal/vendors/alphavantage.py                    |  75 +++
+ app/dal/vendors/base.py                            |  40 ++
+ app/dal/vendors/finnhub.py                         | 131 +++++
+ app/execution/alpaca_client.py                     |  32 +-
+ app/logging_utils.py                               | 180 +++++++
+ app/main.py                                        |  48 +-
+ app/monitoring/dashboard.py                        | 556 ++++++++++++++------
+ app/observability/__init__.py                      | 241 +++++++++
+ app/providers/yahoo_provider.py                    |  34 +-
+ app/services/market_data.py                        | 438 ++++++++++++++++
+ app/services/watchlist_service.py                  |  40 +-
+ app/services/watchlist_sources.py                  |  77 +++
+ app/settings.py                                    | 347 +++++++++++++
+ app/source/__init__.py                             |   5 +
+ app/source/textlist_source.py                      |   3 +
+ app/sources/finviz_source.py                       | 123 -----
+ app/utils/env.py                                   |  46 +-
+ app/utils/http.py                                  |  18 +-
+ app/wiring/__init__.py                             |   8 +-
+ appsettings.txt                                    | 262 ----------
+ connect.py                                         |  29 --
+ debug_webhook_call.py                              |  29 --
+ dev.sh                                             |  16 -
+ docs/architecture/PHASE3_BACKTESTING.md            |  48 +-
+ dump_json                                          | 137 -----
+ ecosystem.config.cjs                               |  57 ---
+ .../azure/containers.appservice.json               |   8 +-
+ infra/azure/render_sidecar.py                      | 168 ++++++
+ Dockerfile => infra/docker/Dockerfile              |   0
+ infra/docker/Dockerfile.ui                         |  24 +
+ .../docker/docker-compose.yml                      |  21 +-
+ infra/otel/collector-config.yml                    |  67 +++
+ otel.Dockerfile => infra/otel/otel.Dockerfile      |   2 +-
+ otel-collector-config.yml                          |  70 ---
+ pm2-logrotate.config.js                            |  31 --
+ project_structure.txt                              |  72 ++-
+ pytest.ini                                         |   5 +-
+ ...ctor: finalize architecture diagrams and DAL.md |  11 -
+ requirements.txt                                   |  12 +-
+ ...\223 Foundational Architecture & Data Layer.md" |   0
+ ...oundational Hardening & Data Resilience (P0).md |   0
+ ...hase 2 - Probabilistic Core Integration (P1).md |   0
+ ...hase 3 - Orchestration & Risk Control (P2P3).md |   0
+ .../Phase 4 - Final Validation and Scaling (P4).md |   0
+ runtime.txt                                        |   2 +-
+ scripts/strat_preview.py                           |  11 +-
+ test_format.py                                     |   2 -
+ tests/adapters/test_telegram_http.py               |  81 +++
+ tests/backtest/test_run_breakout_probabilistic.py  | 249 +++++++++
+ tests/conftest.py                                  |  74 ++-
+ tests/dal/test_kalman.py                           |  14 +
+ tests/dal/test_manager.py                          | 125 +++++
+ tests/dal/test_probabilistic_pipeline.py           | 112 ++++
+ tests/execution/test_alpaca_client_http.py         |  71 +++
+ tests/integration/test_app.py                      |  17 +-
+ tests/observability/test_observability.py          |  49 ++
+ tests/probability/test_regime_analysis_agent.py    |  63 +++
+ tests/probability/test_signal_filter_agent.py      |  72 +++
+ tests/providers/test_yahoo_provider.py             | 102 +++-
+ tests/support/__init__.py                          |   1 +
+ tests/support/telegram_sink.py                     |  61 +++
+ tests/test_logging_utils.py                        |  63 +++
+ tests/test_settings.py                             |  85 ++++
+ tests/unit/test_health_config.py                   |  39 +-
+ tests/utils/test_env.py                            |  29 +-
+ tests/utils/test_http.py                           |  28 +-
+ ui/pages/Monitoring Dashboard.py                   |  18 +
+ ui/streamlit_app.py                                | 565 +++++++++++++++++++++
+ 95 files changed, 6263 insertions(+), 1393 deletions(-)

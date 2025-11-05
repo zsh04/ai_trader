@@ -57,7 +57,22 @@ def _env():
         return F()
 
 
-SYMBOL_RE = re.compile(r"^[A-Za-z][A-Za-z0-9.\-]{0,20}$")
+SYMBOL_RE = re.compile(r"^[A-Z]{1,5}(?:\.[A-Z]{1,2})?$")
+
+from collections import deque
+_SEEN_UPDATE_IDS: deque[int] = deque(maxlen=2000)
+
+def _is_duplicate_update(update_id: Optional[int]) -> bool:
+    if update_id is None:
+        return False
+    try:
+        uid = int(update_id)
+    except Exception:
+        return False
+    if uid in _SEEN_UPDATE_IDS:
+        return True
+    _SEEN_UPDATE_IDS.append(uid)
+    return False
 
 
 def _mask(s: Optional[str]) -> str:
@@ -145,9 +160,9 @@ def _reply(tg: Any, chat_id: int | str, text: str) -> None:
         # fall through to generic path if needed
 
     candidates: list[tuple[str, dict]] = [
-        ("smart_send", {"parse_mode": "Markdown", "chunk_size": 3500}),
-        ("send_message", {"parse_mode": "Markdown"}),
-        ("send_text", {"parse_mode": "Markdown"}),
+        ("smart_send", {"parse_mode": "MarkdownV2", "chunk_size": 3500}),
+        ("send_message", {"parse_mode": "MarkdownV2"}),
+        ("send_text", {"parse_mode": "MarkdownV2"}),
         ("send", {}),
     ]
     for name, kwargs in candidates:
@@ -163,16 +178,25 @@ def _reply(tg: Any, chat_id: int | str, text: str) -> None:
                 method(chat_id, text)
                 return
             except Exception as exc:
-                logger.warning(
-                    "Telegram reply fallback failed via {}: {}", name, exc
-                )
+                logger.warning("Telegram reply fallback failed via {}: {}", name, exc)
         except Exception as exc:
+            # Retry once without parse_mode (helps on MarkdownV2 formatting errors)
+            if "parse_mode" in kwargs:
+                try:
+                    k2 = dict(kwargs)
+                    k2.pop("parse_mode", None)
+                    method(chat_id, text, **k2)
+                    return
+                except Exception as exc2:
+                    logger.warning("Telegram reply error via {} (no parse_mode retry failed): {}", name, exc2)
+                    continue
             logger.warning("Telegram reply error via {}: {}", name, exc)
+            continue
     logger.warning("No compatible Telegram send method found on {!r}", tg)
 
 
 _WATCH_META: Dict[str, Any] = {"count": 0, "session": "regular", "asof_utc": None}
-_WATCHLIST_SOURCES = {"manual", "textlist", "finviz", "scanner"}
+_WATCHLIST_SOURCES = {"manual", "textlist", "alpha", "finnhub", "twelvedata", "auto"}
 
 
 @contextmanager
@@ -231,6 +255,9 @@ def _handle_watchlist(tg: Any, chat_id: int | str, args: list[str]) -> None:
         elif flag in {"0", "false", "f", "no", "n", "off"}:
             include_filters = False
 
+    # Session flag support
+    session_flag = (kv_flags.get("session") or parsed.get("session") or "").strip().lower() or None
+
     symbols_arg = parsed.get("symbols") or []
     resolved_source = None
 
@@ -256,7 +283,7 @@ def _handle_watchlist(tg: Any, chat_id: int | str, args: list[str]) -> None:
                 tmp.append(tok)
         symbols_arg = tmp
 
-    wl = build_watchlist(
+    build_kwargs = dict(
         symbols=symbols_arg or None,
         include_filters=(
             True
@@ -267,6 +294,9 @@ def _handle_watchlist(tg: Any, chat_id: int | str, args: list[str]) -> None:
         include_ohlcv=True,
         limit=limit,
     )
+    if session_flag:
+        build_kwargs["session"] = session_flag
+    wl = build_watchlist(**build_kwargs)
     if not isinstance(wl, dict):
         raise ValueError("Watchlist response malformed")
 
@@ -300,7 +330,7 @@ def _handle_help(tg: Any, chat_id: int | str, _args: list[str]) -> None:
                 "/ping — liveness check",
                 "/watchlist — build default watchlist",
                 "/watchlist <SYMS...> — manual symbols (comma/space separated)",
-                "Flags: `--limit=15`, `--session=pre|regular|after`, `--filters=true|false`, `--title=\"Custom\"`, `--source=manual|textlist|finviz|scanner`",
+                "Flags: `--limit=15`, `--session=pre|regular|after`, `--filters=true|false`, `--title=\"Custom\"`, `--source=manual|textlist|alpha|finnhub|twelvedata|auto`",
                 "/summary — show last watchlist metadata",
             ]
         ),
@@ -339,8 +369,10 @@ COMMANDS = {
 }
 
 
+import anyio
+
 @router.post("/webhook")
-def webhook(
+async def webhook(
     request: Request,
     payload: Dict[str, Any] = Body(...),
     x_secret_primary: Optional[str] = Header(
@@ -408,8 +440,20 @@ def webhook(
         )
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-    # Extract chat/message
-    msg = payload.get("message") or payload.get("edited_message") or {}
+    # Callback query support
+    cb = payload.get("callback_query") or {}
+    if cb:
+        msg = (cb.get("message") or {})
+        # Prefer callback data as text, fall back to message text
+        cb_data = (cb.get("data") or "").strip()
+        if cb_data:
+            text = cb_data
+        else:
+            text = (msg.get("text") or "").strip()
+    else:
+        msg = payload.get("message") or payload.get("edited_message") or {}
+        text = (msg.get("text") or "").strip()
+
     chat_id = (
         msg.get("chat") or {}
     ).get("id") or os.getenv("TELEGRAM_DEFAULT_CHAT_ID")
@@ -422,12 +466,20 @@ def webhook(
         logger.info("[tg] unauthorized user id={} (ignored)", user_id)
         return {"ok": True, "ignored": True}
 
-    text = (msg.get("text") or "").strip()
+    # Idempotency guard
+    update_id = payload.get("update_id") or (payload.get("callback_query") or {}).get("id")
+    if _is_duplicate_update(update_id):
+        return {"ok": True, "duplicate": True}
+
     cmd, args = _parse_command(text)
 
     handler = COMMANDS.get(cmd)
     if handler:
-        handler(tg, chat_id, args)
+        # Offload heavy work for watchlist
+        if handler is _handle_watchlist:
+            await anyio.to_thread.run_sync(_handle_watchlist, tg, chat_id, args)
+        else:
+            handler(tg, chat_id, args)
         return {"ok": True, "cmd": cmd}
 
     # Free-text fallback: attempt to parse tickers and run /watchlist
@@ -438,7 +490,8 @@ def webhook(
             if SYMBOL_RE.match(tok):
                 try_syms.append(tok)
         if try_syms:
-            _handle_watchlist(tg, chat_id, try_syms)
+            # Offload heavy work for watchlist
+            await anyio.to_thread.run_sync(_handle_watchlist, tg, chat_id, try_syms)
             return {"ok": True, "cmd": "/watchlist", "implicit": True}
 
     _handle_help(tg, chat_id, [])

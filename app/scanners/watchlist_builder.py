@@ -7,13 +7,18 @@ from loguru import logger
 
 from app.core.timeutils import now_utc, session_for
 from app.data.data_client import batch_latest_ohlcv, get_universe
+from app.services.watchlist_sources import (
+    fetch_alpha_vantage_symbols,
+    fetch_finnhub_symbols,
+    fetch_twelvedata_symbols,
+)
 from app.utils.env import MAX_WATCHLIST
 
 FALLBACK_WATCHLIST_CAP = 15
 INVALID_SPREAD_PCT = 999.0
 PCT_SCALE = 100.0
 RVOL_LOOKBACK_DAYS = 5
-FINVIZ_MAX_SYMBOLS = 100
+EXTERNAL_MAX_SYMBOLS = 100
 
 # Default cap helper (honors env and safe fallback)
 DEFAULT_CAP = (
@@ -51,14 +56,6 @@ except Exception:
                 if limit and len(out) >= limit:
                     return out
         return out
-
-
-try:
-    from app.sources.finviz_source import fetch_symbols as finviz_fetch  # type: ignore
-except Exception:
-
-    def finviz_fetch(*args, **kwargs):  # type: ignore
-        return []  # quiet fallback if finviz source not available
 
 
 # --------------------------------------------------------------------------------------
@@ -155,35 +152,37 @@ def build_watchlist(
 
     scanner_default = [] if manual else scan_candidates()  # only when no manual symbols
 
-    finviz_list: list[str] = []
-    if include_finviz:
+    external_list: list[str] = []
+    if include_finviz:  # repurposed knob for external data providers
         try:
-            finviz_list = (
-                finviz_fetch(
-                    preset=finviz_preset or "Top Gainers",
-                    filters=finviz_filters or [],
-                    max_symbols=FINVIZ_MAX_SYMBOLS,
-                )
-                or []
-            )
-        except Exception as e:
-            logger.warning("finviz fetch failed: {}", e)
-            finviz_list = []
+            external_list.extend(fetch_alpha_vantage_symbols(limit=EXTERNAL_MAX_SYMBOLS))
+        except Exception as exc:
+            logger.warning("alpha vantage watchlist fetch failed: {}", exc)
+        if len(external_list) < EXTERNAL_MAX_SYMBOLS:
+            try:
+                external_list.extend(fetch_finnhub_symbols(limit=EXTERNAL_MAX_SYMBOLS))
+            except Exception as exc:
+                logger.warning("finnhub watchlist fetch failed: {}", exc)
+        if len(external_list) < EXTERNAL_MAX_SYMBOLS:
+            try:
+                external_list.extend(fetch_twelvedata_symbols(limit=EXTERNAL_MAX_SYMBOLS))
+            except Exception as exc:
+                logger.warning("twelve data watchlist fetch failed: {}", exc)
 
     logger.debug(
         (
-            "watchlist sources: manual={} scanner={} finviz={} "
+            "watchlist sources: manual={} scanner={} external={} "
             "include_filters={} limit={}"
         ),
         len(manual),
         len(scanner_default),
-        len(finviz_list),
+        len(external_list),
         include_filters,
         hard_cap,
     )
 
     # Merge inputs, dedupe case-insensitively (uppercased), then sort for stability.
-    candidates = dedupe_merge(manual, scanner_default, finviz_list)
+    candidates = dedupe_merge(manual, scanner_default, external_list)
     candidates = sorted(candidates)
     candidates = _cap_list(candidates, hard_cap)
 

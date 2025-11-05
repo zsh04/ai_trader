@@ -1,219 +1,84 @@
-# app/domain/watchlist_service.py
+"""Domain helpers for resolving watchlists from environment configuration."""
 from __future__ import annotations
 
-import importlib
 import os
-import sys
-import time
-from typing import Dict, Iterable, List, Tuple
+from typing import List, Tuple
 
 from loguru import logger
 
+from app.services.watchlist_service import build_watchlist
+from app.services.watchlist_sources import (
+    fetch_alpha_vantage_symbols,
+    fetch_finnhub_symbols,
+    fetch_twelvedata_symbols,
+)
 from app.domain.watchlist_utils import normalize_symbols
 
-_COUNTERS: Dict[str, Dict[str, int]] = {}
+_ALLOWED_SOURCES = {"auto", "alpha", "finnhub", "textlist", "manual", "twelvedata"}
+_DEFAULT_SOURCE = "textlist"
+
+_COUNTERS: dict[str, dict[str, int]] = {}
 
 
-def _get_counter(name: str) -> Dict[str, int]:
+def _counter(name: str) -> dict[str, int]:
     bucket = _COUNTERS.setdefault(name, {"ok": 0, "error": 0})
     return bucket
 
 
-def get_counters() -> Dict[str, Dict[str, int]]:
+def get_watchlist_counters() -> dict[str, dict[str, int]]:
     return {k: v.copy() for k, v in _COUNTERS.items()}
 
 
-_DEFAULT_SOURCE = "textlist"
-_WARNED_KEYS: set[str] = set()
-
-
-def _warn_once(key: str, message: str, *args: object) -> None:
-    if key in _WARNED_KEYS:
-        return
-    logger.warning(message, *args)
-    _WARNED_KEYS.add(key)
-
-
-def _import_source(module_name: str):
-    """
-    Resolve a source module, favoring monkeypatched entries used by tests:
-      - First, look in sys.modules for 'app.source.{name}' or 'app.sources.{name}'
-      - Then, try to import 'app.source.{name}', falling back to 'app.sources.{name}'
-    """
-    primary = f"app.source.{module_name}"
-    fallback = f"app.sources.{module_name}"
-
-    # Respect test monkeypatching and already-loaded modules
-    if primary in sys.modules:
-        return sys.modules[primary]
-    if fallback in sys.modules:
-        return sys.modules[fallback]
-
-    # Import normally
-    try:
-        return importlib.import_module(primary)
-    except ModuleNotFoundError as exc:
-        try:
-            return importlib.import_module(fallback)
-        except ModuleNotFoundError:
-            # Re-raise the original to keep the ‘primary’ context
-            raise exc
-
-
-def _iter_symbols(payload: object) -> Iterable[str]:
-    if payload is None:
-        return []
-    if isinstance(payload, dict) and "symbols" in payload:
-        return payload.get("symbols") or []
-    if isinstance(payload, (list, tuple, set)):
-        return payload
-    return [str(payload)]
-
-
-def _fetch_symbols(source: str) -> List[str]:
-    """
-    Load symbols from a source module. The module may expose one of:
-      - get_symbols()
-      - fetch_symbols()
-      - load_symbols()
-    """
-    module_name = f"{source}_source"
-    try:
-        module = _import_source(module_name)
-    except ModuleNotFoundError:
-        _warn_once(f"import:{source}", "[watchlist] source={} module missing", source)
-        return []
-
-    for attr in ("get_symbols", "fetch_symbols", "load_symbols"):
-        fn = getattr(module, attr, None)
-        if callable(fn):
-            try:
-                result = fn()  # type: ignore[misc]
-            except Exception as exc:  # pragma: no cover (defensive)
-                _warn_once(
-                    f"fetch:{source}",
-                    "[watchlist] source={} failed: {}",
-                    source,
-                    exc,
-                )
-                return []
-            return list(_iter_symbols(result))
-
-    _warn_once(
-        f"missing-fn:{source}",
-        "[watchlist] source={} has no symbol provider",
-        source,
-    )
-    return []
-
-
 def _parse_manual_from_env() -> List[str]:
-    """
-    Interpret WATCHLIST_TEXT as a comma/whitespace separated symbol list.
-    """
-    raw = os.getenv("WATCHLIST_TEXT", "") or ""
+    raw = os.getenv("WATCHLIST_TEXT", "")
     if not raw.strip():
         return []
-    # split by comma first, then strip; also split spaces within each chunk
-    parts: list[str] = []
-    for chunk in raw.split(","):
+    tokens: List[str] = []
+    for chunk in raw.replace("\n", " ").split(","):
         chunk = chunk.strip()
         if not chunk:
             continue
-        # If the chunk still contains whitespace, split that too
-        parts.extend(chunk.split())
-    return parts
-
-
-def _apply_max_cap(symbols: List[str]) -> List[str]:
-    """
-    Truncate to MAX_WATCHLIST if set to a positive int.
-    """
-    cap_raw = os.getenv("MAX_WATCHLIST", "").strip()
-    cap: int | None = None
-    if cap_raw:
-        try:
-            cap = int(cap_raw)
-        except ValueError:
-            _warn_once(
-                "bad-cap",
-                "[watchlist] invalid MAX_WATCHLIST={!r}; ignoring cap",
-                cap_raw,
-            )
-    if cap and cap > 0 and len(symbols) > cap:
-        return symbols[:cap]
-    return symbols
+        tokens.extend(chunk.split())
+    return tokens
 
 
 def resolve_watchlist() -> Tuple[str, List[str]]:
-    """
-    Resolve the watchlist symbols based on WATCHLIST_SOURCE env var.
+    requested = (os.getenv("WATCHLIST_SOURCE") or "auto").strip().lower()
+    source = requested if requested in _ALLOWED_SOURCES else _DEFAULT_SOURCE
 
-    Returns:
-        (source_name, normalized_symbols).
-    """
-    requested = (os.getenv("WATCHLIST_SOURCE") or _DEFAULT_SOURCE).strip().lower()
-    source = requested or _DEFAULT_SOURCE
-
-    # Normalize source selection
-    if source == "scanner":
-        _warn_once(
-            "scanner-fallback",
-            "[watchlist] source=scanner not implemented; falling back to textlist",
-        )
-        source = _DEFAULT_SOURCE
-    elif source not in {"textlist", "finviz", "manual"}:
-        _warn_once(
-            f"unknown:{source}",
-            "[watchlist] unknown source={}; falling back to {}",
-            source,
-            _DEFAULT_SOURCE,
-        )
-        source = _DEFAULT_SOURCE
-
-    # Gather symbols by source
-    symbols = []
-    error = None
-    start = time.perf_counter()
+    symbols: List[str] = []
+    used_source = source
+    counter = _counter(source)
     try:
         if source == "manual":
             symbols = _parse_manual_from_env()
+        elif source == "textlist":
+            symbols = build_watchlist(source="textlist")
+        elif source == "alpha":
+            symbols = fetch_alpha_vantage_symbols()
+        elif source == "finnhub":
+            symbols = fetch_finnhub_symbols()
+        elif source == "twelvedata":
+            symbols = fetch_twelvedata_symbols()
+        elif source == "auto":
+            symbols = fetch_alpha_vantage_symbols()
+            used_source = "alpha"
+            if not symbols:
+                symbols = fetch_finnhub_symbols()
+                used_source = "finnhub"
+            if not symbols:
+                symbols = build_watchlist(source="textlist")
+                used_source = "textlist"
+            if not symbols:
+                symbols = fetch_twelvedata_symbols()
+                used_source = "twelvedata"
         else:
-            symbols = _fetch_symbols(source)
-    except Exception as exc:
-        error = str(exc)
-        logger.exception("[watchlist:resolve] source={} error={}", source, exc)
-    duration_ms = (time.perf_counter() - start) * 1000.0
-
-    # Normalize and cap
-    normalized = normalize_symbols(symbols)
-    if not normalized and symbols:
-        _warn_once(
-            f"normalization-empty:{source}",
-            "[watchlist] source={} yielded unnormalized symbols; returning empty list",
-            source,
-        )
-    if not normalized and not symbols:
-        _warn_once(
-            f"empty:{source}",
-            "[watchlist] source={} returned no symbols",
-            source,
-        )
-
-    capped = _apply_max_cap(normalized)
-    success = not error
-    carry = _get_counter(source)
-    carry["ok" if success else "error"] += 1
-    log_payload = {
-        "source": source,
-        "count": len(capped),
-        "duration_ms": round(duration_ms, 2),
-        "ok": success,
-    }
-    if error:
-        log_payload["error"] = error
-    logger.info("[watchlist:resolve] {}", log_payload)
-    return source, capped
-
-
-__all__ = ["resolve_watchlist"]
+            symbols = build_watchlist(source=_DEFAULT_SOURCE)
+            used_source = _DEFAULT_SOURCE
+        normalized = normalize_symbols(symbols)
+        counter["ok"] += 1
+        return used_source, normalized
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.exception("[watchlist] resolve failed source=%s", source)
+        counter["error"] += 1
+        return source, []

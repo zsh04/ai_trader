@@ -1,0 +1,122 @@
+2025-11-04 09:42:54.221 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-04 09:42:54.221 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-04 09:42:54.234 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 09:42:54.234 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 09:42:54.239 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-04 09:42:54.360 | INFO     | req=919c3f86dc61499dacb47c1059ff6480 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=1.06
+2025-11-04 09:42:54.366 | INFO     | req=850680ba56aa44689fcc1e59107feb3c | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-04 09:42:54.366 | INFO     | req=850680ba56aa44689fcc1e59107feb3c | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=2.04
+2025-11-04 09:42:54.372 | INFO     | req=3f6d5edde522425f80f8fdba7cfd9120 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=999 (ignored)
+2025-11-04 09:42:54.373 | INFO     | req=3f6d5edde522425f80f8fdba7cfd9120 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=3.66
+2025-11-04 09:42:54.463 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-04 09:42:54.465 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-04 09:42:54.466 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-04 11:22:38.839 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-04 11:22:38.839 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-04 11:22:38.850 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 11:22:38.850 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 11:22:38.855 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-04 11:22:38.976 | INFO     | req=f9d7312d41b6476f9b06e286b414bd03 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=1.07
+2025-11-04 11:22:38.981 | INFO     | req=99f397f1b3d347169de969822bf2355e | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-04 11:22:38.982 | INFO     | req=99f397f1b3d347169de969822bf2355e | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=2.19
+2025-11-04 11:22:38.986 | INFO     | req=dd6c95d51c22440ba264b1be271d578b | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=999 (ignored)
+2025-11-04 11:22:38.987 | INFO     | req=dd6c95d51c22440ba264b1be271d578b | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.80
+2025-11-04 11:22:39.082 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-04 11:22:39.084 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-04 11:22:39.084 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-04 13:47:07.917 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-04 13:47:07.918 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-04 13:47:07.926 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 13:47:07.927 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 13:47:07.930 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-04 13:47:08.042 | INFO     | req=42a1ad60166a406b9f558d3112cb2aa0 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=1.11
+2025-11-04 13:47:08.048 | INFO     | req=d5a315a2e25d410f9663925850e47318 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-04 13:47:08.048 | INFO     | req=d5a315a2e25d410f9663925850e47318 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.13
+2025-11-04 13:47:08.051 | INFO     | req=6039a8a668e947838307842c22f61609 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=999 (ignored)
+2025-11-04 13:47:08.051 | INFO     | req=6039a8a668e947838307842c22f61609 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.01
+2025-11-04 13:47:08.147 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-04 13:47:08.150 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-04 13:47:08.150 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-04 14:17:51.207 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-04 14:17:51.207 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-04 14:17:53.049 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 14:17:53.049 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 14:17:53.053 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-04 14:17:53.171 | INFO     | req=d3738bc23c014a2793505465f6efd3af | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=1.06
+2025-11-04 14:17:53.176 | INFO     | req=510602ab74cf4434bc8882b5039840a8 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-04 14:17:53.176 | INFO     | req=510602ab74cf4434bc8882b5039840a8 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.16
+2025-11-04 14:17:53.179 | INFO     | req=b7eefefa5b5b4a519d66886cf8220d39 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=999 (ignored)
+2025-11-04 14:17:53.180 | INFO     | req=b7eefefa5b5b4a519d66886cf8220d39 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=0.93
+2025-11-04 14:17:53.269 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-04 14:17:53.271 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-04 14:17:53.271 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-04 14:26:00.554 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-04 14:26:00.555 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-04 14:26:01.924 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 14:26:01.924 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 14:26:01.931 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-04 14:26:02.065 | INFO     | req=f8161d910c664c68847ad5962a70056b | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=1.04
+2025-11-04 14:26:02.071 | INFO     | req=a2f28bf84ce848628ff2f69f637fd144 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-04 14:26:02.071 | INFO     | req=a2f28bf84ce848628ff2f69f637fd144 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.40
+2025-11-04 14:26:02.074 | INFO     | req=cb57567fb666409c887631db051fd486 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=999 (ignored)
+2025-11-04 14:26:02.074 | INFO     | req=cb57567fb666409c887631db051fd486 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=0.80
+2025-11-04 14:26:02.314 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-04 14:26:02.316 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-04 14:26:02.316 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-04 14:27:47.892 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-04 14:27:47.893 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-04 14:27:47.959 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 14:27:47.959 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 14:27:47.962 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-04 14:27:48.065 | INFO     | req=8b08b224fc4541ae9e9b72786ddd715c | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=1.05
+2025-11-04 14:27:48.070 | INFO     | req=0370b7f0cdb24c379b651294098c54cc | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-04 14:27:48.070 | INFO     | req=0370b7f0cdb24c379b651294098c54cc | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.39
+2025-11-04 14:27:48.074 | INFO     | req=a55cbcd59d9048c9879a21e23af94795 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=999 (ignored)
+2025-11-04 14:27:48.074 | INFO     | req=a55cbcd59d9048c9879a21e23af94795 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=0.97
+2025-11-04 14:27:48.160 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-04 14:27:48.163 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-04 14:27:48.163 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-04 14:28:31.753 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-04 14:28:31.754 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-04 14:28:31.827 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 14:28:31.827 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 14:28:31.830 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-04 14:28:31.978 | INFO     | req=2b0c7a020ab04acfa6587afe980debad | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=0.82
+2025-11-04 14:28:31.983 | INFO     | req=1a687a3cbf2e4ad1816b5673bb92019c | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-04 14:28:31.984 | INFO     | req=1a687a3cbf2e4ad1816b5673bb92019c | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.15
+2025-11-04 14:28:31.987 | INFO     | req=dd02595cae9e40a8bf7f7184c40adfbd | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=999 (ignored)
+2025-11-04 14:28:31.988 | INFO     | req=dd02595cae9e40a8bf7f7184c40adfbd | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.11
+2025-11-04 14:28:32.076 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-04 14:28:32.078 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-04 14:28:32.079 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-04 14:31:27.366 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-04 14:31:27.367 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-04 14:31:27.420 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 14:31:27.420 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-04 14:31:27.423 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-04 14:31:27.525 | INFO     | req=b0e55fb03abe4bf6bb6508286e31d203 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=0.88
+2025-11-04 14:31:27.532 | INFO     | req=a5694357abcd4de2b6348a8aabcfb4a9 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-04 14:31:27.532 | INFO     | req=a5694357abcd4de2b6348a8aabcfb4a9 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.32
+2025-11-04 14:31:27.535 | INFO     | req=208554dbf983495eb3d2df828cd10db2 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=999 (ignored)
+2025-11-04 14:31:27.536 | INFO     | req=208554dbf983495eb3d2df828cd10db2 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.07
+2025-11-04 14:31:27.627 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-04 14:31:27.630 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-04 14:31:27.630 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-04 15:30:06.118 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-04 15:30:06.121 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-04 15:30:06.130 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-04 15:30:06.131 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-04 15:30:06.131 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-04 15:30:06.133 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-04 15:30:06.133 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-04 15:30:06.135 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-04 15:30:06.136 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-04 15:30:14.573 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-04 15:30:14.575 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-04 15:30:14.578 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-04 15:30:14.578 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-04 15:30:14.578 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-04 15:30:14.579 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-04 15:30:14.580 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-04 15:30:14.581 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-04 15:30:14.581 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1

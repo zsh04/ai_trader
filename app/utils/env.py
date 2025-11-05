@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import List, Set
+from typing import Iterable, List, Set
 
 # ------------------------------------------------------------------------------
 # Helpers
@@ -39,6 +39,38 @@ def get_float(name: str, default: float) -> float:
         return float(raw) if raw not in (None, "") else default
     except Exception:
         return default
+
+
+def get_int_chain(names: Iterable[str], default: int) -> int:
+    """Return the first valid int from a list of env vars."""
+    for name in names:
+        raw = os.getenv(name)
+        if raw is None:
+            continue
+        candidate = str(raw).strip()
+        if not candidate:
+            continue
+        try:
+            return int(candidate)
+        except Exception:
+            continue
+    return default
+
+
+def get_float_chain(names: Iterable[str], default: float) -> float:
+    """Return the first valid float from a list of env vars."""
+    for name in names:
+        raw = os.getenv(name)
+        if raw is None:
+            continue
+        candidate = str(raw).strip()
+        if not candidate:
+            continue
+        try:
+            return float(candidate)
+        except Exception:
+            continue
+    return default
 
 
 def get_csv(name: str, default: str = "") -> List[str]:
@@ -176,15 +208,21 @@ class EnvSettings:
 
     #: Default HTTP request timeout (seconds).
     HTTP_TIMEOUT_SECS: int = field(
-        default_factory=lambda: get_int("HTTP_TIMEOUT_SECS", 10)
+        default_factory=lambda: get_int_chain(
+            ("HTTP_TIMEOUT", "HTTP_TIMEOUT_SECS"), 10
+        )
     )
     #: Default retry attempts for outbound HTTP.
     HTTP_RETRY_ATTEMPTS: int = field(
-        default_factory=lambda: get_int("HTTP_RETRY_ATTEMPTS", 2)
+        default_factory=lambda: get_int_chain(
+            ("HTTP_RETRIES", "HTTP_RETRY_ATTEMPTS"), 2
+        )
     )
     #: Default retry backoff for outbound HTTP.
     HTTP_RETRY_BACKOFF_SEC: float = field(
-        default_factory=lambda: get_float("HTTP_RETRY_BACKOFF_SEC", 1.5)
+        default_factory=lambda: get_float_chain(
+            ("HTTP_BACKOFF", "HTTP_RETRY_BACKOFF_SEC"), 1.5
+        )
     )
     #: HTTP user-agent header for outbound requests.
     HTTP_USER_AGENT: str = field(

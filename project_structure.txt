@@ -1,9 +1,10 @@
 .
 ├── .DS_Store
 ├── .codex
-│   └── backlog.yaml
 ├── .dockerignore
-├── .env.example
+├── .env.dev
+├── .gemini
+│   └── settings.json
 ├── .github
 │   └── workflows
 │       ├── ci-deploy.yml
@@ -25,12 +26,13 @@
 │   └── config.toml
 ├── .tool-versions
 ├── .vscode
+│   ├── mcp.json
 │   └── settings.json
 ├── AGENTS.md
-├── Dockerfile
+├── CHANGELOG.md
 ├── Makefile
 ├── README.md
-├── ai_trader_logs
+├── ai-trader-logs
 ├── alembic.ini
 ├── app
 │   ├── __init__.py
@@ -49,8 +51,6 @@
 │   │   │   ├── __init__.py
 │   │   │   └── azure_blob.py
 │   │   └── telemetry
-│   │       ├── __init__.py
-│   │       └── logging.py
 │   ├── agent
 │   │   ├── __init__.py
 │   │   ├── policy.py
@@ -98,10 +98,13 @@
 │   │   ├── __init__.py
 │   │   ├── base.py
 │   │   └── volatility.py
+│   ├── logging_utils.py
 │   ├── main.py
 │   ├── monitoring
 │   │   ├── __init__.py
 │   │   └── dashboard.py
+│   ├── observability
+│   │   └── __init__.py
 │   ├── probability
 │   │   └── __init__.py
 │   ├── providers
@@ -121,6 +124,7 @@
 │   │   ├── __init__.py
 │   │   ├── session_clock.py
 │   │   └── session_metrics.py
+│   ├── settings.py
 │   ├── sources
 │   │   ├── __init__.py
 │   │   ├── finviz_source.py
@@ -145,14 +149,10 @@
 │       └── __init__.py
 ├── artifacts
 │   └── __init__.py
-├── backtest_AAPL.csv
-├── backtest_OKLO.csv
 ├── config
 │   ├── __init__.py
 │   ├── config.yaml
 │   └── watchlist_source.yaml
-├── connect.py
-├── debug_webhook_call.py
 ├── docs
 │   ├── architecture
 │   │   ├── ARCHITECTURE.md
@@ -161,6 +161,7 @@
 │   │   ├── PHASE3_BACKTESTING.md
 │   │   ├── PHASE4_EXECUTION.md
 │   │   └── PHASE5_CODEX_DOCS.md
+│   ├── architecture.md
 │   ├── operations
 │   │   ├── CI_CD.md
 │   │   ├── ROADMAP.md
@@ -179,12 +180,20 @@
 │       ├── RISK_POLICY.md
 │       ├── SESSION_MODEL.md
 │       ├── SOURCES.md
-│       └── WATCHLIST_SPEC.md
-├── dump_json
-├── ecosystem.config.cjs
+│       ├── WATCHLIST_SPEC.md
+│       └── data_layer.md
 ├── infra
 │   ├── README.md
-│   └── __init__.py
+│   ├── __init__.py
+│   ├── azure
+│   │   ├── containers.appservice.json
+│   │   └── render_sidecar.py
+│   ├── docker
+│   │   ├── Dockerfile
+│   │   └── docker-compose.yml
+│   └── otel
+│       ├── collector-config.yml
+│       └── otel.Dockerfile
 ├── migrations
 │   ├── README
 │   ├── __init__.py
@@ -192,11 +201,21 @@
 │   ├── script.py.mako
 │   └── versions
 │       └── 337e81e1d35c_initial_schema.py
-├── pm2-logrotate.config.js
 ├── project_structure.txt
 ├── pyproject.toml
 ├── pytest.ini
 ├── requirements.txt
+├── research-docs
+│   ├── AI Agents for Probabilistic Trading.pdf
+│   ├── AI_Trader_Handover.pdf
+│   ├── AI_Trader_Mind_Map.png
+│   ├── Autonomous Probabilistic Trading Agent (AI Trader) - Project Plan.pdf
+│   ├── Financial Data Source Comparison.pdf
+│   ├── M1 – Foundational Architecture & Data Layer.md
+│   ├── Phase 1 - Foundational Hardening & Data Resilience (P0).md
+│   ├── Phase 2 - Probabilistic Core Integration (P1).md
+│   ├── Phase 3 - Orchestration & Risk Control (P2P3).md
+│   └── Phase 4 - Final Validation and Scaling (P4).md
 ├── runtime.txt
 ├── scripts
 │   ├── __init__.py
@@ -206,19 +225,11 @@
 │   ├── schema.sql
 │   ├── set_webhook.sh
 │   └── strat_preview.py
-├── signals_debug_tail_AAPL.csv
-├── signals_debug_tail_OKLO.csv
-├── signals_events_AAPL.csv
-├── signals_events_OKLO.csv
-├── signals_flat_debug_AAPL.csv
-├── signals_flat_debug_OKLO.csv
-├── signals_tail_AAPL.csv
-├── signals_tail_OKLO.csv
-├── test_format.py
 └── tests
     ├── __init__.py
     ├── adapters
-    │   └── test_azure_blob_adapter.py
+    │   ├── test_azure_blob_adapter.py
+    │   └── test_telegram_http.py
     ├── api
     ├── backtest
     │   └── test_metrics.py
@@ -227,12 +238,16 @@
     ├── conftest.py
     ├── data
     │   └── test_data_client.py
+    ├── execution
+    │   └── test_alpaca_client_http.py
     ├── filters
     │   ├── __init__.py
     │   └── test_volatility_filter.py
     ├── integration
     │   ├── test_app.py
     │   └── test_telegram_smoke.py
+    ├── observability
+    │   └── test_observability.py
     ├── probability
     │   └── __init__.py
     ├── providers
@@ -244,7 +259,12 @@
     │   ├── test_breakout.py
     │   ├── test_common.py
     │   └── test_momentum.py
+    ├── support
+    │   ├── __init__.py
+    │   └── telegram_sink.py
     ├── test_config.py
+    ├── test_logging_utils.py
+    ├── test_settings.py
     ├── test_smoke.py
     ├── unit
     │   ├── test_health_config.py
@@ -266,4 +286,4 @@
     │   └── test_normalize.py
     └── wiring
 
-66 directories, 201 files
+74 directories, 213 files

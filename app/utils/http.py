@@ -49,7 +49,9 @@ def with_alpaca(headers: Optional[Dict[str, str]] = None) -> Dict[str, str]:
 # ------------------------------------------------------------------------------
 
 
-def _compute_sleep(attempt: int, backoff: float, retry_after: Optional[str]) -> float:
+def compute_backoff_delay(
+    attempt: int, backoff: float, retry_after: Optional[str]
+) -> float:
     # Respect Retry-After if present and valid
     if retry_after:
         try:
@@ -108,13 +110,9 @@ def request_json(
     - On non-JSON responses, returns empty dict.
     - On repeated network failure, returns (599, {}).
     """
-    timeout = timeout if timeout is not None else ENV.HTTP_TIMEOUT_SECS
-    retries = (
-        retries
-        if retries is not None
-        else getattr(ENV, "HTTP_RETRIES", ENV.HTTP_RETRY_ATTEMPTS)
-    )
-    backoff = backoff if backoff is not None else ENV.HTTP_RETRY_BACKOFF_SEC
+    timeout = timeout if timeout is not None else ENV.HTTP_TIMEOUT
+    retries = retries if retries is not None else ENV.HTTP_RETRIES
+    backoff = backoff if backoff is not None else ENV.HTTP_BACKOFF
 
     merged = _ensure_ua(headers)
 
@@ -155,7 +153,7 @@ def request_json(
             # Retryable?
             retryable = resp.status_code in {408, 429, 500, 502, 503, 504}
             if retryable and attempt < retries:
-                sleep_s = _compute_sleep(
+                sleep_s = compute_backoff_delay(
                     attempt, backoff, resp.headers.get("Retry-After")
                 )
                 _log_http_event(
@@ -212,7 +210,7 @@ def request_json(
                 note=f"error={e}",
             )
             if attempt < retries:
-                sleep_s = _compute_sleep(attempt, backoff, None)
+                sleep_s = compute_backoff_delay(attempt, backoff, None)
                 logger.warning(
                     "HTTP {} {} error — retry {}/{} in {:.2f}s: {}",
                     method.upper(),

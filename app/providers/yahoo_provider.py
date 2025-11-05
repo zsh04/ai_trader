@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import random
 import threading
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -11,14 +10,12 @@ import requests
 from loguru import logger
 
 from app.utils import env as ENV
-from app.utils.http import http_get
+from app.utils.http import compute_backoff_delay, http_get
 
 # yfinance is optional at runtime; we guard imports and degrade gracefully.
 
 _CHUNK_SIZE = 50  # keep multi-symbol batches reasonable
 _YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
-_YAHOO_BACKOFF = [0.5, 1.0, 2.0]
-
 _breaker_lock = threading.Lock()
 _breaker_failures = 0
 _breaker_open_until = 0.0
@@ -64,10 +61,17 @@ def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[i
         )
         return 503, {"error": "yahoo_circuit_open"}
 
-    timeout = getattr(ENV, "HTTP_TIMEOUT_SECS", 10)
+    timeout = float(
+        getattr(ENV, "HTTP_TIMEOUT", getattr(ENV, "HTTP_TIMEOUT_SECS", 10))
+    )
+    retries = max(0, int(getattr(ENV, "HTTP_RETRIES", 2)))
+    backoff = float(
+        getattr(ENV, "HTTP_BACKOFF", getattr(ENV, "HTTP_RETRY_BACKOFF_SEC", 1.5))
+    )
     headers = {"User-Agent": getattr(ENV, "HTTP_USER_AGENT", "ai-trader/1.0")}
 
-    for attempt in range(len(_YAHOO_BACKOFF) + 1):
+    last_status = 0
+    for attempt in range(retries + 1):
         try:
             resp = requests.get(
                 url,
@@ -75,10 +79,11 @@ def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[i
                 headers=headers,
                 timeout=timeout,
             )
+            last_status = resp.status_code
         except requests.RequestException as exc:
             logger.warning("yahoo request error attempt={} url={} error={}", attempt + 1, url, exc)
-            if attempt < len(_YAHOO_BACKOFF):
-                sleep = _YAHOO_BACKOFF[attempt] * random.uniform(0.75, 1.25)
+            if attempt < retries:
+                sleep = compute_backoff_delay(attempt, backoff, None)
                 time.sleep(sleep)
                 continue
             return 599, {}
@@ -93,8 +98,10 @@ def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[i
                 attempt + 1,
                 url,
             )
-            if attempt < len(_YAHOO_BACKOFF):
-                sleep = _YAHOO_BACKOFF[attempt] * random.uniform(0.75, 1.25)
+            if attempt < retries:
+                sleep = compute_backoff_delay(
+                    attempt, backoff, resp.headers.get("Retry-After")
+                )
                 time.sleep(sleep)
                 continue
             _breaker_record_throttle()
@@ -115,7 +122,8 @@ def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[i
             return resp.status_code, {}
 
     _breaker_record_throttle()
-    return 429, {"error": "yahoo_throttled"}
+    status = last_status or 429
+    return status, {"error": "yahoo_throttled"}
 
 if TYPE_CHECKING:
     # for type hints without importing pandas at runtime
@@ -223,9 +231,9 @@ def _fetch_chart_history(
     status, data = http_get(
         _YAHOO_CHART_URL.format(symbol=symbol.upper()),
         params=params,
-        timeout=getattr(ENV, "HTTP_TIMEOUT_SECS", 10),
+        timeout=getattr(ENV, "HTTP_TIMEOUT", getattr(ENV, "HTTP_TIMEOUT_SECS", 10)),
         retries=getattr(ENV, "HTTP_RETRIES", 2),
-        backoff=getattr(ENV, "HTTP_BACKOFF", [0.5, 1.0, 2.0]),
+        backoff=getattr(ENV, "HTTP_BACKOFF", getattr(ENV, "HTTP_RETRY_BACKOFF_SEC", 1.5)),
         headers={"User-Agent": getattr(ENV, "HTTP_USER_AGENT", "ai-trader/1.0")},
     )
 

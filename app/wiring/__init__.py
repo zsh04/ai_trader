@@ -14,10 +14,4 @@ from app.api.routes.telegram import router as telegram_router  # noqa: E402
 router.include_router(telegram_router)
 
 
-def TelegramDep():
-    return build_client_from_env()
-
-
-def get_telegram():
-    # Keep a stable import path for existing code
-    return build_client_from_env()
+from app.api.routes.telegram import TelegramDep, get_telegram  # re-export

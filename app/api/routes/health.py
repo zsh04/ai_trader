@@ -21,6 +21,7 @@ except Exception:
 from app.adapters.db.postgres import ping
 from app.api.routes.tasks import get_build_counters
 from app.domain.watchlist_service import get_counters as get_watchlist_counters
+from app.settings import get_database_settings, get_telegram_settings
 
 router = APIRouter(tags=["health"])
 
@@ -143,9 +144,12 @@ async def health_config() -> Dict[str, Any]:
     """
     env = os.getenv("ENV", "dev").lower()
 
-    telegram_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-    telegram_chat = os.getenv("TELEGRAM_DEFAULT_CHAT_ID", "")
-    database_url = os.getenv("DATABASE_URL", "")
+    telegram_settings = get_telegram_settings()
+    database_settings = get_database_settings()
+
+    telegram_token = telegram_settings.bot_token or ""
+    telegram_chat = telegram_settings.default_chat_id or ""
+    database_url = database_settings.primary_dsn or ""
     alpaca_key = os.getenv("ALPACA_API_KEY", "")
     alpaca_secret = os.getenv("ALPACA_API_SECRET", "")
     alpaca_feed = os.getenv("ALPACA_FEED", "iex")

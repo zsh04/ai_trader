@@ -5,7 +5,7 @@ import os
 import time
 from contextlib import asynccontextmanager
 from uuid import uuid4
-
+import app  # noqa: F401  # ensure package __init__ (Sentry) runs
 from fastapi import FastAPI, Request
 from loguru import logger
 
@@ -13,12 +13,20 @@ from app.api.routes.health import router as health_router
 from app.api.routes.tasks import public_router, tasks_router
 from app.api.routes.telegram import router as telegram_router
 from app.config import settings
+from app.logging_utils import setup_logging
+from app.observability import configure_observability
 
 __all__ = ["app"]
 
 
+setup_logging()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_logging()
+    configure_observability()
+
     required = {
         "ALPACA_API_KEY": settings.alpaca_key,
         "ALPACA_API_SECRET": settings.alpaca_secret,
@@ -53,27 +61,27 @@ app.include_router(public_router)
 async def request_logging_middleware(request: Request, call_next):
     start = time.perf_counter()
     request_id = request.headers.get("X-Request-ID") or uuid4().hex
-    try:
-        response = await call_next(request)
-    except Exception:
+    request.state.request_id = request_id
+    with logger.contextualize(request_id=request_id):
+        try:
+            response = await call_next(request)
+        except Exception:
+            duration_ms = (time.perf_counter() - start) * 1000.0
+            logger.exception(
+                "request method={} path={} status=500 duration_ms={:.2f}",
+                request.method,
+                request.url.path,
+                duration_ms,
+            )
+            raise
+
         duration_ms = (time.perf_counter() - start) * 1000.0
-        logger.exception(
-            "request method={} path={} status=500 duration_ms={:.2f} request_id={}",
+        response.headers["X-Request-ID"] = request_id
+        logger.info(
+            "request method={} path={} status={} duration_ms={:.2f}",
             request.method,
             request.url.path,
+            response.status_code,
             duration_ms,
-            request_id,
         )
-        raise
-
-    duration_ms = (time.perf_counter() - start) * 1000.0
-    response.headers["X-Request-ID"] = request_id
-    logger.info(
-        "request method={} path={} status={} duration_ms={:.2f} request_id={}",
-        request.method,
-        request.url.path,
-        response.status_code,
-        duration_ms,
-        request_id,
-    )
-    return response
+        return response
