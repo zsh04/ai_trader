@@ -2,6 +2,8 @@
 .DS_Store
 .vscode/
 .idea/
+.gemini
+.streamlit
 
 # Python
 __pycache__/
