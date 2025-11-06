@@ -2,7 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-command=${1:-}
+cmd=${1:-}
 shift || true
 
 log() { echo "[dev] $*"; }
@@ -13,15 +13,11 @@ usage() {
 Usage: ./scripts/dev.sh <command>
 
 Commands:
-  mkvenv       Create .venv and install dependencies
+  mkvenv       Create .venv and install runtime + dev dependencies
   install      Install/upgrade dependencies inside existing .venv
-  fmt          Run formatters (ruff --fix, black)
-  lint         Run ruff lint
-  test         Run pytest -q
-  run          Run uvicorn (dev server)
-  pm2-up       pm2 start ecosystem.config.cjs --only ai_trader,pm2-logrotate
-  ngrok-up     pm2 start ecosystem.config.cjs --only ngrok
-  webhook-set  ./scripts/set_webhook.sh
+  fmt          Run black auto-formatter
+  lint         Run ruff lint and bandit security scan
+  test         Run pytest test suite
 EOF
 }
 
@@ -29,63 +25,52 @@ ensure_venv() {
   if [[ ! -d ".venv" ]]; then
     die ".venv missing; run ./scripts/dev.sh mkvenv first"
   fi
+  # shellcheck disable=SC1091
   source .venv/bin/activate
 }
 
-case "$command" in
+case "$cmd" in
   mkvenv)
-    log "creating virtualenv"
-    python3 -m venv .venv
+    if [[ ! -d ".venv" ]]; then
+      log "creating virtualenv (.venv)"
+      python3 -m venv .venv
+    else
+      log ".venv already exists"
+    fi
+    # shellcheck disable=SC1091
     source .venv/bin/activate
     pip install --upgrade pip
-    pip install -r requirements.txt
+    log "installing runtime + dev dependencies"
+    pip install -r requirements-dev.txt
     ;;
   install)
     ensure_venv
-    log "installing requirements"
     pip install --upgrade pip
-    pip install -r requirements.txt
+    log "installing runtime + dev dependencies"
+    pip install -r requirements-dev.txt
     ;;
   fmt)
     ensure_venv
-    log "running ruff --fix"
-    ruff check . --fix
-    log "running black"
+    log "running black formatter"
     black .
     ;;
   lint)
     ensure_venv
-    log "running ruff lint"
+    log "running ruff"
     ruff check .
+    log "running bandit"
+    bandit -q -r app scripts tests
     ;;
   test)
     ensure_venv
-    log "running pytest -q"
-    pytest -q
-    ;;
-  run)
-    ensure_venv
-    log "starting uvicorn"
-    uvicorn app.main:app --reload --host 0.0.0.0 --port "${PORT:-8000}"
-    ;;
-  pm2-up)
-    log "starting pm2 apps"
-    LOG_DIR=${LOG_DIR:-$HOME/ai_trader_logs} pm2 start ecosystem.config.cjs --only ai_trader,pm2-logrotate
-    ;;
-  ngrok-up)
-    log "starting pm2 ngrok"
-    pm2 start ecosystem.config.cjs --only ngrok
-    ;;
-  webhook-set)
-    ensure_venv
-    log "setting webhook"
-    bash ./scripts/set_webhook.sh
+    log "running pytest"
+    pytest "$@"
     ;;
   ""|-h|--help)
     usage
     ;;
   *)
     usage
-    die "unknown command: $command"
+    die "unknown command: $cmd"
     ;;
 esac

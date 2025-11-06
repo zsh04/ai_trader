@@ -13,13 +13,18 @@ Key features:
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 import altair as alt
+import inspect
 import numpy as np
 import pandas as pd
 import streamlit as st
+
+from app.adapters.db.postgres import get_session
+from app.db.repositories import TradingRepository
 
 # -----------------------------------------------------------------------------
 # Page styling
@@ -110,13 +115,51 @@ st.markdown(
 # -----------------------------------------------------------------------------
 # Configuration & Caching
 # -----------------------------------------------------------------------------
-DB_URL = os.getenv("DATABASE_URL", "")
+DB_URL_RAW = os.getenv("DATABASE_URL", "")
+DB_URL = DB_URL_RAW.strip().strip("'\"")
 TZ_LOCAL = os.getenv("DASHBOARD_TZ", "America/New_York")
 DEFAULT_SYMBOLS = os.getenv("DASHBOARD_SYMBOLS", "AAPL,MSFT,NVDA,SPY,QQQ")
+ALTAIR_ACCEPTS_WIDTH = "width" in inspect.signature(st.altair_chart).parameters
+DATAFRAME_ACCEPTS_WIDTH = "width" in inspect.signature(st.dataframe).parameters
 
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _render_altair(chart: alt.Chart) -> None:
+    """Render Altair charts with backwards-compatible sizing parameters."""
+    if ALTAIR_ACCEPTS_WIDTH:
+        st.altair_chart(chart, width="stretch")
+    else:
+        st.altair_chart(chart, use_container_width=True)
+
+
+def _render_dataframe(data: object, *, height: Optional[int] = None) -> None:
+    """Render dataframes while supporting both legacy and new Streamlit kwargs."""
+    kwargs: Dict[str, object] = {}
+    if height is not None:
+        kwargs["height"] = height
+    if DATAFRAME_ACCEPTS_WIDTH:
+        st.dataframe(data, width="stretch", **kwargs)
+    else:
+        if height is not None:
+            st.dataframe(data, use_container_width=True, height=height)
+        else:
+            st.dataframe(data, use_container_width=True)
+
+
+@contextmanager
+def _session_scope():
+    try:
+        session = get_session()
+    except RuntimeError:
+        yield None
+        return
+    try:
+        yield session
+    finally:
+        session.close()
 
 
 @st.cache_data(show_spinner=False, ttl=45)
@@ -141,22 +184,32 @@ def _fetch_equity_from_db(since: datetime) -> Optional[pd.DataFrame]:
     if not DB_URL:
         return None
     try:
-        import sqlalchemy as sa  # lazy import
-
-        engine = sa.create_engine(DB_URL, pool_pre_ping=True)
-        query = """
-            SELECT ts_utc AS timestamp, equity
-            FROM equity_snapshots
-            WHERE ts_utc >= :since
-            ORDER BY ts_utc ASC
-        """
-        with engine.connect() as conn:
-            df = pd.read_sql(query, conn, params={"since": since})
+        with _session_scope() as session:
+            if session is None:
+                return None
+            repo = TradingRepository(session)
+            snapshots = repo.recent_equity(since=since, limit=2000)
+        if not snapshots:
+            return None
+        records = []
+        for snap in snapshots:
+            records.append(
+                {
+                    "timestamp": snap.ts_utc,
+                    "equity": float(snap.equity),
+                    "cash": float(snap.cash) if snap.cash is not None else None,
+                    "pnl_day": float(snap.pnl_day) if snap.pnl_day is not None else None,
+                    "drawdown": float(snap.drawdown) if snap.drawdown is not None else None,
+                    "leverage": float(snap.leverage) if snap.leverage is not None else None,
+                }
+            )
+        df = pd.DataFrame.from_records(records)
         if df.empty:
             return None
-        if df["timestamp"].dtype.tz is None:
-            df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-        return df.set_index("timestamp").sort_index()
+        df = df.sort_values("timestamp").set_index("timestamp")
+        if df.index.tz is None:
+            df.index = pd.to_datetime(df.index, utc=True)
+        return df
     except Exception as exc:  # pragma: no cover
         st.warning(f"Equity query failed: {exc}")
         return None
@@ -169,29 +222,26 @@ def _fetch_trades_from_db(
     if not DB_URL:
         return None
     try:
-        import sqlalchemy as sa
-
-        engine = sa.create_engine(DB_URL, pool_pre_ping=True)
-        params: Dict[str, object] = {"since": since}
-        sym_clause = ""
-        if symbols:
-            sym_clause = " AND symbol = ANY(:symbols)"
-            params["symbols"] = symbols
-        query = f"""
-            SELECT symbol AS "Symbol",
-                   side AS "Side",
-                   qty AS "Qty",
-                   price AS "Entry Price",
-                   pnl AS "PnL",
-                   ts_utc AS "Timestamp"
-            FROM trades
-            WHERE ts_utc >= :since
-            {sym_clause}
-            ORDER BY ts_utc DESC
-            LIMIT 150
-        """
-        with engine.connect() as conn:
-            df = pd.read_sql(query, conn, params=params)
+        with _session_scope() as session:
+            if session is None:
+                return None
+            repo = TradingRepository(session)
+            fills = repo.recent_trades(symbols, limit=150)
+        if not fills:
+            return None
+        records = []
+        for fill in fills:
+            records.append(
+                {
+                    "Symbol": fill.symbol,
+                    "Side": fill.side,
+                    "Qty": float(fill.qty),
+                    "Entry Price": float(fill.price),
+                    "PnL": float(fill.pnl) if fill.pnl is not None else None,
+                    "Timestamp": fill.filled_at,
+                }
+            )
+        df = pd.DataFrame.from_records(records)
         if df.empty:
             return None
         if df["Timestamp"].dtype.tz is None:
@@ -278,7 +328,7 @@ def _render_equity_chart(df: pd.DataFrame, tz_display: str) -> None:
         )
     )
     area = base.mark_area(opacity=0.18, color="#60a5fa")
-    st.altair_chart((base + area).interactive(), width="stretch")
+    _render_altair((base + area).interactive())
 
 
 def _render_trades_table(trades: pd.DataFrame) -> None:
@@ -298,7 +348,7 @@ def _render_trades_table(trades: pd.DataFrame) -> None:
         return "color: #34d399;" if value > 0 else "color: #f87171;"
 
     styled = styled.map(_pnl_style, subset=pd.IndexSlice[:, ["PnL"]])
-    st.dataframe(styled, width="stretch", height=360)
+    _render_dataframe(styled, height=360)
 
 
 def _sample_positions(equity: pd.Series) -> pd.DataFrame:
@@ -484,7 +534,7 @@ with lower_tabs[1]:
             ],
         )
     )
-    st.altair_chart(exposure_chart, width="stretch")
+    _render_altair(exposure_chart)
     st.caption(
         "Exposure split derived from latest equity. Replace `_sample_positions` with live holdings to reflect actual positions."
     )

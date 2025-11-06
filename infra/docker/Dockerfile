@@ -1,6 +1,10 @@
 # Dockerfile
 FROM python:3.13-slim
 
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
+LABEL org.opencontainers.image.version="$APP_VERSION"
+
 # System deps (psycopg2, uvicorn, etc.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential libpq-dev curl ca-certificates \
@@ -23,6 +27,9 @@ RUN opentelemetry-bootstrap -a install
 
 # Copy app
 COPY . .
+
+# Surface build version inside the image for runtime introspection
+RUN echo "$APP_VERSION" > /app/_build_version.txt
 
 # App Service for Containers looks at WEBSITES_PORT; we’ll expose 8000.
 ENV PORT=8000

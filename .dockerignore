@@ -6,6 +6,7 @@ venv/
 *.db
 *.parquet
 data/
+prompts/
 tests/
 .git
 .github

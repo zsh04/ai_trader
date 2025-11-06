@@ -8,16 +8,25 @@ individual PG* env vars with sslmode=require by default (works for Azure FS).
 import time
 import contextlib
 from typing import Optional
-from urllib.parse import quote_plus
 
 from loguru import logger
-from sqlalchemy import create_engine, text
+from sqlalchemy import MetaData, create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker, declarative_base
 
 from app.settings import get_database_settings
 
-Base = declarative_base()
+NAMING_CONVENTION = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
+metadata = MetaData(naming_convention=NAMING_CONVENTION)
+
+Base = declarative_base(metadata=metadata)
 
 # ----------------------------------------------------------------------------
 # DSN helpers
@@ -31,7 +40,7 @@ def get_db_url() -> Optional[str]:
     Returns:
         Optional[str]: The database DSN if found, otherwise None.
     """
-    return get_database_settings().primary_dsn
+    return get_database_settings().effective_dsn()
 
 
 def _dsn_from_env() -> Optional[str]:

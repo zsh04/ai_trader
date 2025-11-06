@@ -190,9 +190,16 @@ flowchart LR
 
 - `app/dal/` houses the new probabilistic DAL. `MarketDataDAL.fetch_bars()` returns a `ProbabilisticBatch` (bars + signal frames + regime snapshots) and `.stream_bars()` yields `ProbabilisticStreamFrame` objects with synchronized signal/regime views.
 - Vendors are pluggable via `VendorClient` implementations (`alpaca`, `alphavantage`, `finnhub`) supporting HTTP and/or WebSocket transports. Streaming gaps trigger automatic HTTP backfill.
-- Cached parquet data lives under `artifacts/marketdata/cache/` by default; the DAL writes bars, probabilistic signals, and regimes alongside optional metadata rows (`market_data_snapshots`) in Postgres.
+- Cached parquet data lives under `artifacts/marketdata/cache/` by default; the DAL writes bars, probabilistic signals, and regimes alongside optional metadata rows (`market.price_snapshots`) in Postgres.
 - `SignalFrame` now carries filtered price, velocity, and covariance-derived uncertainty to feed probabilistic strategies.
 - Tests covering Kalman and DAL flows live in `tests/dal/`.
+
+### Probabilistic Pipeline Integration
+
+- `app/probability/pipeline.py` orchestrates DAL fetch → Kalman/filters → regression/regime snapshots and provides helpers to attach features to strategy DataFrames.
+- `fetch_probabilistic_batch(...)` wraps `MarketDataDAL.fetch_bars` with `ProbabilisticConfig` (vendor, interval, metadata toggle).
+- `join_probabilistic_features(df, signals, regimes)` aligns probabilistic columns with existing OHLCV indices (tz-normalised to UTC) and is used by `app/backtest/run_breakout.py` when `--use-probabilistic` is set.
+- Helper converters `signals_to_frame` / `regimes_to_frame` exist for analytics/reporting; covered by `tests/probability/test_pipeline.py`.
 
 %% ------------------------------------------------------------
 %% 4) Parameter sweep & parallelization

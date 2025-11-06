@@ -15,7 +15,7 @@
 - **"alpha"** — Pulls symbols via Alpha Vantage (`watchlist_sources.fetch_alpha_vantage_symbols`).
 - **"finnhub"** — Pulls symbols via Finnhub (`watchlist_sources.fetch_finnhub_symbols`).
 - **"twelvedata"** — Optional fallback using Twelve Data (`watchlist_sources.fetch_twelvedata_symbols`).
-- **"textlist"** — Parses a curated list from `WATCHLIST_TEXTLIST`, `WATCHLIST_TEXT`, or `WATCHLIST_TEXTLIST_FILE` using `app.source.textlist_source.get_symbols`. Intended for manual overrides or fallback lists.
+- **"textlist"** — Parses a curated list from `WATCHLIST_TEXTLIST`, `WATCHLIST_TEXT`, or `WATCHLIST_TEXTLIST_FILE` using `app.sources.textlist_source.get_symbols`. Intended for manual overrides or fallback lists.
 
 ## Request Parameters
 - `source` (optional): `"alpha"`, `"finnhub"`, `"twelvedata"`, or `"textlist"`; defaults to environment variable `WATCHLIST_SOURCE`, falling back to `"textlist"`.

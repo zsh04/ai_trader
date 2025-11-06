@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Iterable, List, Optional
 
 # Existing sources you already have
-from app.source.textlist_source import get_symbols as textlist_symbols
+from app.sources.textlist_source import get_symbols as textlist_symbols
 from app.services.watchlist_sources import (
     fetch_alpha_vantage_symbols,
     fetch_finnhub_symbols,

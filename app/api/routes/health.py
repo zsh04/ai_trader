@@ -20,7 +20,7 @@ except Exception:
 
 from app.adapters.db.postgres import ping
 from app.api.routes.tasks import get_build_counters
-from app.domain.watchlist_service import get_counters as get_watchlist_counters
+from app.domain.watchlist_service import get_watchlist_counters
 from app.settings import get_database_settings, get_telegram_settings
 
 router = APIRouter(tags=["health"])

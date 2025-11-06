@@ -1,8 +1,10 @@
-from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
-from app.adapters.db.postgres import engine, Base
-from alembic import context
 import os
+from logging.config import fileConfig
+
+from alembic import context
+from sqlalchemy import engine_from_config, pool
+
+from app.db import Base  # ensures models are imported via app.db.__init__
 
 # Load DATABASE_URL from environment
 DATABASE_URL = os.getenv("DATABASE_URL")

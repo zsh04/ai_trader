@@ -15,9 +15,7 @@ try:  # optional OTEL instrumentation
 except Exception:  # pragma: no cover - instrumentation optional
     _tracer = None
 
-from sqlalchemy import text
-
-from app.adapters.db.postgres import get_engine
+from app.adapters.db.postgres import get_session
 from app.agent.probabilistic.regime import RegimeAnalysisAgent, RegimeSnapshot
 from app.agent.probabilistic.signal_filter import FilterConfig, SignalFilteringAgent
 from app.dal.cache import (
@@ -33,6 +31,7 @@ from app.dal.vendors.alpaca import AlpacaVendor
 from app.dal.vendors.alphavantage import AlphaVantageVendor
 from app.dal.vendors.base import FetchRequest, VendorClient
 from app.dal.vendors.finnhub import FinnhubVendor
+from app.db.repositories.market import MarketRepository
 
 
 class MarketDataDAL:
@@ -62,9 +61,6 @@ class MarketDataDAL:
         self.kalman_config = self.filter_config.kalman or KalmanConfig()
         self.regime_params: Dict[str, object] = dict(regime_params or {})
         self.enable_postgres_metadata = enable_postgres_metadata
-        self._engine = get_engine() if enable_postgres_metadata else None
-        if self._engine is not None:
-            self._ensure_metadata_table()
 
     def _default_vendors(self) -> Dict[str, VendorClient]:
         return {
@@ -115,8 +111,7 @@ class MarketDataDAL:
             if regimes_path:
                 cache_paths["regimes"] = regimes_path
         bars_path = cache_paths.get("bars") if cache_paths else None
-        if self._engine is not None:
-            self._persist_metadata(bars, bars_path)
+        self._persist_metadata(bars, bars_path)
         return ProbabilisticBatch(
             bars=bars,
             signals=signals,
@@ -170,52 +165,57 @@ class MarketDataDAL:
         regimes = regime_agent.classify(signals)
         return signals, regimes
 
-    def _ensure_metadata_table(self) -> None:
-        if self._engine is None:
-            return
-        ddl = text(
-            """
-            CREATE TABLE IF NOT EXISTS market_data_snapshots (
-                id BIGSERIAL PRIMARY KEY,
-                vendor TEXT NOT NULL,
-                symbol TEXT NOT NULL,
-                start_ts TIMESTAMPTZ,
-                end_ts TIMESTAMPTZ,
-                bar_count INTEGER,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                storage_path TEXT
-            )
-            """
-        )
-        with self._engine.begin() as conn:  # pragma: no cover - exercised in integration
-            conn.execute(ddl)
-
     def _persist_metadata(self, bars: Bars, cache_path: Optional[Path]) -> None:
-        if self._engine is None:
+        if not self.enable_postgres_metadata or not bars.data:
             return
-        if not bars.data:
+        try:
+            session = get_session()
+        except RuntimeError:
+            logger.debug("[dal] Postgres session unavailable; skipping metadata persist")
             return
-        start_ts = bars.data[0].timestamp
-        end_ts = bars.data[-1].timestamp
-        storage_path = str(cache_path.resolve()) if cache_path else None
-        insert_sql = text(
-            """
-            INSERT INTO market_data_snapshots (vendor, symbol, start_ts, end_ts, bar_count, storage_path)
-            VALUES (:vendor, :symbol, :start_ts, :end_ts, :bar_count, :storage_path)
-            """
-        )
-        with self._engine.begin() as conn:  # pragma: no cover - exercised in integration
-            conn.execute(
-                insert_sql,
-                {
-                    "vendor": bars.vendor,
-                    "symbol": bars.symbol,
-                    "start_ts": start_ts,
-                    "end_ts": end_ts,
-                    "bar_count": len(bars.data),
-                    "storage_path": storage_path,
-                },
+
+        try:
+            repo = MarketRepository(session)
+            repo.upsert_symbols(
+                [
+                    {
+                        "symbol": bars.symbol.upper(),
+                        "name": None,
+                        "asset_class": "equity",
+                        "primary_exchange": None,
+                        "currency": "USD",
+                        "status": "active",
+                    }
+                ]
             )
+
+            common_features = {
+                "timezone": bars.timezone,
+                "vendor": bars.vendor,
+                "cache_path": str(cache_path) if cache_path else None,
+            }
+            snapshots = []
+            for bar in bars.data:
+                snapshots.append(
+                    {
+                        "symbol": bar.symbol.upper(),
+                        "vendor": bars.vendor,
+                        "ts_utc": bar.timestamp,
+                        "open": bar.open,
+                        "high": bar.high,
+                        "low": bar.low,
+                        "close": bar.close,
+                        "volume": bar.volume,
+                        "features": {**common_features, "source": bar.source},
+                    }
+                )
+            repo.record_price_snapshots(snapshots)
+            session.commit()
+        except Exception as exc:  # pragma: no cover - defensive
+            session.rollback()
+            logger.warning("[dal] failed to persist price snapshots: {}", exc)
+        finally:
+            session.close()
 
 
 __all__ = ["MarketDataDAL"]

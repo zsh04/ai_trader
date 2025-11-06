@@ -1,12 +1,10 @@
 # tests/unit/test_watchlist_route.py
 import os
 
-from tests.conftest import client
-
 from app.domain import watchlist_service
 
 
-def test_watchlist_textlist(monkeypatch):
+def test_watchlist_textlist(client, monkeypatch):
     os.environ["WATCHLIST_SOURCE"] = "textlist"
     monkeypatch.setattr(watchlist_service, "build_watchlist", lambda source="textlist": ["aapl", "msft"])
 
@@ -17,7 +15,7 @@ def test_watchlist_textlist(monkeypatch):
     assert data["symbols"] == ["AAPL", "MSFT"]
 
 
-def test_watchlist_alpha(monkeypatch):
+def test_watchlist_alpha(client, monkeypatch):
     os.environ["WATCHLIST_SOURCE"] = "alpha"
     monkeypatch.setattr(watchlist_service, "fetch_alpha_vantage_symbols", lambda: ["spy", "qqq"])
 

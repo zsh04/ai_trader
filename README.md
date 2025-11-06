@@ -47,16 +47,18 @@ All modules are import-safe, follow snake_case for files/functions, and use stru
 ## Getting Started
 
 1. Install Python 3.12 (see `.python-version`).
-2. Create a virtual environment and install deps:
+2. Create a virtual environment and install dependencies:
 
    ```bash
    python -m venv .venv
    source .venv/bin/activate
    pip install -r requirements.txt
+   # for local development / linting
+   pip install -r requirements-dev.txt
    export PYTHONPATH=.
    ```
 
-3. Create a `.env` file in the repo root with broker, storage, database, Telegram, and market data credentials (see `app/settings.py`). Never check secrets into source control.
+3. Create a `.env` file (copy from `.env.example`) with broker, storage, database, Telegram, and market data credentials. Never check secrets into source control—production uses Key Vault references.
 4. Launch the FastAPI app locally:
 
    ```bash
@@ -67,11 +69,11 @@ All modules are import-safe, follow snake_case for files/functions, and use stru
 
 ## Development Workflow
 
-- **Lint:** `ruff check .`
-- **Auto-fix style issues:** `ruff --fix .`
-- **Tests:** `pytest -v` or `make test`
-- **Formatted build:** `make format`
-- **Scripted helpers:** `./scripts/dev.sh lint|fmt|test|run|pm2-up|webhook-set`
+- **Lint:** `./scripts/dev.sh lint` (ruff + bandit)
+- **Auto-fix style issues:** `./scripts/dev.sh fmt` (black)
+- **Tests:** `./scripts/dev.sh test`
+- **Create/refresh venv:** `./scripts/dev.sh mkvenv`
+- **Install deps:** `./scripts/dev.sh install`
 
 Always add type hints, avoid circular imports, and keep modules composable. New features must include matching tests under `tests/`.
 
@@ -98,7 +100,8 @@ pm2 restart ai_trader
 pm2 logs ai_trader
 ```
 
-Logs rotate daily and retain seven days by default.
+Logs rotate daily and retain seven days by default. For OpenTelemetry / Application Insights
+deployment notes see `docs/operations/observability.md`.
 
 ## Deployment (Azure App Service)
 
@@ -119,7 +122,7 @@ The probabilistic data abstraction layer (`app/dal/`) consolidates vendor access
 - **Vendors:** Alpaca (HTTP + streaming), Alpha Vantage (HTTP), Finnhub (HTTP + streaming). Additional vendors plug in via the `VendorClient` interface.
 - **Normalization:** `Bars`/`SignalFrame` schemas enforce UTC timestamps, corporate-action aware pricing, and deterministic replay.
 - **Probabilistic signals:** Each fetch/stream run produces Kalman-filtered price, velocity, and state uncertainty.
-- **Persistence:** Parquet snapshots stored under `artifacts/marketdata/cache/` (configurable) with optional metadata in Postgres (`market_data_snapshots`).
+- **Persistence:** Parquet snapshots stored under `artifacts/marketdata/cache/` (configurable) with optional metadata in Postgres (`market.price_snapshots`).
 - **Streaming manager:** Converts Alpaca/Finnhub WebSocket ticks into normalized frames with automatic gap backfill via HTTP.
 
 Set the following environment variables to activate the primary data providers:

@@ -5,9 +5,9 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import altair as alt
+import inspect
 import numpy as np
 import pandas as pd
-import requests
 import streamlit as st
 
 try:
@@ -27,10 +27,13 @@ if load_dotenv:
             load_dotenv(candidate, override=False)
 
 from app.adapters.market.alpaca_client import AlpacaAuthError, AlpacaMarketClient
+from app.services.market_data import get_intraday_bars, get_market_snapshots
 from app.services.watchlist_service import build_watchlist
 from app.utils import env as ENV
 
 FALLBACK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "SPY", "QQQ"]
+ALTAIR_ACCEPTS_WIDTH = "width" in inspect.signature(st.altair_chart).parameters
+DATAFRAME_ACCEPTS_WIDTH = "width" in inspect.signature(st.dataframe).parameters
 
 # ---------------------------------------------------------------------------
 # Streamlit configuration
@@ -123,6 +126,28 @@ st.markdown(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+def _render_altair(chart: alt.Chart) -> None:
+    """Render Altair charts handling older Streamlit signatures gracefully."""
+    if ALTAIR_ACCEPTS_WIDTH:
+        st.altair_chart(chart, width="stretch")
+    else:
+        st.altair_chart(chart, use_container_width=True)
+
+
+def _render_dataframe(data: object, *, height: Optional[int] = None) -> None:
+    """Render dataframes with backwards-compatible sizing kwargs."""
+    kwargs: Dict[str, object] = {}
+    if height is not None:
+        kwargs["height"] = height
+    if DATAFRAME_ACCEPTS_WIDTH:
+        st.dataframe(data, width="stretch", **kwargs)
+    else:
+        if height is not None:
+            st.dataframe(data, use_container_width=True, height=height)
+        else:
+            st.dataframe(data, use_container_width=True)
+
+
 def _format_timestamp(ts: Optional[str | int | float]) -> Optional[datetime]:
     if ts is None:
         return None
@@ -201,7 +226,7 @@ def _render_watchlist_table(df: pd.DataFrame) -> None:
         return "color:#34d399;" if value > 0 else "color:#f87171;"
 
     styled = styled.map(_delta_style, subset=pd.IndexSlice[:, ["Change", "% Change"]])
-    st.dataframe(styled, width="stretch", height=380)
+    _render_dataframe(styled, height=380)
 
 
 def _render_symbol_detail(symbol: str, row: pd.Series, history: pd.DataFrame) -> None:
@@ -258,7 +283,7 @@ def _render_symbol_detail(symbol: str, row: pd.Series, history: pd.DataFrame) ->
                     ],
                 )
             )
-            st.altair_chart(chart.interactive(), width="stretch")
+            _render_altair(chart.interactive())
     with cols[1]:
         st.markdown("###### Session Snapshot")
         change = row.get("Change", np.nan)

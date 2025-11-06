@@ -13,7 +13,7 @@ from app.api.routes.health import router as health_router
 from app.api.routes.tasks import public_router, tasks_router
 from app.api.routes.telegram import router as telegram_router
 from app.config import settings
-from app.logging_utils import setup_logging
+from app.logging_utils import setup_logging, logging_context
 from app.observability import configure_observability
 
 __all__ = ["app"]
@@ -62,7 +62,7 @@ async def request_logging_middleware(request: Request, call_next):
     start = time.perf_counter()
     request_id = request.headers.get("X-Request-ID") or uuid4().hex
     request.state.request_id = request_id
-    with logger.contextualize(request_id=request_id):
+    with logging_context(request_id=request_id):
         try:
             response = await call_next(request)
         except Exception:

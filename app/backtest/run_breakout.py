@@ -19,13 +19,15 @@ from pandas import Timestamp
 from app.backtest import metrics as bt_metrics
 from app.backtest.engine import Costs, backtest_long_only
 from app.backtest.model import BetaWinrate
-from app.dal.manager import MarketDataDAL
-from app.dal.results import ProbabilisticBatch
-from app.dal.schemas import SignalFrame
-from app.agent.probabilistic.regime import RegimeSnapshot
+from app.logging_utils import setup_logging
+from app.dal.manager import MarketDataDAL as _LegacyMarketDataDAL
+from app.probability.pipeline import (
+    ProbabilisticConfig,
+    fetch_probabilistic_batch,
+    join_probabilistic_features,
+)
 from app.providers.yahoo_provider import get_history_daily
 from app.strats.breakout import BreakoutParams, generate_signals
-from app.logging_utils import setup_logging
 
 # ------------------------------------------------------------------------------
 # Logging
@@ -38,62 +40,6 @@ def _setup_cli_logging(level: str = "INFO") -> None:
     and provides consistent formatting for CI logs.
     """
     setup_logging(force=True, level=level)
-
-
-def _normalize_index(index: List[datetime]) -> pd.DatetimeIndex:
-    idx = pd.to_datetime(index)
-    tz = getattr(idx, "tz", None)
-    if tz is not None:
-        idx = idx.tz_convert("UTC").tz_localize(None)
-    return idx
-
-
-def _signal_frames_to_dataframe(signals: List[SignalFrame]) -> pd.DataFrame:
-    if not signals:
-        return pd.DataFrame()
-    records = [
-        {
-            "timestamp": frame.timestamp,
-            "prob_price": frame.price,
-            "prob_volume": frame.volume,
-            "prob_filtered_price": frame.filtered_price,
-            "prob_velocity": frame.velocity,
-            "prob_uncertainty": frame.uncertainty,
-            "prob_butterworth_price": frame.butterworth_price,
-            "prob_ema_price": frame.ema_price,
-        }
-        for frame in signals
-    ]
-    df = pd.DataFrame(records)
-    idx = _normalize_index(df.pop("timestamp").tolist())
-    df.index = idx
-    df = df.groupby(level=0).last()
-    return df.sort_index()
-
-
-def _regime_snapshots_to_dataframe(regimes: List[RegimeSnapshot]) -> pd.DataFrame:
-    if not regimes:
-        return pd.DataFrame()
-    records = []
-    for snapshot in regimes:
-        if snapshot.timestamp is None:
-            continue
-        records.append(
-            {
-                "timestamp": snapshot.timestamp,
-                "regime_label": snapshot.regime,
-                "regime_volatility": snapshot.volatility,
-                "regime_uncertainty": snapshot.uncertainty,
-                "regime_momentum": snapshot.momentum,
-            }
-        )
-    if not records:
-        return pd.DataFrame()
-    df = pd.DataFrame(records)
-    idx = _normalize_index(df.pop("timestamp").tolist())
-    df.index = idx
-    df = df.groupby(level=0).last()
-    return df.sort_index()
 
 
 def _roundish(x, ndigits=4):
@@ -135,7 +81,10 @@ def _try_backtest(
         except TypeError:
             continue
     # final attempt: run as-is
-    return engine_fn(**base_kwargs), {}
+        return engine_fn(**base_kwargs), {}
+
+# Backwards compatibility for tests/monkeypatch
+MarketDataDAL = _LegacyMarketDataDAL
 
 
 def run(
@@ -185,16 +134,20 @@ def run(
     p = BreakoutParams(**params_kwargs)
     sig = generate_signals(df, asdict(p))
 
-    prob_batch: ProbabilisticBatch | None = None
+    prob_batch = None
     if use_probabilistic:
         try:
-            dal = MarketDataDAL(enable_postgres_metadata=False)
-            prob_batch = dal.fetch_bars(
-                symbol=symbol,
+            dal_instance = MarketDataDAL(enable_postgres_metadata=False)
+            prob_batch = fetch_probabilistic_batch(
+                symbol,
                 start=start_ts,
                 end=end_ts,
-                interval=dal_interval,
-                vendor=dal_vendor,
+                config=ProbabilisticConfig(
+                    vendor=dal_vendor,
+                    interval=dal_interval,
+                    enable_metadata_persist=False,
+                ),
+                dal=dal_instance,
             )
             logger.info(
                 "Probabilistic DAL fetch ok vendor={} interval={} bars={} signals={} regimes={}",
@@ -207,13 +160,9 @@ def run(
             if prob_batch.cache_paths:
                 logger.debug("Probabilistic cache artifacts: {}", prob_batch.cache_paths)
 
-            prob_signal_df = _signal_frames_to_dataframe(prob_batch.signals)
-            prob_regime_df = _regime_snapshots_to_dataframe(prob_batch.regimes)
-
-            if not prob_signal_df.empty:
-                sig = sig.join(prob_signal_df, how="left")
-            if not prob_regime_df.empty:
-                sig = sig.join(prob_regime_df, how="left")
+            sig = join_probabilistic_features(
+                sig, signals=prob_batch.signals, regimes=prob_batch.regimes
+            )
             joined_cols = [
                 col
                 for col in ("prob_filtered_price", "regime_label")

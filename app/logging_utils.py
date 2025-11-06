@@ -5,9 +5,11 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from typing import Optional, Union
+from typing import Optional, Union, Dict, Any
 from os import PathLike
 from pathlib import Path
+from contextvars import ContextVar
+from contextlib import contextmanager
 from loguru import logger
 
 from app.config import settings as app_settings
@@ -31,6 +33,25 @@ _LOG_FORMAT = (
 )
 
 OTEL_MISSING = {"otelTraceID": "-", "otelSpanID": "-", "otelTraceFlags": "-"}
+
+_ctx_request_id: ContextVar[str] = ContextVar("log_request_id", default="-")
+_ctx_environment: ContextVar[str] = ContextVar("log_environment", default="local")
+_ctx_service_version: ContextVar[str] = ContextVar("log_service_version", default="unknown")
+_ctx_git_sha: ContextVar[str] = ContextVar("log_git_sha", default="unknown")
+
+_CONTEXT_VARS: Dict[str, ContextVar[str]] = {
+    "request_id": _ctx_request_id,
+    "environment": _ctx_environment,
+    "service_version": _ctx_service_version,
+    "git_sha": _ctx_git_sha,
+}
+
+
+def _inject_context(record: Dict[str, Any]) -> Dict[str, Any]:
+    extra = record["extra"]
+    for key, ctx in _CONTEXT_VARS.items():
+        extra.setdefault(key, ctx.get())
+    return record
 
 def _std_logging_sink(message) -> None:
     record = message.record
@@ -90,7 +111,15 @@ def setup_logging(*, force: bool = False, level: str | None = None) -> None:
         }
     )
 
-    logger.add(
+    _ctx_environment.set(environment)
+    _ctx_service_version.set(app_settings.VERSION)
+    _ctx_git_sha.set(git_sha)
+
+    patched_logger = logger.patch(lambda record: _inject_context(record))
+
+    globals()["logger"] = patched_logger
+
+    patched_logger.add(
         sys.stdout,
         level=log_level,
         format=_LOG_FORMAT,
@@ -98,7 +127,7 @@ def setup_logging(*, force: bool = False, level: str | None = None) -> None:
         backtrace=False,
         diagnose=False,
     )
-    logger.add(
+    patched_logger.add(
         _std_logging_sink,
         level=log_level,
         enqueue=False,
@@ -177,4 +206,21 @@ def setup_test_logging(
         diagnose=False,
     )
 
-__all__ = ["setup_logging", "setup_test_logging"]
+
+@contextmanager
+def logging_context(**values: str):
+    """Context manager to set structured logging fields (e.g., request_id)."""
+    tokens = []
+    for key, value in values.items():
+        ctx = _CONTEXT_VARS.get(key)
+        if ctx is not None:
+            tokens.append((ctx, ctx.set(value or "-")))
+    try:
+        with logger.contextualize(**values):
+            yield
+    finally:
+        for ctx, token in reversed(tokens):
+            ctx.reset(token)
+
+
+__all__ = ["setup_logging", "setup_test_logging", "logging_context"]

@@ -1,5 +1,9 @@
 FROM python:3.11-slim
 
+ARG APP_VERSION=dev
+ENV APP_VERSION=$APP_VERSION
+LABEL org.opencontainers.image.version="$APP_VERSION"
+
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PORT=8000
@@ -16,6 +20,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* /tmp/requirements.txt
 
 COPY . /app
+
+RUN echo "$APP_VERSION" > /app/_build_version.txt
 
 ENV PYTHONPATH=/app
 
