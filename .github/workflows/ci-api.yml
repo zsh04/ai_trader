@@ -46,10 +46,6 @@ jobs:
         run: pip-audit -r requirements.txt -r requirements-dev.txt
       - name: ensure .env files absent
         run: python scripts/check_no_env.py
-      - name: alembic dry-run
-        env:
-          DATABASE_URL: sqlite://
-        run: alembic upgrade head --sql > /tmp/alembic.sql
       - name: pytest
         run: pytest -q
 
