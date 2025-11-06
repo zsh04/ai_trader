@@ -182,4 +182,4 @@ MAX_WATCHLIST=25
 - **Postgres index (optional):**
   - `DATABASE_URL` (requires `psycopg2`; otherwise index is skipped)
 
-Future roadmap: expand strategy coverage (momentum, mean reversion, risk parity), integrate Finviz/Discord watchlists, add probabilistic backtest metrics, and onboard Azure Application Insights for unified telemetry.
+Future roadmap: expand strategy coverage (momentum, mean reversion, risk parity), add probabilistic backtest metrics, and onboard Azure Application Insights for unified telemetry.
