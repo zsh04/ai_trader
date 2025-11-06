@@ -36,7 +36,7 @@ fi
 
 echo "[build] building API image (${image_tags[*]}) (context: ${context})"
 
-build_cmd=(docker build -f Dockerfile)
+build_cmd=(docker build -f infra/docker/Dockerfile)
 if [[ -n "${APP_VERSION:-}" ]]; then
   build_cmd+=(--build-arg "APP_VERSION=${APP_VERSION}" --label "org.opencontainers.image.version=${APP_VERSION}")
 fi
