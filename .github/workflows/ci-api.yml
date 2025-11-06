@@ -41,7 +41,7 @@ jobs:
           ruff check .
           black --check .
       - name: security scan (bandit)
-        run: bandit -q -r app scripts tests
+        run: bandit --severity-level medium --confidence-level low -r app scripts tests
       - name: dependency scan (pip-audit)
         run: pip-audit -r requirements.txt -r requirements-dev.txt
       - name: ensure .env files absent

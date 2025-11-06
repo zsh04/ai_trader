@@ -14,6 +14,8 @@ can iterate incrementally.
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, FastAPI
 
 from .health import router as health_router
@@ -37,9 +39,12 @@ def _include_optional(module_path: str, attr: str = "router") -> None:
         sub_router = getattr(mod, attr, None)
         if sub_router is not None:
             router.include_router(sub_router)
-    except Exception:
-        # Intentionally swallow import errors to keep app boot resilient
-        pass
+    except Exception as exc:  # nosec B110 - best-effort optional import
+        logging.getLogger(__name__).debug(
+            "Skipping optional router %s due to import error: %s",
+            module_path,
+            exc,
+        )
 
 
 _include_optional("app.api.routes.health")

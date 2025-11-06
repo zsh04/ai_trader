@@ -58,8 +58,8 @@ def _env():
     except Exception:
 
         class F:
-            TELEGRAM_WEBHOOK_SECRET = ""
-            TELEGRAM_BOT_TOKEN = ""
+            TELEGRAM_WEBHOOK_SECRET = ""  # nosec B105 - placeholder when env missing
+            TELEGRAM_BOT_TOKEN = ""  # nosec B105 - placeholder when env missing
             TELEGRAM_ALLOWED_USER_IDS: List[str] = []
 
         return F()
@@ -255,8 +255,8 @@ def _handle_watchlist(tg: Any, chat_id: int | str, args: list[str]) -> None:
     try:
         if "limit" in kv_flags and kv_flags["limit"] is not None:
             limit = int(kv_flags["limit"])
-    except Exception:
-        pass
+    except (TypeError, ValueError) as exc:
+        logger.debug("Invalid limit flag {}: {}", kv_flags.get("limit"), exc)
 
     include_filters = parsed.get("include_filters")
     if "filters" in kv_flags and kv_flags["filters"] is not None:

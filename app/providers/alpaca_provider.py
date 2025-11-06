@@ -188,8 +188,12 @@ def latest_closes(symbols: List[str], feed: Optional[str] = None) -> Dict[str, f
             c = float(seq[-1].get("c") or 0)
             if c > 0:
                 out[sym] = c
-        except Exception:
-            pass
+        except (TypeError, ValueError) as exc:  # nosec B110 - log parse failure
+            logger.debug(
+                "alpaca latest_closes parse error sym={} err={}",
+                sym,
+                exc,
+            )
     return out
 
 
@@ -207,7 +211,10 @@ def latest_trades_from_snapshots(snaps: Dict[str, Dict[str, Any]]) -> Dict[str, 
             p = float(trade.get("p") or quote.get("bp") or 0)
             if p > 0:
                 out[sym.upper()] = p
-        except Exception:
+        except Exception as exc:
+            logger.debug(
+                "alpaca latest_trades_from_snapshots parse failure {}: {}", sym, exc
+            )
             continue
     if not out:
         logger.warning("no valid latest trade prices extracted from snapshots")

@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 import json
+import logging
 import os
 import re
 import sys
 from pathlib import Path
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 SRC = Path(os.environ.get("CONTAINERS_SRC", BASE_DIR / "containers.appservice.json"))
@@ -48,8 +52,10 @@ def find_containers(doc):
                 doc["siteConfig"]["containers"]["containers"] = new
 
             return lst, setter
-    except Exception:
-        pass
+    except (KeyError, TypeError) as exc:
+        logger.debug(
+            "containers shape siteConfig.containers.containers missing: %s", exc
+        )
     # shape: properties.siteConfig.containers.containers (list)
     try:
         lst = doc["properties"]["siteConfig"]["containers"]["containers"]
@@ -59,8 +65,11 @@ def find_containers(doc):
                 doc["properties"]["siteConfig"]["containers"]["containers"] = new
 
             return lst, setter
-    except Exception:
-        pass
+    except (KeyError, TypeError) as exc:
+        logger.debug(
+            "containers shape properties.siteConfig.containers.containers missing: %s",
+            exc,
+        )
     # flat list variant: siteConfig.containers (list)
     try:
         lst = doc["siteConfig"]["containers"]
@@ -70,8 +79,8 @@ def find_containers(doc):
                 doc["siteConfig"]["containers"] = new
 
             return lst, setter
-    except Exception:
-        pass
+    except (KeyError, TypeError) as exc:
+        logger.debug("containers shape siteConfig.containers missing: %s", exc)
     # flat list variant: properties.siteConfig.containers (list)
     try:
         lst = doc["properties"]["siteConfig"]["containers"]
@@ -81,8 +90,10 @@ def find_containers(doc):
                 doc["properties"]["siteConfig"]["containers"] = new
 
             return lst, setter
-    except Exception:
-        pass
+    except (KeyError, TypeError) as exc:
+        logger.debug(
+            "containers shape properties.siteConfig.containers missing: %s", exc
+        )
     return None, None
 
 

@@ -7,11 +7,13 @@ from loguru import logger
 from app.adapters.notifiers.telegram import TelegramClient
 from app.providers.alpaca_provider import day_bars as alpaca_day_bars
 from app.providers.alpaca_provider import minute_bars as alpaca_minute_bars
+
 # Providers (all external I/O lives here)
 from app.providers.alpaca_provider import snapshots as alpaca_snapshots
 from app.providers.yahoo_provider import intraday_last as yf_intraday_last
 from app.providers.yahoo_provider import latest_close as yf_latest_close
 from app.providers.yahoo_provider import latest_volume as yf_latest_volume
+
 # Config flags (pure)
 from app.utils import env as ENV
 from app.utils.env import PRICE_PROVIDERS
@@ -102,8 +104,8 @@ def _midquote(snap: Dict[str, Any]) -> float:
     try:
         if bp is not None and ap is not None and float(bp) > 0 and float(ap) > 0:
             return (float(bp) + float(ap)) / 2.0
-    except Exception:
-        pass
+    except Exception as exc:  # nosec B110 - diagnostic only
+        logger.debug("midquote calculation failed: {}", exc)
     return 0.0
 
 
@@ -137,8 +139,8 @@ def latest_price_with_source(snap: Dict[str, Any], symbol: str) -> Tuple[float, 
         p = lt.get("p")
         if p is not None and float(p) > 0:
             return float(p), "trade"
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("latest_price_with_source trade parse error {}: {}", symbol, exc)
 
     # 2) midquote
     mid = _midquote(snap)
@@ -163,8 +165,8 @@ def latest_price_with_source(snap: Dict[str, Any], symbol: str) -> Tuple[float, 
             c = d[-1].get("c")
             if c is not None and float(c) > 0:
                 return float(c), "daily"
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("latest_price_with_source daily bar error {}: {}", symbol, exc)
 
     # 5) yahoo fallbacks if enabled
     if YF_ENABLED:
@@ -172,14 +174,16 @@ def latest_price_with_source(snap: Dict[str, Any], symbol: str) -> Tuple[float, 
             y = yf_intraday_last([symbol]).get(symbol.upper())
             if y and float(y) > 0:
                 return float(y), "yahoo_1m"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("latest_price_with_source yahoo_1m error {}: {}", symbol, exc)
         try:
             y = yf_latest_close([symbol]).get(symbol.upper())
             if y and float(y) > 0:
                 return float(y), "yahoo_close"
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug(
+                "latest_price_with_source yahoo_close error {}: {}", symbol, exc
+            )
 
     return 0.0, "none"
 
@@ -260,8 +264,12 @@ def batch_latest_ohlcv(
                     if cval > 0:
                         out[sym]["last"] = cval
                         out[sym]["price_source"] = "bars_close"
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug(
+                        "batch_latest_ohlcv: failed to coerce close for {}: {}",
+                        sym,
+                        exc,
+                    )
             # hydrate OHLCV fields
             ohlcv = out[sym].get("ohlcv") or {}
             changed = False
@@ -282,10 +290,16 @@ def batch_latest_ohlcv(
                     try:
                         ohlcv["v"] = int(b.get("v") or 0)
                         changed = True
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+                    except Exception as exc:
+                        logger.debug(
+                            "batch_latest_ohlcv: volume coercion failed for {}: {}",
+                            sym,
+                            exc,
+                        )
+            except Exception as exc:
+                logger.debug(
+                    "batch_latest_ohlcv: error hydrating OHLCV for {}: {}", sym, exc
+                )
             if changed:
                 out[sym]["ohlcv"] = ohlcv
 
@@ -299,14 +313,10 @@ def batch_latest_ohlcv(
     unresolved_price = [s for s, d in out.items() if (d.get("last") or 0) <= 0]
     if YF_ENABLED and unresolved_price:
         y_intr_all = yf_intraday_last(unresolved_price)
-        ok_intr = {
-            s: v for s, v in (y_intr_all or {}).items() if v and float(v) > 0
-        }
+        ok_intr = {s: v for s, v in (y_intr_all or {}).items() if v and float(v) > 0}
         remaining = [s for s in unresolved_price if s not in ok_intr]
         y_close_all = yf_latest_close(remaining) if remaining else {}
-        ok_close = {
-            s: v for s, v in (y_close_all or {}).items() if v and float(v) > 0
-        }
+        ok_close = {s: v for s, v in (y_close_all or {}).items() if v and float(v) > 0}
         for sym in unresolved_price:
             if sym in ok_intr:
                 out[sym]["last"] = float(ok_intr[sym])
@@ -336,9 +346,7 @@ def batch_latest_ohlcv(
 # --------------------------------------------------------------------------------------
 
 
-def data_health(
-    symbols: List[str], feed: Optional[str] = None
-) -> Dict[str, Any]:
+def data_health(symbols: List[str], feed: Optional[str] = None) -> Dict[str, Any]:
     """
     Lightweight diagnostics for upstream data availability.
     Returns counts and lists of symbols with empty Alpaca snapshots or day bars.

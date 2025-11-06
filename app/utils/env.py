@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Iterable, List, Set
+
+logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
 # Helpers
@@ -52,7 +55,8 @@ def get_int_chain(names: Iterable[str], default: int) -> int:
             continue
         try:
             return int(candidate)
-        except Exception:
+        except Exception as exc:
+            logger.debug("Invalid int env value for %s=%s: %s", name, candidate, exc)
             continue
     return default
 
@@ -68,7 +72,8 @@ def get_float_chain(names: Iterable[str], default: float) -> float:
             continue
         try:
             return float(candidate)
-        except Exception:
+        except Exception as exc:
+            logger.debug("Invalid float env value for %s=%s: %s", name, candidate, exc)
             continue
     return default
 
@@ -87,7 +92,8 @@ def get_int_set(name: str) -> Set[int]:
     for token in get_csv(name):
         try:
             values.add(int(token))
-        except Exception:
+        except Exception as exc:
+            logger.debug("Invalid integer in %s list (%s): %s", name, token, exc)
             continue
     return values
 

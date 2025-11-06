@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime, timezone
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
@@ -18,6 +19,8 @@ except ImportError:  # pragma: no cover
 
 ALPHAVANTAGE_URL = "https://www.alphavantage.co/query"
 FINNHUB_URL = "https://finnhub.io/api/v1"
+
+logger = logging.getLogger(__name__)
 TWELVEDATA_URL = "https://api.twelvedata.com"
 
 
@@ -92,7 +95,8 @@ def _alpha_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optional[
                     "l": float(payload.get("04. low", "nan")),
                 },
             }
-        except Exception:
+        except Exception as exc:
+            logger.debug("Alpha Vantage quote fetch failed for %s: %s", sym, exc)
             continue
     note = "Alpha Vantage" if out else None
     return out, note
@@ -132,7 +136,8 @@ def _finnhub_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optiona
                     "l": float(data.get("l", 0.0)),
                 },
             }
-        except Exception:
+        except Exception as exc:
+            logger.debug("Finnhub quote fetch failed for %s: %s", sym, exc)
             continue
     note = "Finnhub" if out else None
     return out, note
@@ -170,7 +175,8 @@ def _twelvedata_quote(
                     "l": float(data.get("low", 0.0)),
                 },
             }
-        except Exception:
+        except Exception as exc:
+            logger.debug("TwelveData quote fetch failed for %s: %s", sym, exc)
             continue
     note = "Twelve Data" if out else None
     return out, note
@@ -196,7 +202,8 @@ def _yahoo_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optional[
                     "l": float(info.get("dayLow", 0.0)),
                 },
             }
-        except Exception:
+        except Exception as exc:
+            logger.debug("Yahoo fast_info fetch failed for %s: %s", sym, exc)
             continue
     note = "Yahoo Finance" if out else None
     return out, note
@@ -235,7 +242,8 @@ def _alpaca_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optional
             }
         except AlpacaAuthError:
             break
-        except Exception:
+        except Exception as exc:
+            logger.debug("Alpaca snapshot fetch failed for %s: %s", sym, exc)
             continue
     note = "Alpaca" if out else None
     return out, note

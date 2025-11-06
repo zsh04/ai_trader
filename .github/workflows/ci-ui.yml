@@ -40,6 +40,8 @@ jobs:
         run: |
           ruff check ui app
           black --check ui scripts
+      - name: security scan (bandit)
+        run: bandit --severity-level medium --confidence-level low -r app scripts ui
       - name: streamlit smoke
         run: python -m streamlit --version
       - name: dependency scan (pip-audit)

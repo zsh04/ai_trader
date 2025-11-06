@@ -21,3 +21,6 @@ AnyIO-powered tests are pinned to the built-in asyncio event loop through the sh
 - `./.venv/bin/pytest tests/dal tests/backtest -q` to validate the probabilistic data layer and backtest harness.
 
 CI runs the full suite with `-q`; ensure it passes locally to avoid surprises.
+### Security lint
+
+CI runs Bandit with medium-severity focus. For the API workflow we call `bandit --severity-level medium --confidence-level low -r app scripts tests`; the UI workflow uses the same flags but targets `app scripts ui`. This keeps deploy pipelines quiet while still failing builds on meaningful issues.

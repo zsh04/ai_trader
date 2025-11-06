@@ -7,6 +7,7 @@ individual PG* env vars with sslmode=require by default (works for Azure FS).
 from __future__ import annotations
 
 import contextlib
+import logging
 import time
 from typing import Optional
 
@@ -102,8 +103,10 @@ def make_engine(
     if not dsn:
         try:
             logger.warning("[postgres] no DSN in env; engine not created")
-        except Exception:
-            pass
+        except Exception as exc:  # nosec B110 - log fallback
+            logging.getLogger(__name__).warning(
+                "Unable to emit missing DSN warning: %s", exc
+            )
         return None
     eng = create_engine(
         dsn,
@@ -115,8 +118,8 @@ def make_engine(
     )
     try:
         logger.info("[postgres] engine created dsn={}", _sanitize_dsn(dsn))
-    except Exception:
-        pass
+    except Exception as exc:  # nosec B110 - log fallback
+        logging.getLogger(__name__).debug("Unable to emit engine creation log: %s", exc)
     return eng
 
 
@@ -210,8 +213,8 @@ def ping(
                 try:
                     ms = int(max(timeout_sec, 0) * 1000)
                     cx.execute(text(f"SET LOCAL statement_timeout = {ms}"))
-                except Exception:
-                    pass
+                except Exception as exc:  # nosec B110 - diagnostics only
+                    logger.debug("[postgres] statement_timeout hint failed: {}", exc)
                 cx.execute(text("SELECT 1"))
             return True
         except Exception as e:

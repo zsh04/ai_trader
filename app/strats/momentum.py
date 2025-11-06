@@ -4,13 +4,14 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from loguru import logger
 
 # Opt-in to pandas future behavior to avoid silent downcasting warnings in fillna/ffill/bfill.
 try:
     pd.set_option("future.no_silent_downcasting", True)
-except Exception:
+except Exception as exc:
     # If running with an older pandas that doesn't support this option, ignore.
-    pass
+    logger.debug("pandas future option unsupported: {}", exc)
 
 from .common import (
     as_series,

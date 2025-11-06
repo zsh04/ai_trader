@@ -89,22 +89,22 @@ def _pick_price(
             p = float(latest_trade["p"])  # type: ignore[index]
             if p > 0:
                 return p
-    except Exception:
-        pass
+    except (TypeError, ValueError) as exc:
+        logger.debug("watchlist builder: invalid latest trade price: {}", exc)
     try:
         if daily_bar and daily_bar.get("o"):
             o = float(daily_bar["o"])  # type: ignore[index]
             if o > 0:
                 return o
-    except Exception:
-        pass
+    except (TypeError, ValueError) as exc:
+        logger.debug("watchlist builder: invalid daily open price: {}", exc)
     try:
         if prev_daily and prev_daily.get("c"):
             c = float(prev_daily["c"])  # type: ignore[index]
             if c > 0:
                 return c
-    except Exception:
-        pass
+    except (TypeError, ValueError) as exc:
+        logger.debug("watchlist builder: invalid previous close price: {}", exc)
     return 0.0
 
 

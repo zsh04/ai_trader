@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib
+import logging
 import os
 import sys
 import warnings
@@ -21,6 +22,8 @@ from fastapi.testclient import TestClient
 
 from app.logging_utils import setup_test_logging
 from tests.support import telegram_sink
+
+LOGGER = logging.getLogger(__name__)
 
 # Silence third-party DeprecationWarnings (Python 3.14 compatibility noise)
 warnings.filterwarnings(
@@ -137,8 +140,8 @@ def _dep_callable_from_alias(alias):
             dep = getattr(m, "dependency", None)
             if dep:
                 return dep
-    except Exception:
-        pass
+    except Exception as exc:
+        LOGGER.debug("Unable to extract dependency from alias %s: %s", alias, exc)
     return None
 
 
@@ -230,15 +233,15 @@ def _telegram_allow_test_user():
 
         try:
             importlib.reload(ENV)  # best-effort sync with current env
-        except Exception:
-            pass
+        except Exception as exc:
+            LOGGER.debug("Failed to reload app.utils.env for tests: %s", exc)
         # Keep both string and list representations sane
         try:
             ENV.TELEGRAM_ALLOWED_USER_IDS = ["999"]
-        except Exception:
-            pass
-    except Exception:
-        pass
+        except Exception as exc:
+            LOGGER.debug("Unable to set TELEGRAM_ALLOWED_USER_IDS test value: %s", exc)
+    except Exception as exc:
+        LOGGER.debug("ENV override setup skipped (module missing): %s", exc)
 
     yield
 
@@ -272,14 +275,14 @@ def _force_fresh_telegram_stack():
 
         try:
             importlib.reload(ENV)
-        except Exception:
-            pass
+        except Exception as exc:
+            LOGGER.debug("Failed to reload ENV during test setup: %s", exc)
         try:
             ENV.TELEGRAM_ALLOWED_USER_IDS = []
-        except Exception:
-            pass
-    except Exception:
-        pass
+        except Exception as exc:
+            LOGGER.debug("Unable to clear TELEGRAM_ALLOWED_USER_IDS: %s", exc)
+    except Exception as exc:
+        LOGGER.debug("Skipping ENV reinitialization: %s", exc)
 
     # Reload adapter to pick up TELEGRAM_FAKE=1 and reset its outbox
     import app.adapters.notifiers.telegram as _tg
@@ -289,8 +292,8 @@ def _force_fresh_telegram_stack():
     # Clean adapter outbox before the session
     try:
         _tg.test_outbox_clear()
-    except Exception:
-        pass
+    except Exception as exc:
+        LOGGER.debug("Failed to clear Telegram test outbox: %s", exc)
 
     # Reload the route module so it references the freshly reloaded adapter
     import app.api.routes.telegram as route_mod

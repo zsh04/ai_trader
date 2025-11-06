@@ -291,7 +291,13 @@ def _chart_to_dataframe(payload: Dict[str, Any], auto_adjust: bool) -> DataFrame
     for idx, ts in enumerate(timestamps):
         try:
             dt = datetime.fromtimestamp(int(ts), tz=timezone.utc).date()
-        except Exception:
+        except Exception as exc:
+            logger.debug(
+                "yahoo chart_to_dataframe: invalid timestamp index={} value={} error={}",
+                idx,
+                ts,
+                exc,
+            )
             continue
 
         o = _safe_float(quote.get("open"), idx)
@@ -367,12 +373,16 @@ def intraday_last(symbols: List[str]) -> Dict[str, float]:
                     px = float(px_raw)
                     if not math.isnan(px) and px > 0:
                         out[sym] = px
-            except KeyError:
+            except KeyError as exc:
                 # fast_info present but missing key
-                pass
-            except Exception:
+                logger.debug(
+                    "yahoo intraday_last: fast_info missing key for {}: {}", sym, exc
+                )
+            except Exception as exc:
                 # ignore; try a slower fallback below
-                pass
+                logger.debug(
+                    "yahoo intraday_last: fast_info failed for {}: {}", sym, exc
+                )
 
         # Fallback only for the ones we still don't have
         missing = [s for s in batch if s not in out]
@@ -459,13 +469,24 @@ def latest_volume(symbols: List[str]) -> Dict[str, int]:
                     v = int(float(v_raw))
                     if v > 0:
                         out[sym] = v
-            except (ValueError, TypeError):
-                # e.g., NaN / non-numeric
-                pass
-            except KeyError:
-                pass
-            except Exception:
-                pass
+            except (ValueError, TypeError) as exc:
+                logger.debug(
+                    "yahoo latest_volume: non-numeric fast_info volume {}: {}",
+                    sym,
+                    exc,
+                )
+            except KeyError as exc:
+                logger.debug(
+                    "yahoo latest_volume: symbol missing in ticker map {}: {}",
+                    sym,
+                    exc,
+                )
+            except Exception as exc:
+                logger.debug(
+                    "yahoo latest_volume: unexpected error reading fast_info {}: {}",
+                    sym,
+                    exc,
+                )
 
         missing = [s for s in batch if s not in out]
         if not missing:
@@ -482,8 +503,12 @@ def latest_volume(symbols: List[str]) -> Dict[str, int]:
                     v = int(df["Volume"].iloc[-1] or 0)
                     if v > 0:
                         out[sym] = v
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug(
+                    "yahoo latest_volume: intraday fallback failed for {}: {}",
+                    sym,
+                    exc,
+                )
 
         # Still missing? Use latest daily volume
         missing = [s for s in batch if s not in out]

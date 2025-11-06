@@ -58,7 +58,7 @@ class FakeTelegramClient:
     def __init__(self) -> None:
         """Initializes the FakeTelegramClient."""
         self.allowed: Set[int] = set()
-        self.secret = ""
+        self.secret = ""  # nosec B105 - test double only, never used for auth
         self.timeout = 1
 
     def smart_send(
@@ -476,8 +476,10 @@ class TelegramClient:
                             body.get("description"),
                         )
                         return False
-            except Exception:
-                pass
+            except Exception as exc:  # nosec B110 - log parse failure
+                logger.debug(
+                    "[Telegram] Unable to parse sendMessage response as JSON: {}", exc
+                )
             logger.debug("[Telegram] Sent {} chars to {}", len(text), chat_id)
             return True
         except Exception as e:

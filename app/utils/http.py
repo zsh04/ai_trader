@@ -58,10 +58,14 @@ def compute_backoff_delay(
             val = float(retry_after)
             if val > 0:
                 return val
-        except Exception:
-            pass
+        except (TypeError, ValueError) as exc:
+            logger.debug(
+                "invalid Retry-After header ({}) using backoff fallback: {}",
+                retry_after,
+                exc,
+            )
     # Jittered backoff: base * (attempt+1) * (0.85..1.15)
-    jitter = random.uniform(0.85, 1.15)
+    jitter = random.uniform(0.85, 1.15)  # nosec B311 - jitter is non-crypto randomness
     return max(0.1, backoff * (attempt + 1) * jitter)
 
 

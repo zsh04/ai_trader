@@ -22,12 +22,15 @@ Design notes:
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:  # Avoid runtime import of Azure SDK
     from azure.storage.blob import (  # pragma: no cover
@@ -158,8 +161,8 @@ def _container(container_name: Optional[str] = None) -> "ContainerClient":
     ResourceExistsError, _ = _azure_exceptions()
     try:
         client.create_container()
-    except ResourceExistsError:
-        pass
+    except ResourceExistsError as exc:  # nosec B110 - container already exists
+        logger.debug("Blob container %s already exists: %s", container_name, exc)
     return client
 
 

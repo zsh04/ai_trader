@@ -23,8 +23,10 @@ def _detect_build_version() -> str:
     if build_file.exists():
         try:
             return build_file.read_text(encoding="utf-8").strip()
-        except Exception:
-            pass
+        except Exception as exc:  # nosec B110 - log and fall back to unknown
+            logging.getLogger(__name__).warning(
+                "Failed to read build version file: %s", exc
+            )
     return "unknown"
 
 
