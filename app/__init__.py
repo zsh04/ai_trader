@@ -1,12 +1,13 @@
-import os
 import logging
+import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 import sentry_sdk
+from dotenv import load_dotenv
+from loguru import logger
 from sentry_sdk.integrations.fastapi import FastApiIntegration
-from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
 
 __version__ = "1.6.6"
 
@@ -47,5 +48,4 @@ if _dsn:
 else:
     logging.getLogger(__name__).info("Sentry DSN not set; Sentry disabled")
 
-from loguru import logger
 logger.info("startup: log pipeline ready")

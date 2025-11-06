@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import contextlib
 from datetime import datetime
 from pathlib import Path
@@ -92,7 +91,9 @@ class MarketDataDAL:
             return client.fetch_bars(request)
 
         span_ctx = (
-            _tracer.start_as_current_span("dal.fetch_bars", attributes={"vendor": vendor})
+            _tracer.start_as_current_span(
+                "dal.fetch_bars", attributes={"vendor": vendor}
+            )
             if _tracer
             else contextlib.nullcontext()
         )
@@ -171,7 +172,9 @@ class MarketDataDAL:
         try:
             session = get_session()
         except RuntimeError:
-            logger.debug("[dal] Postgres session unavailable; skipping metadata persist")
+            logger.debug(
+                "[dal] Postgres session unavailable; skipping metadata persist"
+            )
             return
 
         try:

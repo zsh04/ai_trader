@@ -1,8 +1,11 @@
-import os
 import pytest
-from tests.conftest import _outbox, _clear_outbox, client
 
-pytestmark = pytest.mark.skip(reason="Parking lot: Telegram watchlist command tests temporarily disabled pending refactor.")
+from tests.conftest import _clear_outbox, _outbox
+
+pytestmark = pytest.mark.skip(
+    reason="Parking lot: Telegram watchlist command tests temporarily disabled pending refactor."
+)
+
 
 def _last_text():
     ob = _outbox()
@@ -16,6 +19,7 @@ def _last_text():
         return last[1]
     return str(last)
 
+
 def _tg_update(cmd: str):
     return {
         "update_id": 2001,
@@ -28,12 +32,16 @@ def _tg_update(cmd: str):
         },
     }
 
+
 @pytest.fixture(autouse=True)
 def patch_watchlist(monkeypatch):
     # Force a deterministic set of symbols and a named source
     def fake_resolve_watchlist():
         return ("textlist", ["AAPL", "MSFT", "NVDA"])
-    monkeypatch.setattr("app.domain.watchlist_service.resolve_watchlist", fake_resolve_watchlist)
+
+    monkeypatch.setattr(
+        "app.domain.watchlist_service.resolve_watchlist", fake_resolve_watchlist
+    )
     yield
 
 

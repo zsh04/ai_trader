@@ -130,13 +130,7 @@ class SignalFilteringAgent:
             prev_x2 = self._butter_x2
             prev_y1 = self._butter_y1
             prev_y2 = self._butter_y2
-            y = (
-                b0 * price
-                + b1 * prev_x1
-                + b2 * prev_x2
-                - a1 * prev_y1
-                - a2 * prev_y2
-            )
+            y = b0 * price + b1 * prev_x1 + b2 * prev_x2 - a1 * prev_y1 - a2 * prev_y2
 
         self._butter_x2 = self._butter_x1
         self._butter_x1 = price
@@ -150,7 +144,7 @@ class SignalFilteringAgent:
         if self._ema_prev is None:
             self._ema_prev = price
         else:
-            self._ema_prev = self._ema_alpha * price + (
-                1.0 - self._ema_alpha
-            ) * self._ema_prev
+            self._ema_prev = (
+                self._ema_alpha * price + (1.0 - self._ema_alpha) * self._ema_prev
+            )
         return self._ema_prev

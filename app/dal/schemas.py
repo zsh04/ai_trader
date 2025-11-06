@@ -123,7 +123,9 @@ class SignalFrame:
         }
 
 
-def merge_bars(symbol: str, vendor: str, timezone_name: str, series: Sequence[dict]) -> Bars:
+def merge_bars(
+    symbol: str, vendor: str, timezone_name: str, series: Sequence[dict]
+) -> Bars:
     """Utility to construct a Bars object from raw dict sequences."""
     out = Bars(symbol=symbol, vendor=vendor, timezone=timezone_name)
     for payload in series:

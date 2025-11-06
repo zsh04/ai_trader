@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-
 import types
 
 from loguru import logger
@@ -31,7 +30,9 @@ def test_fetch_chart_history_non_200(monkeypatch, caplog):
         assert captured["kwargs"]["backoff"] == ENV.HTTP_BACKOFF
         assert captured["kwargs"]["timeout"] == ENV.HTTP_TIMEOUT
 
-        assert any("yahoo history fetch failed" in rec.message for rec in caplog.records)
+        assert any(
+            "yahoo history fetch failed" in rec.message for rec in caplog.records
+        )
         record = caplog.records[0]
         assert getattr(record, "provider", None) == "yahoo"
         assert getattr(record, "status", None) == 500
@@ -45,9 +46,11 @@ def test_yahoo_request_uses_env(monkeypatch):
     monkeypatch.setenv("HTTP_BACKOFF", "1.7")
 
     import app.utils.env as env_module
+
     importlib.reload(env_module)
 
     import app.providers.yahoo_provider as module
+
     module = importlib.reload(module)
 
     calls = []

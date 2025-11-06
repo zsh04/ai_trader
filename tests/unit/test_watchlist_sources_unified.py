@@ -1,10 +1,11 @@
 # tests/unit/test_watchlist_sources_unified.py
 import importlib
-from typing import List
+
 
 def _safe_load(path: str):
     module = importlib.import_module(path)
-    return getattr(module, "get_symbols")
+    return module.get_symbols
+
 
 def test_sources_export_get_symbols():
     # adjust these import paths if your package layout differs

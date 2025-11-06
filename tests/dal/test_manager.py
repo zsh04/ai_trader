@@ -88,7 +88,7 @@ def test_market_data_dal_fetch(tmp_path: Path, monkeypatch):
     assert parquet_files, "expected cached parquet output"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio("asyncio")
 async def test_market_data_dal_stream_backfill(tmp_path: Path):
     base = datetime(2024, 1, 1, tzinfo=timezone.utc)
     events = [

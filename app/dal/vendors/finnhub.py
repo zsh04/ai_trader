@@ -13,7 +13,6 @@ from app.dal.vendors.base import FetchRequest, VendorClient
 from app.settings import get_market_data_settings
 from app.utils.http import http_get
 
-
 _RESOLUTION_MAP = {
     "1Min": "1",
     "5Min": "5",
@@ -54,8 +53,12 @@ class FinnhubVendor(VendorClient):
         }
         status, payload = http_get(f"{self.BASE_URL}/stock/candle", params=params)
         if status != 200 or not isinstance(payload, dict) or payload.get("s") != "ok":
-            logger.warning("Finnhub candle fetch failed symbol={} status={} payload={} ",
-                           request.symbol, status, payload)
+            logger.warning(
+                "Finnhub candle fetch failed symbol={} status={} payload={} ",
+                request.symbol,
+                status,
+                payload,
+            )
             return Bars(symbol=request.symbol.upper(), vendor=self.name, timezone="UTC")
 
         bars = Bars(symbol=request.symbol.upper(), vendor=self.name, timezone="UTC")
@@ -94,11 +97,12 @@ class FinnhubVendor(VendorClient):
         # Finnhub streams trade ticks; downstream components aggregate into bars.
         query = f"wss://ws.finnhub.io?token={self.api_key}"
         subscribe_messages = [
-            json.dumps({"type": "subscribe", "symbol": sym.upper()})
-            for sym in symbols
+            json.dumps({"type": "subscribe", "symbol": sym.upper()}) for sym in symbols
         ]
 
-        async for message in _finnhub_stream(query, subscribe_messages):  # pragma: no cover
+        async for message in _finnhub_stream(
+            query, subscribe_messages
+        ):  # pragma: no cover
             if message.get("type") != "trade":
                 continue
             for trade in message.get("data", []):
@@ -115,7 +119,9 @@ class FinnhubVendor(VendorClient):
                 }
 
 
-async def _finnhub_stream(url: str, subscribe_messages: list[str], reconnect_delay: float = 5.0):
+async def _finnhub_stream(
+    url: str, subscribe_messages: list[str], reconnect_delay: float = 5.0
+):
     while True:  # pragma: no cover - network path
         try:
             async with websockets.connect(url, ping_interval=20, ping_timeout=20) as ws:

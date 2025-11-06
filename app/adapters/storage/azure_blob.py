@@ -1,5 +1,3 @@
-# app/adapters/storage/azure_blob.py
-from __future__ import annotations
 """
 Thin helpers around Azure Blob Storage for simple app data persistence.
 
@@ -21,16 +19,21 @@ Design notes:
 - Creates the container on first write/list if it does not exist.
 """
 
+from __future__ import annotations
+
 import json
 import os
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union, Set
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
 from app.config import settings
 
 if TYPE_CHECKING:  # Avoid runtime import of Azure SDK
-    from azure.storage.blob import BlobServiceClient, ContainerClient, BlobClient  # pragma: no cover
+    from azure.storage.blob import (  # pragma: no cover
+        BlobServiceClient,
+        ContainerClient,
+    )
 
 __all__ = [
     "blob_save_json",
@@ -57,6 +60,7 @@ _INMEM_INDEX: dict[str, set[str]] = defaultdict(set)
 # Internal helpers
 # --------------------------
 
+
 def _azure_exceptions() -> Tuple[type[Exception], type[Exception]]:
     """
     Returns a tuple of Azure SDK exceptions.
@@ -66,10 +70,13 @@ def _azure_exceptions() -> Tuple[type[Exception], type[Exception]]:
     """
     try:
         from azure.core.exceptions import ResourceExistsError, ResourceNotFoundError  # type: ignore
+
         return ResourceExistsError, ResourceNotFoundError
     except Exception:  # SDK not installed or import error
+
         class _DummyAzureException(Exception):
             pass
+
         return _DummyAzureException, _DummyAzureException
 
 
@@ -112,6 +119,7 @@ def _client() -> "BlobServiceClient":
     # Managed Identity / DefaultAzureCredential path
     try:
         from azure.identity import DefaultAzureCredential  # lazy import
+
         if not account:
             raise RuntimeError(
                 "settings.blob_account is required when using DefaultAzureCredential."
@@ -210,7 +218,9 @@ def _locator(container: str, path: str) -> str:
     return f"{container}/{path}"
 
 
-def _resolve_sig_2_or_3(args: tuple, kwargs: dict, want: str) -> Tuple[Optional[str], str, Any]:
+def _resolve_sig_2_or_3(
+    args: tuple, kwargs: dict, want: str
+) -> Tuple[Optional[str], str, Any]:
     """
     Resolves dual signatures for blob operations.
 
@@ -240,7 +250,9 @@ def _resolve_sig_2_or_3(args: tuple, kwargs: dict, want: str) -> Tuple[Optional[
         path = kwargs.get("path")
         obj = kwargs.get("obj")
         if path is None or obj is None:
-            raise TypeError("blob_save_json requires (container, path, obj) or (obj, path)")
+            raise TypeError(
+                "blob_save_json requires (container, path, obj) or (obj, path)"
+            )
         return container, str(path), obj
 
     if want in ("load", "json", "list"):
@@ -265,6 +277,7 @@ def _resolve_sig_2_or_3(args: tuple, kwargs: dict, want: str) -> Tuple[Optional[
 # --------------------------
 # Public API
 # --------------------------
+
 
 def blob_save_json(*args, **kwargs) -> str:
     """
@@ -296,7 +309,9 @@ def blob_save_json(*args, **kwargs) -> str:
     elif hasattr(blob, "upload"):
         blob.upload(buf)
     elif hasattr(container, "upload_blob"):
-        container.upload_blob(name=path, data=buf, overwrite=True, content_type="application/json")
+        container.upload_blob(
+            name=path, data=buf, overwrite=True, content_type="application/json"
+        )
     else:
         raise AttributeError("Blob client/container missing an upload method")
 
@@ -423,14 +438,22 @@ def blob_list(*args, **kwargs) -> list[str]:
 
     if hasattr(container, "list_blobs"):
         try:
-            iterable = container.list_blobs(name_starts_with=norm_prefix) if norm_prefix else container.list_blobs()
+            iterable = (
+                container.list_blobs(name_starts_with=norm_prefix)
+                if norm_prefix
+                else container.list_blobs()
+            )
         except TypeError:
             iterable = None
         _collect(iterable)
 
         if not names:
             try:
-                iterable = container.list_blobs(prefix=norm_prefix) if norm_prefix else container.list_blobs()
+                iterable = (
+                    container.list_blobs(prefix=norm_prefix)
+                    if norm_prefix
+                    else container.list_blobs()
+                )
             except TypeError:
                 iterable = None
             _collect(iterable)
@@ -462,7 +485,11 @@ def blob_list(*args, **kwargs) -> list[str]:
             iterable = container.list(norm_prefix) if norm_prefix else container.list()
         except TypeError:
             try:
-                iterable = container.list(prefix=norm_prefix) if norm_prefix else container.list()
+                iterable = (
+                    container.list(prefix=norm_prefix)
+                    if norm_prefix
+                    else container.list()
+                )
             except TypeError:
                 iterable = None
         _collect(iterable)
@@ -478,20 +505,36 @@ def blob_list(*args, **kwargs) -> list[str]:
 
     if not names and hasattr(container, "iter_blobs"):
         try:
-            iterable = container.iter_blobs(prefix=norm_prefix) if norm_prefix else container.iter_blobs()
+            iterable = (
+                container.iter_blobs(prefix=norm_prefix)
+                if norm_prefix
+                else container.iter_blobs()
+            )
         except TypeError:
             try:
-                iterable = container.iter_blobs(norm_prefix) if norm_prefix else container.iter_blobs()
+                iterable = (
+                    container.iter_blobs(norm_prefix)
+                    if norm_prefix
+                    else container.iter_blobs()
+                )
             except TypeError:
                 iterable = None
         _collect(iterable)
 
     if not names and hasattr(container, "list_blob_names"):
         try:
-            iterable = container.list_blob_names(prefix=norm_prefix) if norm_prefix else container.list_blob_names()
+            iterable = (
+                container.list_blob_names(prefix=norm_prefix)
+                if norm_prefix
+                else container.list_blob_names()
+            )
         except TypeError:
             try:
-                iterable = container.list_blob_names(norm_prefix) if norm_prefix else container.list_blob_names()
+                iterable = (
+                    container.list_blob_names(norm_prefix)
+                    if norm_prefix
+                    else container.list_blob_names()
+                )
             except TypeError:
                 iterable = None
         _collect(iterable)
@@ -507,47 +550,73 @@ def blob_list(*args, **kwargs) -> list[str]:
 
     if not names and hasattr(container, "list_names"):
         try:
-            iterable = container.list_names(prefix=norm_prefix) if norm_prefix else container.list_names()
+            iterable = (
+                container.list_names(prefix=norm_prefix)
+                if norm_prefix
+                else container.list_names()
+            )
         except TypeError:
             try:
-                iterable = container.list_names(norm_prefix) if norm_prefix else container.list_names()
+                iterable = (
+                    container.list_names(norm_prefix)
+                    if norm_prefix
+                    else container.list_names()
+                )
             except TypeError:
                 iterable = None
         _collect(iterable)
 
     if not names and hasattr(container, "listdir"):
         try:
-            iterable = container.listdir(norm_prefix) if norm_prefix else container.listdir()
+            iterable = (
+                container.listdir(norm_prefix) if norm_prefix else container.listdir()
+            )
         except TypeError:
             iterable = None
         _collect(iterable)
 
     if not names:
         for attr in (
-            "_blobs", "blobs",
-            "_store", "store",
-            "_storage", "storage",
-            "_data", "data",
-            "objects", "_objects",
-            "files", "_files",
-            "entries", "_entries",
-            "items_map", "_items",
+            "_blobs",
+            "blobs",
+            "_store",
+            "store",
+            "_storage",
+            "storage",
+            "_data",
+            "data",
+            "objects",
+            "_objects",
+            "files",
+            "_files",
+            "entries",
+            "_entries",
+            "items_map",
+            "_items",
         ):
             store = getattr(container, attr, None)
             if isinstance(store, dict):
                 names.extend([_normalize_listed_name(k) for k in store.keys()])
                 break
             if isinstance(store, (list, tuple)):
-                names.extend([_normalize_listed_name(x.name if hasattr(x, "name") else x) for x in store])
+                names.extend(
+                    [
+                        _normalize_listed_name(x.name if hasattr(x, "name") else x)
+                        for x in store
+                    ]
+                )
                 break
 
     if not names:
-        names.extend([_normalize_path(p) for p in _INMEM_INDEX.get(container_name, set())])
+        names.extend(
+            [_normalize_path(p) for p in _INMEM_INDEX.get(container_name, set())]
+        )
 
     if norm_prefix:
         names = [n for n in names if isinstance(n, str) and n.startswith(norm_prefix)]
     names = sorted(set(names))
     return names
+
 
 def today_key(prefix: str, name: Optional[str] = None, suffix: str = "json") -> str:
     """
@@ -622,6 +691,7 @@ def to_url(locator_or_path: str) -> str:
 # Test support
 # --------------------------
 
+
 def _reset_client_cache() -> None:
     """Resets the client cache and in-memory index."""
     global _BSC
@@ -637,9 +707,13 @@ put_json = blob_save_json
 # Back-compat OO wrapper
 # --------------------------
 
+
 class WatchlistBlobStore:
     """A wrapper for storing and retrieving watchlists in Azure Blob Storage."""
-    def __init__(self, *, base_prefix: str = "watchlists", container: Optional[str] = None):
+
+    def __init__(
+        self, *, base_prefix: str = "watchlists", container: Optional[str] = None
+    ):
         """
         Initializes the WatchlistBlobStore.
 
@@ -688,7 +762,9 @@ class WatchlistBlobStore:
             str: The locator string.
         """
         if self.container:
-            return blob_save_json(self.container, f"{self.base_prefix}/{_normalize_path(key)}", obj)
+            return blob_save_json(
+                self.container, f"{self.base_prefix}/{_normalize_path(key)}", obj
+            )
         return blob_save_json(f"{self.base_prefix}/{_normalize_path(key)}", obj)
 
     def load_text(self, key: str) -> Optional[str]:
@@ -702,7 +778,9 @@ class WatchlistBlobStore:
             Optional[str]: The blob content as a string, or None if not found.
         """
         if self.container:
-            return blob_load_text(self.container, f"{self.base_prefix}/{_normalize_path(key)}")
+            return blob_load_text(
+                self.container, f"{self.base_prefix}/{_normalize_path(key)}"
+            )
         return blob_load_text(f"{self.base_prefix}/{_normalize_path(key)}")
 
     def load_json(self, key: str) -> Optional[Union[dict, list]]:
@@ -716,7 +794,9 @@ class WatchlistBlobStore:
             Optional[Union[dict, list]]: The parsed JSON object, or None if not found.
         """
         if self.container:
-            return blob_load_json(self.container, f"{self.base_prefix}/{_normalize_path(key)}")
+            return blob_load_json(
+                self.container, f"{self.base_prefix}/{_normalize_path(key)}"
+            )
         return blob_load_json(f"{self.base_prefix}/{_normalize_path(key)}")
 
     def list(self, prefix: str = "") -> List[str]:
@@ -729,7 +809,11 @@ class WatchlistBlobStore:
         Returns:
             List[str]: A list of blob names.
         """
-        p = f"{self.base_prefix}/{_normalize_path(prefix)}" if prefix else self.base_prefix
+        p = (
+            f"{self.base_prefix}/{_normalize_path(prefix)}"
+            if prefix
+            else self.base_prefix
+        )
         if self.container:
             return blob_list(self.container, p)
         return blob_list(p)

@@ -1,12 +1,13 @@
 from __future__ import annotations
+
+import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict
-import os
 from urllib.parse import urlparse
-from starlette.concurrency import run_in_threadpool
 
 from fastapi import APIRouter
+from starlette.concurrency import run_in_threadpool
 
 try:
     from app import __version__ as APP_VERSION
@@ -76,6 +77,7 @@ async def health_ready() -> Dict[str, str]:
     """
     return {"status": "ok", "utc": datetime.now(timezone.utc).isoformat()}
 
+
 @router.get("/market")
 async def health_market():
     """
@@ -84,12 +86,16 @@ async def health_market():
     Returns:
         Dict[str, Any]: A dictionary with the market data provider status.
     """
-    import os, logging
-    from app.adapters.market.alpaca_client import ping_alpaca, AlpacaPingError
+    import logging
+    import os
+
+    from app.adapters.market.alpaca_client import AlpacaPingError, ping_alpaca
 
     feed = os.getenv("ALPACA_DATA_FEED", "").lower() or "iex"
     try:
-        ok, meta = await run_in_threadpool(lambda: ping_alpaca(feed=feed, timeout_sec=4.0))
+        ok, meta = await run_in_threadpool(
+            lambda: ping_alpaca(feed=feed, timeout_sec=4.0)
+        )
         return {"status": "ok" if ok else "degraded", "feed": feed, "meta": meta}
     except AlpacaPingError as e:
         logging.warning("market ping failed: %s", e)
@@ -106,10 +112,10 @@ async def version() -> Dict[str, str]:
     """
     return {"version": APP_VERSION}
 
+
 @router.get("/sentry-debug")
 async def trigger_error():
-    division_by_zero = 1 / 0
-    return {"fail": "this will not be reached"}
+    raise ZeroDivisionError("sentry debug route triggered")
 
 
 def _mask(value: str | None) -> str:
@@ -131,7 +137,9 @@ def _mask(value: str | None) -> str:
         if len(stripped) <= 2:
             return stripped[:1] + "*" * max(len(stripped) - 1, 0)
         return stripped[:prefix] + "*" * (len(stripped) - prefix)
-    return stripped[:prefix] + "*" * (len(stripped) - prefix - suffix) + stripped[-suffix:]
+    return (
+        stripped[:prefix] + "*" * (len(stripped) - prefix - suffix) + stripped[-suffix:]
+    )
 
 
 @router.get("/config")

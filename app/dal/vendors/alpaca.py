@@ -10,7 +10,12 @@ from loguru import logger
 
 from app.dal.schemas import Bar, Bars
 from app.dal.vendors.base import FetchRequest, VendorClient
-from app.utils.env import ALPACA_API_KEY, ALPACA_API_SECRET, ALPACA_DATA_BASE_URL, ALPACA_FEED
+from app.utils.env import (
+    ALPACA_API_KEY,
+    ALPACA_API_SECRET,
+    ALPACA_DATA_BASE_URL,
+    ALPACA_FEED,
+)
 from app.utils.http import alpaca_headers, http_get
 
 
@@ -97,7 +102,9 @@ class AlpacaVendor(VendorClient):
                 continue
             yield {
                 "symbol": message.get("S"),
-                "timestamp": datetime.fromtimestamp(message.get("t", 0) / 1_000_000_000, tz=timezone.utc),
+                "timestamp": datetime.fromtimestamp(
+                    message.get("t", 0) / 1_000_000_000, tz=timezone.utc
+                ),
                 "open": message.get("o"),
                 "high": message.get("h"),
                 "low": message.get("l"),

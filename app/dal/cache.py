@@ -15,11 +15,19 @@ def store_bars_to_parquet(bars: Bars, directory: Path) -> Path:
     file_path = directory / f"{bars.symbol}_{bars.vendor}.parquet"
     df = bars.to_dataframe()
     df.to_parquet(file_path, index=True)
-    logger.debug("stored bars to {} rows={} symbol={} vendor={}", file_path, len(df), bars.symbol, bars.vendor)
+    logger.debug(
+        "stored bars to {} rows={} symbol={} vendor={}",
+        file_path,
+        len(df),
+        bars.symbol,
+        bars.vendor,
+    )
     return file_path
 
 
-def load_bars_from_parquet(path: Path, symbol: str, vendor: str, timezone: str = "UTC") -> Bars:
+def load_bars_from_parquet(
+    path: Path, symbol: str, vendor: str, timezone: str = "UTC"
+) -> Bars:
     df = pd.read_parquet(path)
     index = pd.to_datetime(df.index)
     if index.tz is None:  # type: ignore[attr-defined]
@@ -44,7 +52,9 @@ def load_bars_from_parquet(path: Path, symbol: str, vendor: str, timezone: str =
     return out
 
 
-def store_signals_to_parquet(signals: Iterable[SignalFrame], directory: Path) -> Optional[Path]:
+def store_signals_to_parquet(
+    signals: Iterable[SignalFrame], directory: Path
+) -> Optional[Path]:
     signals_list = list(signals)
     if not signals_list:
         return None
@@ -77,7 +87,9 @@ def store_signals_to_parquet(signals: Iterable[SignalFrame], directory: Path) ->
     return file_path
 
 
-def store_regimes_to_parquet(regimes: Iterable[RegimeSnapshot], directory: Path) -> Optional[Path]:
+def store_regimes_to_parquet(
+    regimes: Iterable[RegimeSnapshot], directory: Path
+) -> Optional[Path]:
     regime_list = list(regimes)
     if not regime_list:
         return None

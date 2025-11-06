@@ -51,7 +51,7 @@ def parse_env_file(path: Path) -> Dict[str, str]:
         if "=" not in line:
             continue
         key, value = line.split("=", 1)
-        env[key.strip()] = value.strip().strip('\'"')
+        env[key.strip()] = value.strip().strip("'\"")
     return env
 
 
@@ -62,7 +62,9 @@ def resolve_env(env_file: Path | None) -> Dict[str, str]:
     return merged
 
 
-def find_missing(env: Dict[str, str], mapping: Iterable[Tuple[str, str, bool]]) -> Tuple[Dict[str, str], Dict[str, str]]:
+def find_missing(
+    env: Dict[str, str], mapping: Iterable[Tuple[str, str, bool]]
+) -> Tuple[Dict[str, str], Dict[str, str]]:
     missing_required: Dict[str, str] = {}
     missing_optional: Dict[str, str] = {}
     for kv_name, env_var, required in mapping:
@@ -74,7 +76,9 @@ def find_missing(env: Dict[str, str], mapping: Iterable[Tuple[str, str, bool]]) 
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check Key Vault ↔ env mapping coverage.")
+    parser = argparse.ArgumentParser(
+        description="Check Key Vault ↔ env mapping coverage."
+    )
     parser.add_argument(
         "--env-file",
         type=Path,

@@ -48,9 +48,7 @@ def _to_returns(curve: pd.Series) -> pd.Series:
     s = curve.astype(float).dropna()
     if s.empty:
         return pd.Series(dtype=float)
-    return (
-        s.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0.0).astype(float)
-    )
+    return s.pct_change().replace([np.inf, -np.inf], np.nan).fillna(0.0).astype(float)
 
 
 def _annualize_returns(
@@ -133,9 +131,7 @@ def equity_stats(
 
     neg = rets[rets < 0]
     downs = float(neg.std(ddof=0)) if len(neg) else 0.0
-    sortino = (
-        ann_mean / (downs * math.sqrt(periods_per_year)) if downs > 0 else 0.0
-    )
+    sortino = ann_mean / (downs * math.sqrt(periods_per_year)) if downs > 0 else 0.0
 
     _, max_dd, max_dd_len = _drawdown_curve(curve)
     total_ret = float(curve.iloc[-1] / curve.iloc[0] - 1.0)
@@ -193,9 +189,7 @@ def trade_stats(trades: List[Dict[str, Any]]) -> TradeMetrics:
     avg_pnl = float(pnls.mean()) if n else 0.0
     avg_win = float(wins.mean()) if len(wins) else 0.0
     avg_loss = float(losses.mean()) if len(losses) else 0.0
-    payoff = (
-        (avg_win / abs(avg_loss)) if (avg_win > 0 and avg_loss < 0) else 0.0
-    )
+    payoff = (avg_win / abs(avg_loss)) if (avg_win > 0 and avg_loss < 0) else 0.0
     expectancy = win_rate * avg_win + (1 - win_rate) * avg_loss
     best = float(pnls.max()) if n else 0.0
     worst = float(pnls.min()) if n else 0.0
@@ -225,17 +219,13 @@ def summarize(
 ) -> Dict[str, Any]:
     eq = backtest_result.get("equity")
     tr = backtest_result.get("trades", [])
-    eqm = equity_stats(
-        eq, use_mtm=use_mtm, periods_per_year=periods_per_year
-    )
+    eqm = equity_stats(eq, use_mtm=use_mtm, periods_per_year=periods_per_year)
     tm = trade_stats(tr)
     logger.debug("[metrics] summary built: equity & trades")
     return {"equity": asdict(eqm), "trades": asdict(tm)}
 
 
-def drawdown_series(
-    equity_df: pd.DataFrame, *, use_mtm: bool = True
-) -> pd.Series:
+def drawdown_series(equity_df: pd.DataFrame, *, use_mtm: bool = True) -> pd.Series:
     col = "equity_mtm" if use_mtm and "equity_mtm" in equity_df.columns else "equity"
     s = equity_df[col].astype(float).dropna()
     if s.empty:

@@ -34,7 +34,9 @@ class MarketRepository:
             "attributes": stmt.excluded.attributes,
             "updated_at": stmt.excluded.updated_at,
         }
-        self.session.execute(stmt.on_conflict_do_update(index_elements=["symbol"], set_=update_cols))
+        self.session.execute(
+            stmt.on_conflict_do_update(index_elements=["symbol"], set_=update_cols)
+        )
 
     def fetch_symbols(self, symbols: Iterable[str]) -> list[models.Symbol]:
         sym_list = list({sym.upper() for sym in symbols if sym})
@@ -88,5 +90,11 @@ class MarketRepository:
                     break
             else:
                 # fallback to most recent vendor
-                result[symbol] = next(iter(sorted(vendor_map.values(), key=lambda r: r.ts_utc, reverse=True)))
+                result[symbol] = next(
+                    iter(
+                        sorted(
+                            vendor_map.values(), key=lambda r: r.ts_utc, reverse=True
+                        )
+                    )
+                )
         return result

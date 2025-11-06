@@ -5,7 +5,6 @@ from typing import Iterable
 
 import pytest
 
-
 _OTEL_ENV_FLAGS = (
     "OTEL_EXPORTER_OTLP_ENDPOINT",
     "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT",

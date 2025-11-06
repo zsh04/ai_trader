@@ -1,7 +1,4 @@
 import logging
-import os
-
-import logging
 
 from starlette.testclient import TestClient
 
@@ -9,6 +6,7 @@ from app.logging_utils import setup_logging
 from app.main import app
 
 client = TestClient(app)
+
 
 def test_health_config_masks_and_status(monkeypatch):
     # Simulate prod-ish env
@@ -58,7 +56,9 @@ def test_request_logging_carries_request_id(caplog):
         assert resp.status_code == 200
         assert resp.headers["X-Request-ID"] == request_id
 
-        captured = [rec for rec in records if getattr(rec, "request_id", None) == request_id]
+        captured = [
+            rec for rec in records if getattr(rec, "request_id", None) == request_id
+        ]
         assert captured, "expected log record with request_id"
     finally:
         root.removeHandler(handler)

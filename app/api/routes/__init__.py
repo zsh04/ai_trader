@@ -13,17 +13,18 @@ can iterate incrementally.
 """
 
 from __future__ import annotations
-from typing import Any
-from fastapi import APIRouter, FastAPI
-from .health import router as health_router
-from .watchlists import router as watchlists_router
-from .telegram import router as telegram_router
 
+from fastapi import APIRouter, FastAPI
+
+from .health import router as health_router
+from .telegram import router as telegram_router
+from .watchlists import router as watchlists_router
 
 router = APIRouter()
 router.include_router(health_router, prefix="/health", tags=["health"])
 router.include_router(watchlists_router, prefix="/watchlists", tags=["watchlists"])
 router.include_router(telegram_router, prefix="/telegram", tags=["telegram"])
+
 
 def _include_optional(module_path: str, attr: str = "router") -> None:
     """Try to import a module and include its router if present.
@@ -40,7 +41,9 @@ def _include_optional(module_path: str, attr: str = "router") -> None:
         # Intentionally swallow import errors to keep app boot resilient
         pass
 
+
 _include_optional("app.api.routes.health")
+
 
 def mount(app: FastAPI) -> None:
     """Convenience helper to attach all aggregated routes to the app."""

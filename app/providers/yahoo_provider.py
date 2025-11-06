@@ -14,6 +14,13 @@ from app.utils.http import compute_backoff_delay, http_get
 
 # yfinance is optional at runtime; we guard imports and degrade gracefully.
 
+if TYPE_CHECKING:  # pragma: no cover - typing helper
+    import pandas as pd
+
+    DataFrame = pd.DataFrame
+else:
+    DataFrame = Any
+
 _CHUNK_SIZE = 50  # keep multi-symbol batches reasonable
 _YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
 _breaker_lock = threading.Lock()
@@ -52,7 +59,9 @@ def _breaker_record_success() -> None:
         _breaker_open_until = 0.0
 
 
-def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[int, Dict[str, Any]]:
+def _yahoo_request(
+    url: str, params: Optional[Dict[str, Any]] = None
+) -> Tuple[int, Dict[str, Any]]:
     allowed, remaining = _breaker_allow_request()
     if not allowed:
         logger.debug(
@@ -61,9 +70,7 @@ def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[i
         )
         return 503, {"error": "yahoo_circuit_open"}
 
-    timeout = float(
-        getattr(ENV, "HTTP_TIMEOUT", getattr(ENV, "HTTP_TIMEOUT_SECS", 10))
-    )
+    timeout = float(getattr(ENV, "HTTP_TIMEOUT", getattr(ENV, "HTTP_TIMEOUT_SECS", 10)))
     retries = max(0, int(getattr(ENV, "HTTP_RETRIES", 2)))
     backoff = float(
         getattr(ENV, "HTTP_BACKOFF", getattr(ENV, "HTTP_RETRY_BACKOFF_SEC", 1.5))
@@ -81,7 +88,9 @@ def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[i
             )
             last_status = resp.status_code
         except requests.RequestException as exc:
-            logger.warning("yahoo request error attempt={} url={} error={}", attempt + 1, url, exc)
+            logger.warning(
+                "yahoo request error attempt={} url={} error={}", attempt + 1, url, exc
+            )
             if attempt < retries:
                 sleep = compute_backoff_delay(attempt, backoff, None)
                 time.sleep(sleep)
@@ -124,6 +133,7 @@ def _yahoo_request(url: str, params: Optional[Dict[str, Any]] = None) -> Tuple[i
     _breaker_record_throttle()
     status = last_status or 429
     return status, {"error": "yahoo_throttled"}
+
 
 if TYPE_CHECKING:
     # for type hints without importing pandas at runtime
@@ -233,7 +243,9 @@ def _fetch_chart_history(
         params=params,
         timeout=getattr(ENV, "HTTP_TIMEOUT", getattr(ENV, "HTTP_TIMEOUT_SECS", 10)),
         retries=getattr(ENV, "HTTP_RETRIES", 2),
-        backoff=getattr(ENV, "HTTP_BACKOFF", getattr(ENV, "HTTP_RETRY_BACKOFF_SEC", 1.5)),
+        backoff=getattr(
+            ENV, "HTTP_BACKOFF", getattr(ENV, "HTTP_RETRY_BACKOFF_SEC", 1.5)
+        ),
         headers={"User-Agent": getattr(ENV, "HTTP_USER_AGENT", "ai-trader/1.0")},
     )
 
@@ -256,7 +268,7 @@ def _fetch_chart_history(
     return data or {}
 
 
-def _chart_to_dataframe(payload: Dict[str, Any], auto_adjust: bool) -> "DataFrame":
+def _chart_to_dataframe(payload: Dict[str, Any], auto_adjust: bool) -> DataFrame:
     import pandas as pd  # local import to avoid hard dependency at module load
 
     cols = ["open", "high", "low", "close", "volume"]
@@ -284,7 +296,7 @@ def _chart_to_dataframe(payload: Dict[str, Any], auto_adjust: bool) -> "DataFram
 
         o = _safe_float(quote.get("open"), idx)
         h = _safe_float(quote.get("high"), idx)
-        l = _safe_float(quote.get("low"), idx)
+        low_val = _safe_float(quote.get("low"), idx)
         c = _safe_float(quote.get("close"), idx)
         v = _safe_int(quote.get("volume"), idx)
         if c is None:
@@ -300,15 +312,15 @@ def _chart_to_dataframe(payload: Dict[str, Any], auto_adjust: bool) -> "DataFram
                         o *= factor
                     if h is not None:
                         h *= factor
-                    if l is not None:
-                        l *= factor
+                    if low_val is not None:
+                        low_val *= factor
 
         rows.append(
             {
                 "date": dt,
                 "open": o,
                 "high": h,
-                "low": l,
+                "low": low_val,
                 "close": c,
                 "volume": v or 0,
             }
@@ -501,7 +513,7 @@ def get_history_daily(
     start: str | date,
     end: Optional[str | date] = None,
     auto_adjust: bool = False,
-) -> "pandas.DataFrame":
+) -> DataFrame:
     """
     Daily OHLCV for one symbol. Returns a DataFrame with columns:
     [open, high, low, close, volume] and a Date index (naive).

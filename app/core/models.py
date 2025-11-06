@@ -6,7 +6,8 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
 from pydantic.fields import AliasChoices
-from sqlalchemy import Column, Integer, String, Float, JSON, DateTime, text
+from sqlalchemy import JSON, Column, DateTime, Float, Integer, String, text
+
 from app.adapters.db.postgres import Base
 
 # NOTE: We standardize on `low` for readability (avoid linter E741 on `l`).
@@ -123,6 +124,7 @@ class Watchlist(BaseModel):
         return len(self.items)
 
     model_config = {"extra": "ignore"}
+
 
 class Trade(Base):
     __tablename__ = "trades"

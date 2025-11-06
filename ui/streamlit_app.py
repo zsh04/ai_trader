@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import inspect
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 import altair as alt
-import inspect
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -26,7 +26,6 @@ if load_dotenv:
         if candidate.exists():
             load_dotenv(candidate, override=False)
 
-from app.adapters.market.alpaca_client import AlpacaAuthError, AlpacaMarketClient
 from app.services.market_data import get_intraday_bars, get_market_snapshots
 from app.services.watchlist_service import build_watchlist
 from app.utils import env as ENV
@@ -175,7 +174,9 @@ def _dedupe_manual(entries: str) -> List[str]:
     return ordered
 
 
-def _build_watchlist_frame(symbols: Iterable[str], snapshots: Dict[str, dict]) -> pd.DataFrame:
+def _build_watchlist_frame(
+    symbols: Iterable[str], snapshots: Dict[str, dict]
+) -> pd.DataFrame:
     rows = []
     for sym in symbols:
         snap = snapshots.get(sym, {})
@@ -189,7 +190,9 @@ def _build_watchlist_frame(symbols: Iterable[str], snapshots: Dict[str, dict]) -
         if price is not None and open_price:
             try:
                 change = float(price) - float(open_price)
-                change_pct = (change / float(open_price)) * 100.0 if open_price else None
+                change_pct = (
+                    (change / float(open_price)) * 100.0 if open_price else None
+                )
             except Exception:
                 change = None
                 change_pct = None
@@ -321,7 +324,8 @@ def _load_bar_history(symbol: str, *, timeframe: str = "1H") -> pd.DataFrame:
         interval_minutes = 60 if timeframe == "1H" else 15 if timeframe == "15m" else 5
         limit = TIMEFRAME_CONFIG.get(timeframe, ("1Hour", 120))[1]
         index = pd.date_range(
-            datetime.now(timezone.utc) - timedelta(minutes=(limit - 1) * interval_minutes),
+            datetime.now(timezone.utc)
+            - timedelta(minutes=(limit - 1) * interval_minutes),
             periods=limit,
             freq=f"{interval_minutes}T",
         )
@@ -394,6 +398,7 @@ else:
 
 apply_watchlist = st.sidebar.button("Apply Watchlist")
 
+
 def _resolve_watchlist(
     selected_source: str,
     *,
@@ -423,11 +428,10 @@ def _resolve_watchlist(
         symbols = symbols[:limit_norm]
 
     if not symbols and selected_source != "manual":
-        fallback = FALLBACK_SYMBOLS[: limit_norm] if limit_norm else FALLBACK_SYMBOLS
+        fallback = FALLBACK_SYMBOLS[:limit_norm] if limit_norm else FALLBACK_SYMBOLS
         symbols = fallback
-        note = (
-            "Watchlist source returned no symbols. Using demo tickers: "
-            + ", ".join(fallback)
+        note = "Watchlist source returned no symbols. Using demo tickers: " + ", ".join(
+            fallback
         )
 
     return symbols, note
@@ -482,7 +486,11 @@ if refresh_data:
 snapshots, provider_summary = _load_snapshots(tuple(watchlist))
 watchlist_df = _build_watchlist_frame(watchlist, snapshots)
 
-providers_used = [p.strip() for p in provider_summary.split("/") if p.strip()] if provider_summary else []
+providers_used = (
+    [p.strip() for p in provider_summary.split("/") if p.strip()]
+    if provider_summary
+    else []
+)
 if not providers_used:
     provider_label = "No data"
 elif len(providers_used) == 1:
@@ -546,7 +554,9 @@ with stats_cols[1]:
         unsafe_allow_html=True,
     )
 with stats_cols[2]:
-    mean_move = watchlist_df["% Change"].dropna().mean() if not watchlist_df.empty else 0.0
+    mean_move = (
+        watchlist_df["% Change"].dropna().mean() if not watchlist_df.empty else 0.0
+    )
     st.markdown(
         f'<div class="glass-card"><div class="summary-label">Avg Session Move</div>'
         f'<div class="summary-value">{mean_move:+.2f}%</div>'
@@ -567,7 +577,9 @@ with tabs[1]:
     if watchlist_df.empty:
         st.info("Watchlist is empty. Populate via the sidebar to inspect details.")
     else:
-        symbol = st.selectbox("Symbol focus", options=list(watchlist_df["Symbol"]), index=0)
+        symbol = st.selectbox(
+            "Symbol focus", options=list(watchlist_df["Symbol"]), index=0
+        )
         row = watchlist_df.set_index("Symbol").loc[symbol]
         history = _load_bar_history(symbol)
         _render_symbol_detail(symbol, row, history)

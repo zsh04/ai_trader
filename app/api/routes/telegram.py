@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections import deque
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Tuple
 
+import anyio
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 from loguru import logger
 
@@ -20,6 +22,9 @@ from app.utils.normalize import (
 router = APIRouter(prefix="/telegram", tags=["telegram"])
 ALLOW_NO_SECRET = os.getenv("TELEGRAM_ALLOW_TEST_NO_SECRET") == "1"
 
+WEBHOOK_PAYLOAD = Body(...)
+PRIMARY_SECRET_HEADER = Header(default=None, alias="X-Telegram-Bot-Api-Secret-Token")
+LEGACY_SECRET_HEADER = Header(default=None, alias="X-Telegram-Secret-Token")
 # ---------------------------
 # DI: Telegram client factory
 # ---------------------------
@@ -35,6 +40,9 @@ def TelegramDep():
     from app.adapters.notifiers.telegram import build_client_from_env
 
     return build_client_from_env()
+
+
+TELEGRAM_DEP = Depends(TelegramDep)
 
 
 # Some test suites import this symbol explicitly.
@@ -58,9 +66,8 @@ def _env():
 
 
 SYMBOL_RE = re.compile(r"^[A-Z]{1,5}(?:\.[A-Z]{1,2})?$")
-
-from collections import deque
 _SEEN_UPDATE_IDS: deque[int] = deque(maxlen=2000)
+
 
 def _is_duplicate_update(update_id: Optional[int]) -> bool:
     if update_id is None:
@@ -188,7 +195,11 @@ def _reply(tg: Any, chat_id: int | str, text: str) -> None:
                     method(chat_id, text, **k2)
                     return
                 except Exception as exc2:
-                    logger.warning("Telegram reply error via {} (no parse_mode retry failed): {}", name, exc2)
+                    logger.warning(
+                        "Telegram reply error via {} (no parse_mode retry failed): {}",
+                        name,
+                        exc2,
+                    )
                     continue
             logger.warning("Telegram reply error via {}: {}", name, exc)
             continue
@@ -256,17 +267,18 @@ def _handle_watchlist(tg: Any, chat_id: int | str, args: list[str]) -> None:
             include_filters = False
 
     # Session flag support
-    session_flag = (kv_flags.get("session") or parsed.get("session") or "").strip().lower() or None
+    session_flag = (
+        kv_flags.get("session") or parsed.get("session") or ""
+    ).strip().lower() or None
 
     symbols_arg = parsed.get("symbols") or []
-    resolved_source = None
 
     if not symbols_arg:
         try:
-            resolved_source, symbols_arg = _resolve_watchlist(source_flag)
+            _, symbols_arg = _resolve_watchlist(source_flag)
         except Exception as exc:
             logger.warning("watchlist resolve failed: {}", exc)
-            resolved_source, symbols_arg = "textlist", []
+            symbols_arg = []
 
     # Test-mode micro fake to guarantee a reply without heavy builders
     if os.getenv("PYTEST_CURRENT_TEST") and not symbols_arg:
@@ -330,7 +342,7 @@ def _handle_help(tg: Any, chat_id: int | str, _args: list[str]) -> None:
                 "/ping — liveness check",
                 "/watchlist — build default watchlist",
                 "/watchlist <SYMS...> — manual symbols (comma/space separated)",
-                "Flags: `--limit=15`, `--session=pre|regular|after`, `--filters=true|false`, `--title=\"Custom\"`, `--source=manual|textlist|alpha|finnhub|twelvedata|auto`",
+                'Flags: `--limit=15`, `--session=pre|regular|after`, `--filters=true|false`, `--title="Custom"`, `--source=manual|textlist|alpha|finnhub|twelvedata|auto`',
                 "/summary — show last watchlist metadata",
             ]
         ),
@@ -369,17 +381,13 @@ COMMANDS = {
 }
 
 
-import anyio
-
 @router.post("/webhook")
 async def webhook(
     request: Request,
-    payload: Dict[str, Any] = Body(...),
-    x_secret_primary: Optional[str] = Header(
-        None, alias="X-Telegram-Bot-Api-Secret-Token"
-    ),
-    x_secret_legacy: Optional[str] = Header(None, alias="X-Telegram-Secret-Token"),
-    tg: Any = Depends(TelegramDep),
+    payload: Dict[str, Any] = WEBHOOK_PAYLOAD,
+    x_secret_primary: Optional[str] = PRIMARY_SECRET_HEADER,
+    x_secret_legacy: Optional[str] = LEGACY_SECRET_HEADER,
+    tg: Any = TELEGRAM_DEP,
 ) -> Dict[str, Any]:
     """
     Accepts webhook events. In tests/dev, accepts missing/empty secret.
@@ -397,12 +405,8 @@ async def webhook(
         or bool(os.getenv("PYTEST_CURRENT_TEST"))
         or ALLOW_NO_SECRET
     )
-    debug_override = (
-        env != "prod" and request.headers.get("X-Debug-Telegram") == "1"
-    )
-    require_secret = (
-        bool(configured_secret) and not test_mode and not debug_override
-    )
+    debug_override = env != "prod" and request.headers.get("X-Debug-Telegram") == "1"
+    require_secret = bool(configured_secret) and not test_mode and not debug_override
 
     _dump_webhook_debug(
         "enter",
@@ -443,7 +447,7 @@ async def webhook(
     # Callback query support
     cb = payload.get("callback_query") or {}
     if cb:
-        msg = (cb.get("message") or {})
+        msg = cb.get("message") or {}
         # Prefer callback data as text, fall back to message text
         cb_data = (cb.get("data") or "").strip()
         if cb_data:
@@ -454,9 +458,7 @@ async def webhook(
         msg = payload.get("message") or payload.get("edited_message") or {}
         text = (msg.get("text") or "").strip()
 
-    chat_id = (
-        msg.get("chat") or {}
-    ).get("id") or os.getenv("TELEGRAM_DEFAULT_CHAT_ID")
+    chat_id = (msg.get("chat") or {}).get("id") or os.getenv("TELEGRAM_DEFAULT_CHAT_ID")
     user_id = (msg.get("from") or {}).get("id")
     if not chat_id:
         raise HTTPException(status_code=400, detail="Missing chat id")
@@ -467,7 +469,9 @@ async def webhook(
         return {"ok": True, "ignored": True}
 
     # Idempotency guard
-    update_id = payload.get("update_id") or (payload.get("callback_query") or {}).get("id")
+    update_id = payload.get("update_id") or (payload.get("callback_query") or {}).get(
+        "id"
+    )
     if _is_duplicate_update(update_id):
         return {"ok": True, "duplicate": True}
 

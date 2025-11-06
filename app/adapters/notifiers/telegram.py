@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 import time
-from typing import Any, Dict, Iterable, Optional, Set, List
+from html import escape as html_escape
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 import requests
 from loguru import logger
-from html import escape as html_escape
 
 from app.settings import get_telegram_settings
 from app.utils import env as ENV
@@ -36,6 +36,8 @@ def test_outbox_clear() -> None:
 
 
 MDV2_SPECIAL = r"_*[]()~`>#+-=|{}.!"
+
+
 def escape_mdv2(text: str) -> str:
     if not text:
         return ""
@@ -223,19 +225,13 @@ class TelegramClient:
         self.allowed = allowed_users or set()
         self.secret = webhook_secret or ""
         settings = get_telegram_settings()
-        default_timeout = (
-            timeout if timeout is not None else settings.timeout_secs
-        )
+        default_timeout = timeout if timeout is not None else settings.timeout_secs
         self.timeout = int(default_timeout)
         self.retries = (
-            int(retries)
-            if retries is not None
-            else getattr(ENV, "HTTP_RETRIES", 2)
+            int(retries) if retries is not None else getattr(ENV, "HTTP_RETRIES", 2)
         )
         self.backoff = (
-            float(backoff)
-            if backoff is not None
-            else getattr(ENV, "HTTP_BACKOFF", 1.5)
+            float(backoff) if backoff is not None else getattr(ENV, "HTTP_BACKOFF", 1.5)
         )
 
     def is_allowed(self, chat_id: int | str) -> bool:
@@ -341,9 +337,7 @@ class TelegramClient:
             if not resp:
                 return False
             if 200 <= resp.status_code < 300:
-                logger.info(
-                    "[Telegram] Document sent to {}: {}", chat_id, file_path
-                )
+                logger.info("[Telegram] Document sent to {}: {}", chat_id, file_path)
                 return True
             logger.warning(
                 "[Telegram] Failed to send document: {} {}",
@@ -464,7 +458,9 @@ class TelegramClient:
                         retry_after = int(resp.headers.get("Retry-After", "2"))
                     except Exception:
                         retry_after = 2
-                    logger.warning("[Telegram] Rate-limited (429). Sleeping {}s", retry_after)
+                    logger.warning(
+                        "[Telegram] Rate-limited (429). Sleeping {}s", retry_after
+                    )
                     time.sleep(max(0, retry_after))
                     return False
                 logger.warning("[Telegram] HTTP {}: {}", resp.status_code, resp.text)
@@ -502,15 +498,9 @@ class TelegramClient:
             logger.warning("[Telegram] Missing bot token; cannot make request")
             return None
 
-        attempt_retries = (
-            int(retries) if retries is not None else max(0, self.retries)
-        )
-        backoff_factor = (
-            float(backoff) if backoff is not None else float(self.backoff)
-        )
-        timeout_value = (
-            float(timeout) if timeout is not None else float(self.timeout)
-        )
+        attempt_retries = int(retries) if retries is not None else max(0, self.retries)
+        backoff_factor = float(backoff) if backoff is not None else float(self.backoff)
+        timeout_value = float(timeout) if timeout is not None else float(self.timeout)
 
         url = f"{self.base}/{endpoint}"
         last_exc: Exception | None = None
@@ -648,7 +638,11 @@ def format_watchlist_message_html(
         last = it.get("last")
         src = html_escape(str(it.get("price_source", "")))
         vol = (it.get("ohlcv") or {}).get("v")
-        last_s = f"${last:,.2f}" if isinstance(last, (int, float)) and last is not None else "$0.00"
+        last_s = (
+            f"${last:,.2f}"
+            if isinstance(last, (int, float)) and last is not None
+            else "$0.00"
+        )
         vol_s = f"{vol:,}" if isinstance(vol, int) and vol is not None else "0"
         suffix = f"  {src}" if src else ""
         lines.append(f"{sym:<6} {last_s:>10}  vol {vol_s}{suffix}")

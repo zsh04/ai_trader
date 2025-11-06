@@ -35,7 +35,9 @@ class TradingRepository:
             "raw_payload": stmt.excluded.raw_payload,
             "updated_at": stmt.excluded.updated_at,
         }
-        self.session.execute(stmt.on_conflict_do_update(index_elements=["id"], set_=update_cols))
+        self.session.execute(
+            stmt.on_conflict_do_update(index_elements=["id"], set_=update_cols)
+        )
 
     def record_fills(self, fills: Sequence[Mapping[str, object]]) -> None:
         if not fills:

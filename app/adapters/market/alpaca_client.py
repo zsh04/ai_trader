@@ -1,8 +1,8 @@
 # app/adapters/market/alpaca_client.py
 from __future__ import annotations
 
-import ssl
 import socket
+import ssl
 import time
 from contextlib import closing
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -54,13 +54,11 @@ def _api_headers() -> Dict[str, str]:
     """
     from app.utils import env as ENV
 
-    key = (
-        getattr(ENV, "ALPACA_API_KEY", None)
-        or getattr(ENV, "ALPACA_API_KEY_ID", None)
+    key = getattr(ENV, "ALPACA_API_KEY", None) or getattr(
+        ENV, "ALPACA_API_KEY_ID", None
     )
-    secret = (
-        getattr(ENV, "ALPACA_API_SECRET", None)
-        or getattr(ENV, "ALPACA_API_SECRET_KEY", None)
+    secret = getattr(ENV, "ALPACA_API_SECRET", None) or getattr(
+        ENV, "ALPACA_API_SECRET_KEY", None
     )
     if not key or not secret:
         raise AlpacaPingError(
@@ -188,9 +186,7 @@ class AlpacaMarketClient:
         if not clean:
             return 200, {}
         params = {"symbols": ",".join(clean)}
-        status, payload = self._request(
-            "stocks/snapshots", params=params, feed=feed
-        )
+        status, payload = self._request("stocks/snapshots", params=params, feed=feed)
         snaps = (payload or {}).get("snapshots") or {}
         return status, snaps
 
@@ -336,10 +332,12 @@ def ping_alpaca(feed: str | None = None, timeout_sec: float = 4.0) -> tuple[bool
     start = time.perf_counter()
     try:
         # DNS + TCP connect
-        with closing(socket.create_connection((host, port), timeout=timeout_sec)) as sock:
+        with closing(
+            socket.create_connection((host, port), timeout=timeout_sec)
+        ) as sock:
             # TLS handshake
             ctx = ssl.create_default_context()
-            with closing(ctx.wrap_socket(sock, server_hostname=host)) as ssock:
+            with closing(ctx.wrap_socket(sock, server_hostname=host)):
                 # Optional: send minimal data or just handshake and close
                 pass
 
@@ -353,4 +351,4 @@ def ping_alpaca(feed: str | None = None, timeout_sec: float = 4.0) -> tuple[bool
         }
     except Exception as e:
         # Normalize into our domain error so caller can mark degraded
-        raise AlpacaPingError(f"network/transport error: {e!s}")
+        raise AlpacaPingError(f"network/transport error: {e!s}") from e

@@ -33,7 +33,9 @@ def fetch_probabilistic_batch(
     Retrieve probabilistic market data for a symbol using MarketDataDAL.
     """
     cfg = config or ProbabilisticConfig()
-    dal_instance = dal or MarketDataDAL(enable_postgres_metadata=cfg.enable_metadata_persist)
+    dal_instance = dal or MarketDataDAL(
+        enable_postgres_metadata=cfg.enable_metadata_persist
+    )
     return dal_instance.fetch_bars(
         symbol=symbol,
         start=start,

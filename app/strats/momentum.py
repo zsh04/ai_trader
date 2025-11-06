@@ -33,8 +33,8 @@ def generate_signals(df: pd.DataFrame, p: Any) -> pd.DataFrame:
 
     # Resolve columns
     close = pick_col(out, "close", "adj_close", "close_price", "c", "ohlc_close")
-    high = pick_col(out, "high", "ohlc_high", "h")  # for future use
-    low = pick_col(out, "low", "ohlc_low", "l")  # for future use
+    _high = pick_col(out, "high", "ohlc_high", "h")  # for future use
+    _low = pick_col(out, "low", "ohlc_low", "l")  # for future use
 
     # Params
     roc_lb = int(get_param(p, "roc_lookback", 60))

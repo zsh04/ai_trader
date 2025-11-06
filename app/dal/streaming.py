@@ -14,7 +14,6 @@ from app.dal.results import ProbabilisticStreamFrame
 from app.dal.schemas import SignalFrame
 from app.dal.vendors.base import FetchRequest, VendorClient
 
-
 _INTERVAL_SECONDS = {
     "1Min": 60,
     "5Min": 300,
@@ -45,7 +44,9 @@ class _PipelineState:
         buffer_len = max(self.regime_agent.window * 3, 64)
         self.buffer: Deque[SignalFrame] = deque(maxlen=buffer_len)
 
-    def process(self, timestamp: datetime, price: float, volume: float) -> ProbabilisticStreamFrame:
+    def process(
+        self, timestamp: datetime, price: float, volume: float
+    ) -> ProbabilisticStreamFrame:
         signal = self.filter_agent.step(
             symbol=self.symbol,
             vendor=self.vendor,
@@ -55,13 +56,17 @@ class _PipelineState:
         )
         self.buffer.append(signal)
         regime_snapshots = self.regime_agent.classify(list(self.buffer))
-        regime = regime_snapshots[-1] if regime_snapshots else RegimeSnapshot(
-            symbol=self.symbol,
-            timestamp=signal.timestamp,
-            regime="unknown",
-            volatility=0.0,
-            uncertainty=signal.uncertainty,
-            momentum=0.0,
+        regime = (
+            regime_snapshots[-1]
+            if regime_snapshots
+            else RegimeSnapshot(
+                symbol=self.symbol,
+                timestamp=signal.timestamp,
+                regime="unknown",
+                volatility=0.0,
+                uncertainty=signal.uncertainty,
+                momentum=0.0,
+            )
         )
         return ProbabilisticStreamFrame(signal=signal, regime=regime)
 
@@ -86,11 +91,15 @@ class StreamingManager:
         self.gap_seconds = gap_threshold or interval_to_seconds(interval) * 3
         self.fetch_backfill = fetch_backfill
 
-    async def stream(self, symbols: Iterable[str]) -> AsyncIterator[ProbabilisticStreamFrame]:
+    async def stream(
+        self, symbols: Iterable[str]
+    ) -> AsyncIterator[ProbabilisticStreamFrame]:
         queue: asyncio.Queue = asyncio.Queue(maxsize=self.max_queue)
         producer_task = asyncio.create_task(self._producer(queue, symbols))
         pipeline_map: Dict[str, _PipelineState] = {
-            sym.upper(): _PipelineState(sym.upper(), self.vendor.name, self.filter_config, self.regime_params)
+            sym.upper(): _PipelineState(
+                sym.upper(), self.vendor.name, self.filter_config, self.regime_params
+            )
             for sym in symbols
         }
         last_seen: Dict[str, datetime] = {sym.upper(): None for sym in symbols}  # type: ignore
@@ -120,14 +129,19 @@ class StreamingManager:
                 last_ts = last_seen.get(symbol)
                 frames_before = []
                 if last_ts and (ts - last_ts).total_seconds() > self.gap_seconds:
-                    frames_before = await self._backfill(symbol, last_ts, ts, pipeline_map[symbol])
+                    frames_before = await self._backfill(
+                        symbol, last_ts, ts, pipeline_map[symbol]
+                    )
 
                 for frame in frames_before:
                     last_seen[symbol] = frame.signal.timestamp
                     yield frame
 
                 pipeline = pipeline_map.setdefault(
-                    symbol, _PipelineState(symbol, self.vendor.name, self.filter_config, self.regime_params)
+                    symbol,
+                    _PipelineState(
+                        symbol, self.vendor.name, self.filter_config, self.regime_params
+                    ),
                 )
                 result = pipeline.process(ts, float(price), volume)
                 last_seen[symbol] = result.signal.timestamp

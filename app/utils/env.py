@@ -141,9 +141,7 @@ class EnvSettings:
         default_factory=lambda: get_str("ALPHAVANTAGE_API_KEY", "")
     )
     #: Finnhub API token.
-    FINNHUB_API_KEY: str = field(
-        default_factory=lambda: get_str("FINNHUB_API_KEY", "")
-    )
+    FINNHUB_API_KEY: str = field(default_factory=lambda: get_str("FINNHUB_API_KEY", ""))
     #: Twelve Data API key for redundancy.
     TWELVEDATA_API_KEY: str = field(
         default_factory=lambda: get_str("TWELVEDATA_API_KEY", "")
@@ -221,9 +219,7 @@ class EnvSettings:
 
     #: Default HTTP request timeout (seconds).
     HTTP_TIMEOUT_SECS: int = field(
-        default_factory=lambda: get_int_chain(
-            ("HTTP_TIMEOUT", "HTTP_TIMEOUT_SECS"), 10
-        )
+        default_factory=lambda: get_int_chain(("HTTP_TIMEOUT", "HTTP_TIMEOUT_SECS"), 10)
     )
     #: Default retry attempts for outbound HTTP.
     HTTP_RETRY_ATTEMPTS: int = field(

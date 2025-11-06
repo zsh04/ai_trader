@@ -155,21 +155,27 @@ def build_watchlist(
     if include_external:
         try:
             external_list.extend(
-                fetch_alpha_vantage_symbols(scanner=external_preset, limit=EXTERNAL_MAX_SYMBOLS)
+                fetch_alpha_vantage_symbols(
+                    scanner=external_preset, limit=EXTERNAL_MAX_SYMBOLS
+                )
             )
         except Exception as exc:
             logger.warning("alpha vantage watchlist fetch failed: {}", exc)
         if len(external_list) < EXTERNAL_MAX_SYMBOLS:
             try:
                 external_list.extend(
-                    fetch_finnhub_symbols(scanner=external_preset, limit=EXTERNAL_MAX_SYMBOLS)
+                    fetch_finnhub_symbols(
+                        scanner=external_preset, limit=EXTERNAL_MAX_SYMBOLS
+                    )
                 )
             except Exception as exc:
                 logger.warning("finnhub watchlist fetch failed: {}", exc)
         if len(external_list) < EXTERNAL_MAX_SYMBOLS:
             try:
                 external_list.extend(
-                    fetch_twelvedata_symbols(scanner=external_preset, limit=EXTERNAL_MAX_SYMBOLS)
+                    fetch_twelvedata_symbols(
+                        scanner=external_preset, limit=EXTERNAL_MAX_SYMBOLS
+                    )
                 )
             except Exception as exc:
                 logger.warning("twelve data watchlist fetch failed: {}", exc)

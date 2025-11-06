@@ -32,7 +32,9 @@ def test_latest_price_snapshots_prioritises_vendor_order():
         StubRow("MSFT", "alpaca", ts_base),
     ]
     repo = MarketRepository(StubSession(rows))
-    result = repo.latest_price_snapshots(["aapl", "msft"], ["alphavantage", "finnhub", "alpaca"])
+    result = repo.latest_price_snapshots(
+        ["aapl", "msft"], ["alphavantage", "finnhub", "alpaca"]
+    )
 
     assert set(result.keys()) == {"AAPL", "MSFT"}
     assert result["AAPL"].vendor == "alphavantage"

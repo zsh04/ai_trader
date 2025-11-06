@@ -9,7 +9,7 @@ import traceback
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -19,8 +19,8 @@ from pandas import Timestamp
 from app.backtest import metrics as bt_metrics
 from app.backtest.engine import Costs, backtest_long_only
 from app.backtest.model import BetaWinrate
-from app.logging_utils import setup_logging
 from app.dal.manager import MarketDataDAL as _LegacyMarketDataDAL
+from app.logging_utils import setup_logging
 from app.probability.pipeline import (
     ProbabilisticConfig,
     fetch_probabilistic_batch,
@@ -80,8 +80,9 @@ def _try_backtest(
             return engine_fn(**{**base_kwargs, **extra}), extra
         except TypeError:
             continue
-    # final attempt: run as-is
+        # final attempt: run as-is
         return engine_fn(**base_kwargs), {}
+
 
 # Backwards compatibility for tests/monkeypatch
 MarketDataDAL = _LegacyMarketDataDAL
@@ -158,7 +159,9 @@ def run(
                 len(prob_batch.regimes),
             )
             if prob_batch.cache_paths:
-                logger.debug("Probabilistic cache artifacts: {}", prob_batch.cache_paths)
+                logger.debug(
+                    "Probabilistic cache artifacts: {}", prob_batch.cache_paths
+                )
 
             sig = join_probabilistic_features(
                 sig, signals=prob_batch.signals, regimes=prob_batch.regimes
@@ -195,16 +198,14 @@ def run(
         df_engine = df.rename(
             columns={"Open": "open", "High": "high", "Low": "low", "Close": "close"}
         )
-        missing = [
-            c for c in ["open", "high", "low", "close"] if c not in df_engine
-        ]
+        missing = [c for c in ["open", "high", "low", "close"] if c not in df_engine]
         if missing:
             raise ValueError(f"OHLC columns missing for engine: {missing}")
 
     # Convert persistent states to one-bar events
-    entry_state = sig.get(
-        "long_entry", pd.Series(False, index=df_engine.index)
-    ).astype(bool)
+    entry_state = sig.get("long_entry", pd.Series(False, index=df_engine.index)).astype(
+        bool
+    )
     exit_state = sig.get("long_exit", pd.Series(False, index=df_engine.index)).astype(
         bool
     )
@@ -231,9 +232,7 @@ def run(
     if debug:
         logger.debug(
             "Signals: entries={} exits={} rows={}",
-            int(sig.get("long_entry", pd.Series()).sum())
-            if "long_entry" in sig
-            else 0,
+            int(sig.get("long_entry", pd.Series()).sum()) if "long_entry" in sig else 0,
             int(sig.get("long_exit", pd.Series()).sum()) if "long_exit" in sig else 0,
             len(sig),
         )
@@ -277,9 +276,7 @@ def run(
         try:
             sig.tail(200)[cols_dbg_all].to_csv(f"signals_tail_{symbol}.csv")
             mask = sig.get("long_entry", False) | sig.get("long_exit", False)
-            sig.loc[mask, cols_dbg_all].tail(200).to_csv(
-                f"signals_events_{symbol}.csv"
-            )
+            sig.loc[mask, cols_dbg_all].tail(200).to_csv(f"signals_events_{symbol}.csv")
             logger.debug(
                 "Saved signal snapshots: signals_tail_{}.csv, signals_events_{}.csv",
                 symbol,
@@ -290,9 +287,7 @@ def run(
 
     beta = BetaWinrate()
     default_risk = (
-        0.01 * beta.kelly_fraction() / max(beta.fmax, 1e-6)
-        if beta.fmax > 0
-        else 0.01
+        0.01 * beta.kelly_fraction() / max(beta.fmax, 1e-6) if beta.fmax > 0 else 0.01
     )
 
     base_risk_frac = (
@@ -561,15 +556,11 @@ if __name__ == "__main__":
     )
 
     # --- Strategy Parameters ---
-    ap.add_argument(
-        "--lookback", type=int, help="Breakout lookback window length"
-    )
+    ap.add_argument("--lookback", type=int, help="Breakout lookback window length")
     ap.add_argument(
         "--ema", dest="ema_fast", type=int, help="EMA length for trend filter"
     )
-    ap.add_argument(
-        "--atr", dest="atr_len", type=int, help="ATR lookback period"
-    )
+    ap.add_argument("--atr", dest="atr_len", type=int, help="ATR lookback period")
     ap.add_argument(
         "--atr-mult",
         dest="atr_mult",
@@ -731,20 +722,14 @@ if __name__ == "__main__":
         "enter_on_break_bar",
     ]
     raw_kwargs = {
-        k: getattr(args, k)
-        for k in candidate_keys
-        if getattr(args, k) is not None
+        k: getattr(args, k) for k in candidate_keys if getattr(args, k) is not None
     }
     # Filter out any keys not supported by BreakoutParams (handles version drift)
     try:
-        allowed_keys = set(
-            getattr(BreakoutParams, "__annotations__", {}).keys()
-        )
+        allowed_keys = set(getattr(BreakoutParams, "__annotations__", {}).keys())
     except Exception:
         allowed_keys = set()
-    params_kwargs = {
-        k: v for k, v in raw_kwargs.items() if k in allowed_keys
-    }
+    params_kwargs = {k: v for k, v in raw_kwargs.items() if k in allowed_keys}
 
     try:
         run(
@@ -770,18 +755,12 @@ if __name__ == "__main__":
             out_dir = os.getenv("BACKTEST_OUT_DIR", ".")
             out = os.path.join(out_dir, f"backtest_{args.symbol}.csv")
             if os.path.exists(out):
-                eq = pd.read_csv(out, index_col=0, parse_dates=True).iloc[
-                    :, 0
-                ]
+                eq = pd.read_csv(out, index_col=0, parse_dates=True).iloc[:, 0]
                 m = bt_metrics.equity_stats(eq, use_mtm=True)
                 print(
                     json.dumps(
                         {
-                            k: (
-                                v.isoformat()
-                                if hasattr(v, "isoformat")
-                                else v
-                            )
+                            k: (v.isoformat() if hasattr(v, "isoformat") else v)
                             for k, v in asdict(m).items()
                         }
                     )

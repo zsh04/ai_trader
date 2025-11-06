@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -37,12 +37,16 @@ class _FakeBacktestEngine:
     def __call__(self, **kwargs: Any) -> Dict[str, Any]:
         self.last_kwargs = kwargs
         index = pd.date_range("2021-01-01", periods=5, freq="D")
-        equity = pd.Series(np.linspace(100.0, 105.0, len(index)), index=index, name="equity")
+        equity = pd.Series(
+            np.linspace(100.0, 105.0, len(index)), index=index, name="equity"
+        )
         return {"equity": equity, "trades": []}
 
 
 class _HybridVendor(VendorClient):
-    def __init__(self, bars: Bars, signals: List[SignalFrame], regimes: List[RegimeSnapshot]) -> None:
+    def __init__(
+        self, bars: Bars, signals: List[SignalFrame], regimes: List[RegimeSnapshot]
+    ) -> None:
         super().__init__("hybrid")
         self._batch = ProbabilisticBatch(bars=bars, signals=signals, regimes=regimes)
         self.fetch_called_with: Dict[str, Any] | None = None
@@ -62,7 +66,9 @@ class _HybridVendor(VendorClient):
 
 class _FakeMarketDataDAL:
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self.vendor: _HybridVendor = kwargs.pop("vendor")  # injected via monkeypatch closure
+        self.vendor: _HybridVendor = kwargs.pop(
+            "vendor"
+        )  # injected via monkeypatch closure
 
     def fetch_bars(
         self,
@@ -106,7 +112,9 @@ def _build_bars(symbol: str, vendor: str, start: datetime, count: int) -> Bars:
     return bars
 
 
-def _build_signals(symbol: str, vendor: str, start: datetime, count: int) -> list[SignalFrame]:
+def _build_signals(
+    symbol: str, vendor: str, start: datetime, count: int
+) -> list[SignalFrame]:
     signals: list[SignalFrame] = []
     for idx in range(count):
         ts = start + timedelta(days=idx)
@@ -146,8 +154,15 @@ def _build_regimes(symbol: str, start: datetime, count: int) -> list[RegimeSnaps
     return regimes
 
 
-@pytest.mark.parametrize("use_probabilistic, regime_aware", [(True, True), (True, False)])
-def test_breakout_run_probabilistic_smoke(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, use_probabilistic: bool, regime_aware: bool):
+@pytest.mark.parametrize(
+    "use_probabilistic, regime_aware", [(True, True), (True, False)]
+)
+def test_breakout_run_probabilistic_smoke(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    use_probabilistic: bool,
+    regime_aware: bool,
+):
     symbol = "AAPL"
     start_str = "2021-01-01"
     end_str = "2021-01-05"
@@ -210,12 +225,21 @@ def test_breakout_run_probabilistic_smoke(monkeypatch: pytest.MonkeyPatch, tmp_p
     monkeypatch.setenv("BACKTEST_NO_SAVE", "1")
     monkeypatch.setenv("BACKTEST_OUT_DIR", str(tmp_path))
 
-    monkeypatch.setattr("app.backtest.run_breakout.get_history_daily", fake_get_history_daily)
-    monkeypatch.setattr("app.backtest.run_breakout.generate_signals", fake_generate_signals)
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.get_history_daily", fake_get_history_daily
+    )
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.generate_signals", fake_generate_signals
+    )
     monkeypatch.setattr("app.backtest.run_breakout.BetaWinrate", lambda: fake_beta)
     monkeypatch.setattr("app.backtest.run_breakout.backtest_long_only", engine_stub)
-    monkeypatch.setattr("app.backtest.run_breakout.bt_metrics.equity_stats", lambda equity, use_mtm=True: _FakeMetrics())
-    monkeypatch.setattr("app.backtest.run_breakout.MarketDataDAL", fake_market_data_dal_factory)
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.bt_metrics.equity_stats",
+        lambda equity, use_mtm=True: _FakeMetrics(),
+    )
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.MarketDataDAL", fake_market_data_dal_factory
+    )
 
     breakout_run(
         symbol=symbol,

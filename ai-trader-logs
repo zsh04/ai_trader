@@ -28,3 +28,255 @@
 2025-11-05 13:55:02.134 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
 2025-11-05 13:55:02.136 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
 2025-11-05 13:55:02.136 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 16:37:03.269 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-05 16:37:03.270 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-05 16:37:03.285 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 16:37:03.286 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 16:37:03.293 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-05 16:37:03.294 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 16:37:03.294 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 16:37:03.295 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 16:37:03.295 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 16:37:03.298 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 16:37:03.298 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 16:37:03.394 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 16:37:03.394 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 16:37:03.406 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-05 16:37:03.627 | INFO     | req=3f07558f431947148f59c3dbfeb5c278 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=8.20
+2025-11-05 16:37:03.643 | INFO     | req=5745c35a62f84498b2c83fde8b6c5d58 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-05 16:37:03.644 | INFO     | req=5745c35a62f84498b2c83fde8b6c5d58 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=2.59
+2025-11-05 16:37:03.647 | INFO     | req=4c2988aaca3e4450885a28bc7140ebee | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=0.70
+2025-11-05 16:37:03.750 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-05 16:37:03.753 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-05 16:37:03.753 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-05 20:25:07.957 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-05 20:25:07.958 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-05 20:25:07.968 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:25:07.968 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:25:07.974 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-05 20:25:07.975 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:25:07.975 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:25:07.977 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:25:07.977 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:25:07.980 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:25:07.981 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:25:09.163 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:25:09.163 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:25:09.183 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-05 20:25:09.518 | INFO     | req=caf3f1a5364942d48bd66668f6e5f68d | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=1.49
+2025-11-05 20:25:09.524 | INFO     | req=d9a2c948ea24482692a368c1e3793f2b | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-05 20:25:09.525 | INFO     | req=d9a2c948ea24482692a368c1e3793f2b | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.29
+2025-11-05 20:25:09.528 | INFO     | req=4f60297a71fa41178508091754b9833b | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.18
+2025-11-05 20:25:09.547 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-05 20:25:09.551 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-05 20:25:09.551 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-05 20:25:25.073 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-05 20:25:25.073 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-05 20:25:25.090 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:25:25.090 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:25:25.105 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-05 20:25:25.106 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:25:25.106 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:25:25.109 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:25:25.109 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:25:25.113 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:25:25.113 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:25:25.199 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:25:25.199 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:25:25.224 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-05 20:25:25.365 | INFO     | req=150a729bf7ea4f53b7172ad788e66ac3 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=1.27
+2025-11-05 20:25:25.369 | INFO     | req=65afc960d43a46e2b9cf937bcef8d3b8 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-05 20:25:25.369 | INFO     | req=65afc960d43a46e2b9cf937bcef8d3b8 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.40
+2025-11-05 20:25:25.372 | INFO     | req=4d5944d85a4e4d259a3d30c70fb94ab2 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=0.91
+2025-11-05 20:25:25.501 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-05 20:25:25.505 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-05 20:25:25.505 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-05 20:25:51.964 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-05 20:25:51.965 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-05 20:25:51.981 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:25:51.981 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:25:51.991 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-05 20:25:51.992 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:25:51.993 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:25:51.995 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:25:51.995 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:25:51.999 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:25:51.999 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:25:52.080 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:25:52.081 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:25:52.102 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-05 20:25:52.243 | INFO     | req=87acc9c6973044eab0ef9546c131979b | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=1.25
+2025-11-05 20:25:52.247 | INFO     | req=ff9bef18d6aa4be5bbe92984d1aa8d97 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-05 20:25:52.248 | INFO     | req=ff9bef18d6aa4be5bbe92984d1aa8d97 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.19
+2025-11-05 20:25:52.251 | INFO     | req=e73659c6bb534cdd90ac29d6f086a753 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=0.96
+2025-11-05 20:25:52.413 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-05 20:25:52.418 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-05 20:25:52.418 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-05 20:27:52.567 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-05 20:27:52.568 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-05 20:27:52.577 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:27:52.578 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:27:52.584 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-05 20:27:52.585 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:27:52.585 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:27:52.588 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:27:52.588 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:27:52.592 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:27:52.592 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:27:52.651 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:27:52.651 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:27:52.671 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-05 20:27:52.811 | INFO     | req=fd8dd456f1f34111827657a2d329ed0a | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=1.36
+2025-11-05 20:27:52.815 | INFO     | req=6f67f3ba358e495ca215e1a941e6a3fc | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-05 20:27:52.815 | INFO     | req=6f67f3ba358e495ca215e1a941e6a3fc | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.22
+2025-11-05 20:27:52.819 | INFO     | req=644ae0b04dc446e89d001116244190e3 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.35
+2025-11-05 20:27:52.837 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-05 20:27:52.841 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-05 20:27:52.841 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-05 20:29:21.549 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-05 20:29:21.549 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-05 20:29:21.557 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:29:21.558 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:29:21.564 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-05 20:29:21.565 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:29:21.565 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:29:21.567 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:29:21.568 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:29:21.572 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:29:21.572 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:29:21.805 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:29:21.805 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:29:21.822 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-05 20:29:21.954 | INFO     | req=e7a929b84b744b989d37936058e622ac | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=2.05
+2025-11-05 20:29:21.958 | INFO     | req=0b3c680b0f8245b6b02c6fad296870cc | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-05 20:29:21.958 | INFO     | req=0b3c680b0f8245b6b02c6fad296870cc | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.34
+2025-11-05 20:29:21.961 | INFO     | req=209686aa304f49b1b7825eccb5562368 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.28
+2025-11-05 20:29:21.980 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-05 20:29:21.984 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-05 20:29:21.984 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-05 20:30:19.270 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-05 20:30:19.270 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-05 20:30:19.278 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:30:19.279 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:30:19.285 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-05 20:30:19.286 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:30:19.286 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:30:19.288 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:30:19.289 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:30:19.295 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:30:19.295 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:30:19.591 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:30:19.591 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:30:19.607 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-05 20:30:19.737 | INFO     | req=cd419318de2f432ebfd5f496db5678d9 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=0.62
+2025-11-05 20:30:19.740 | INFO     | req=5a5ddf6198fc4e6cbd88237bf7cfaf34 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-05 20:30:19.741 | INFO     | req=5a5ddf6198fc4e6cbd88237bf7cfaf34 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.28
+2025-11-05 20:30:19.744 | INFO     | req=4b0c435b26e64bddafe59aec1ccb60a7 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.10
+2025-11-05 20:30:19.764 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-05 20:30:19.767 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-05 20:30:19.767 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-05 20:31:36.452 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-05 20:31:36.453 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-05 20:31:36.462 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:31:36.462 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:31:36.469 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-05 20:31:36.470 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:31:36.470 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:31:36.472 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:31:36.473 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:31:36.477 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:31:36.477 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:31:36.722 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:31:36.722 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:31:36.739 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-05 20:31:36.869 | INFO     | req=c2cc290d952f438095fe969f633e8d5e | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=2.02
+2025-11-05 20:31:36.873 | INFO     | req=cf94821ee2254588a69e5275b89e74e3 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-05 20:31:36.873 | INFO     | req=cf94821ee2254588a69e5275b89e74e3 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.33
+2025-11-05 20:31:36.877 | INFO     | req=079999f79b7e438388060a66f9a99cfa | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.18
+2025-11-05 20:31:36.896 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-05 20:31:36.900 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-05 20:31:36.900 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-05 20:31:39.315 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-05 20:31:39.316 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-05 20:31:39.323 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:31:39.324 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:31:39.328 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-05 20:31:39.328 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:31:39.328 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:31:39.330 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:31:39.331 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:31:39.334 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:31:39.334 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:31:39.569 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:31:39.569 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:31:39.587 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-05 20:31:39.717 | INFO     | req=ee1012dec0874811aab10e79512da6ba | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=0.61
+2025-11-05 20:31:39.721 | INFO     | req=b2715201186c430aa49768fd290d3680 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-05 20:31:39.721 | INFO     | req=b2715201186c430aa49768fd290d3680 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.30
+2025-11-05 20:31:39.724 | INFO     | req=cd31cc34d729495d9d11948cc4a62370 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.00
+2025-11-05 20:31:39.743 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-05 20:31:39.746 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-05 20:31:39.747 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-05 20:32:01.400 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-05 20:32:01.401 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-05 20:32:01.418 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:32:01.419 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:32:01.428 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-05 20:32:01.429 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:32:01.429 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:32:01.431 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:32:01.432 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:32:01.435 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:32:01.435 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:32:01.667 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:32:01.667 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:32:01.686 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-05 20:32:01.820 | INFO     | req=b7e93f3435e64d469373d6e89ba69223 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=1.36
+2025-11-05 20:32:01.824 | INFO     | req=908b9189f5514593945b58cb18210062 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-05 20:32:01.825 | INFO     | req=908b9189f5514593945b58cb18210062 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=2.09
+2025-11-05 20:32:01.828 | INFO     | req=1e6ca680928f4e7ab4aa5133df648eda | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=0.94
+2025-11-05 20:32:01.956 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-05 20:32:01.960 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-05 20:32:01.961 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-05 20:35:42.390 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-05 20:35:42.391 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-05 20:35:42.399 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:35:42.400 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:35:42.406 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-05 20:35:42.406 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:35:42.406 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:35:42.408 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:35:42.408 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:35:42.412 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:35:42.412 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:35:42.583 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:35:42.583 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:35:42.606 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-05 20:35:42.814 | INFO     | req=0b374f91ce804eaeb5505f0c7f358c25 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=3.44
+2025-11-05 20:35:42.818 | INFO     | req=854378e9cfed4d78b6c92ff1e458e074 | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-05 20:35:42.818 | INFO     | req=854378e9cfed4d78b6c92ff1e458e074 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.45
+2025-11-05 20:35:42.821 | INFO     | req=29f9d8b8ebee4ae1aead8a423087ae1a | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=0.84
+2025-11-05 20:35:42.841 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-05 20:35:42.845 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-05 20:35:42.845 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-05 20:36:01.893 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage exception boom; retrying in 0.00s (1/2)
+2025-11-05 20:36:01.893 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [Telegram] HTTP POST sendMessage -> 429 retrying in 0.00s (2/2)
+2025-11-05 20:36:01.911 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:36:01.912 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:36:01.920 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-05 20:36:01.921 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:36:01.921 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:36:01.923 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-05 20:36:01.924 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-05 20:36:01.927 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-05 20:36:01.927 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-05 20:36:02.014 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:36:02.014 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-05 20:36:02.031 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-05 20:36:02.168 | INFO     | req=8992f2927b29437bbcc48c427acf6a77 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/health/live status=200 duration_ms=1.49
+2025-11-05 20:36:02.172 | INFO     | req=49d7189f9e5c496bb2f686f12260ddcf | env=test | ver=1.6.6 | sha=unknown | [tg] unauthorized user id=None (ignored)
+2025-11-05 20:36:02.172 | INFO     | req=49d7189f9e5c496bb2f686f12260ddcf | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.55
+2025-11-05 20:36:02.175 | INFO     | req=77e21cbf7eab4695b832ad1a881a9598 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=1.13
+2025-11-05 20:36:02.303 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-05 20:36:02.307 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-05 20:36:02.308 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com

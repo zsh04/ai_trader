@@ -71,8 +71,12 @@ def _alpha_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optional[
             "apikey": api_key,
         }
         try:
-            resp = requests.get(ALPHAVANTAGE_URL, params=params, timeout=ENV.HTTP_TIMEOUT)
-            payload = resp.json().get("Global Quote", {}) if resp.status_code == 200 else {}
+            resp = requests.get(
+                ALPHAVANTAGE_URL, params=params, timeout=ENV.HTTP_TIMEOUT
+            )
+            payload = (
+                resp.json().get("Global Quote", {}) if resp.status_code == 200 else {}
+            )
             price = float(payload.get("05. price", "nan")) if payload else float("nan")
             if not payload or np.isnan(price):
                 continue
@@ -114,7 +118,9 @@ def _finnhub_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optiona
                 "latestTrade": {
                     "price": float(price),
                     "timestamp": (
-                        datetime.fromtimestamp(data.get("t", 0), tz=timezone.utc).isoformat()
+                        datetime.fromtimestamp(
+                            data.get("t", 0), tz=timezone.utc
+                        ).isoformat()
                         if data.get("t")
                         else _now_iso()
                     ),
@@ -132,7 +138,9 @@ def _finnhub_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optiona
     return out, note
 
 
-def _twelvedata_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optional[str]]:
+def _twelvedata_quote(
+    symbols: Sequence[str],
+) -> Tuple[Dict[str, Snapshot], Optional[str]]:
     api_key = os.getenv("TWELVEDATA_API_KEY") or getattr(ENV, "TWELVEDATA_API_KEY", "")
     if not api_key:
         return {}, None
@@ -322,7 +330,9 @@ def _finnhub_bars(symbol: str, resolution: str, count: int) -> Optional[pd.DataF
         data = resp.json() if resp.status_code == 200 else {}
         if data.get("s") != "ok":
             return None
-        timestamps = [datetime.fromtimestamp(ts, tz=timezone.utc) for ts in data.get("t", [])]
+        timestamps = [
+            datetime.fromtimestamp(ts, tz=timezone.utc) for ts in data.get("t", [])
+        ]
         closes = data.get("c", [])
         if not timestamps or not closes:
             return None
@@ -331,7 +341,9 @@ def _finnhub_bars(symbol: str, resolution: str, count: int) -> Optional[pd.DataF
         return None
 
 
-def _twelvedata_bars(symbol: str, interval: str, outputsize: int) -> Optional[pd.DataFrame]:
+def _twelvedata_bars(
+    symbol: str, interval: str, outputsize: int
+) -> Optional[pd.DataFrame]:
     api_key = os.getenv("TWELVEDATA_API_KEY") or getattr(ENV, "TWELVEDATA_API_KEY", "")
     if not api_key:
         return None
@@ -420,8 +432,8 @@ def get_intraday_bars(symbol: str, *, timeframe: str = "1H") -> pd.DataFrame:
         "15m": ("15min", "15", "15m", "15Min"),
         "5m": ("5min", "5", "5m", "5Min"),
     }
-    alpha_interval, finnhub_interval, twelve_interval, alpaca_interval = interval_mapping.get(
-        timeframe, ("60min", "60", "1h", "1Hour")
+    alpha_interval, finnhub_interval, twelve_interval, alpaca_interval = (
+        interval_mapping.get(timeframe, ("60min", "60", "1h", "1Hour"))
     )
     limit = 200 if timeframe == "5m" else 120
 
@@ -429,7 +441,11 @@ def get_intraday_bars(symbol: str, *, timeframe: str = "1H") -> pd.DataFrame:
         lambda: _alpha_bars(symbol, alpha_interval),
         lambda: _finnhub_bars(symbol, finnhub_interval, limit),
         lambda: _twelvedata_bars(symbol, twelve_interval, limit),
-        lambda: _yahoo_bars(symbol, interval=timeframe.lower(), period="5d" if timeframe != "1H" else "1mo"),
+        lambda: _yahoo_bars(
+            symbol,
+            interval=timeframe.lower(),
+            period="5d" if timeframe != "1H" else "1mo",
+        ),
         lambda: _alpaca_bars(symbol, alpaca_interval, limit),
     ]
 

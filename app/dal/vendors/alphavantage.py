@@ -27,7 +27,9 @@ class AlphaVantageVendor(VendorClient):
 
         interval = request.interval
         if interval not in self.SUPPORTED_INTERVALS:
-            raise ValueError(f"AlphaVantage only supports intervals: {self.SUPPORTED_INTERVALS}")
+            raise ValueError(
+                f"AlphaVantage only supports intervals: {self.SUPPORTED_INTERVALS}"
+            )
 
         params = {
             "function": "TIME_SERIES_INTRADAY",
@@ -38,13 +40,21 @@ class AlphaVantageVendor(VendorClient):
         }
         status, payload = http_get(self.BASE_URL, params=params)
         if status != 200 or not isinstance(payload, dict):
-            logger.warning("alphavantage fetch failed symbol={} status={} payload={}",
-                           request.symbol, status, payload)
+            logger.warning(
+                "alphavantage fetch failed symbol={} status={} payload={}",
+                request.symbol,
+                status,
+                payload,
+            )
             return Bars(symbol=request.symbol.upper(), vendor=self.name, timezone="UTC")
 
-        series_key = next((k for k in payload.keys() if k.startswith("Time Series")), None)
+        series_key = next(
+            (k for k in payload.keys() if k.startswith("Time Series")), None
+        )
         if not series_key:
-            logger.warning("alphavantage response missing time series: {}", payload.keys())
+            logger.warning(
+                "alphavantage response missing time series: {}", payload.keys()
+            )
             return Bars(symbol=request.symbol.upper(), vendor=self.name, timezone="UTC")
 
         raw_series = payload.get(series_key, {})

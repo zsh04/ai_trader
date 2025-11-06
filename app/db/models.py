@@ -25,9 +25,7 @@ from app.db.mixins import TimestampMixin
 
 class Symbol(Base, TimestampMixin):
     __tablename__ = "symbols"
-    __table_args__ = (
-        {"schema": "market"},
-    )
+    __table_args__ = ({"schema": "market"},)
 
     symbol: Mapped[str] = mapped_column(String(24), primary_key=True)
     name: Mapped[str | None] = mapped_column(String(128))
@@ -103,7 +101,9 @@ class CorporateAction(Base, TimestampMixin):
     )
     action_type: Mapped[str] = mapped_column(String(32), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
-    effective_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    effective_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     ratio: Mapped[float | None] = mapped_column(Numeric(18, 6))
     metadata_json: Mapped[dict | None] = mapped_column("metadata", JSONB)
 
@@ -115,7 +115,9 @@ class Order(Base, TimestampMixin):
         {"schema": "trading"},
     )
 
-    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: uuid4().hex)
+    id: Mapped[str] = mapped_column(
+        String(64), primary_key=True, default=lambda: uuid4().hex
+    )
     broker_order_id: Mapped[str | None] = mapped_column(String(64))
     symbol: Mapped[str] = mapped_column(
         String(24), ForeignKey("market.symbols.symbol"), nullable=False
@@ -131,7 +133,9 @@ class Order(Base, TimestampMixin):
     submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     raw_payload: Mapped[dict | None] = mapped_column(JSONB)
 
-    fills: Mapped[list["Fill"]] = relationship(back_populates="order_ref", cascade="all, delete-orphan")
+    fills: Mapped[list["Fill"]] = relationship(
+        back_populates="order_ref", cascade="all, delete-orphan"
+    )
 
 
 class Fill(Base, TimestampMixin):
@@ -161,9 +165,7 @@ class Fill(Base, TimestampMixin):
 
 class Position(Base, TimestampMixin):
     __tablename__ = "positions"
-    __table_args__ = (
-        {"schema": "trading"},
-    )
+    __table_args__ = ({"schema": "trading"},)
 
     symbol: Mapped[str] = mapped_column(
         String(24),
@@ -180,9 +182,7 @@ class Position(Base, TimestampMixin):
 
 class EquitySnapshot(Base):
     __tablename__ = "equity_snapshots"
-    __table_args__ = (
-        {"schema": "trading"},
-    )
+    __table_args__ = ({"schema": "trading"},)
 
     ts_utc: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     equity: Mapped[float] = mapped_column(Numeric(20, 4), nullable=False)
@@ -201,12 +201,16 @@ class RiskEvent(Base, TimestampMixin):
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    symbol: Mapped[str | None] = mapped_column(String(24), ForeignKey("market.symbols.symbol"))
+    symbol: Mapped[str | None] = mapped_column(
+        String(24), ForeignKey("market.symbols.symbol")
+    )
     metric: Mapped[str] = mapped_column(String(48), nullable=False)
     value: Mapped[float] = mapped_column(Numeric(18, 6), nullable=False)
     threshold: Mapped[float | None] = mapped_column(Numeric(18, 6))
     severity: Mapped[str] = mapped_column(String(16), nullable=False, default="info")
-    triggered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    triggered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     details: Mapped[dict | None] = mapped_column(JSONB)
 
 
@@ -217,7 +221,9 @@ class StrategyRun(Base, TimestampMixin):
         {"schema": "backtest"},
     )
 
-    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[str] = mapped_column(
+        UUID(as_uuid=False), primary_key=True, default=lambda: str(uuid4())
+    )
     strategy_name: Mapped[str] = mapped_column(String(64), nullable=False)
     parameters: Mapped[dict] = mapped_column(JSONB, nullable=False)
     status: Mapped[str] = mapped_column(String(24), nullable=False, default="pending")
@@ -274,7 +280,9 @@ class StrategyRunEquity(Base):
 class DailyMetric(Base, TimestampMixin):
     __tablename__ = "daily_metrics"
     __table_args__ = (
-        UniqueConstraint("metric_date", "metric_name", name="uq_daily_metrics_date_name"),
+        UniqueConstraint(
+            "metric_date", "metric_name", name="uq_daily_metrics_date_name"
+        ),
         {"schema": "analytics"},
     )
 

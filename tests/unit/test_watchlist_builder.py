@@ -56,7 +56,10 @@ def test_build_watchlist_merges_sources_case_insensitive(monkeypatch):
 def test_build_watchlist_applies_limit_after_sort(monkeypatch):
     _install_batch_stub(monkeypatch)
     monkeypatch.setattr(
-        watchlist_builder, "scan_candidates", lambda: ["msft", "goog", "aapl"], raising=True
+        watchlist_builder,
+        "scan_candidates",
+        lambda: ["msft", "goog", "aapl"],
+        raising=True,
     )
     monkeypatch.setattr(
         watchlist_builder,
@@ -90,9 +93,7 @@ def test_build_watchlist_applies_limit_after_sort(monkeypatch):
 
 def test_build_watchlist_manual_only_dedup(monkeypatch):
     _install_batch_stub(monkeypatch)
-    monkeypatch.setattr(
-        watchlist_builder, "scan_candidates", lambda: [], raising=True
-    )
+    monkeypatch.setattr(watchlist_builder, "scan_candidates", lambda: [], raising=True)
     monkeypatch.setattr(
         watchlist_builder, "fetch_alpha_vantage_symbols", lambda **_: [], raising=True
     )

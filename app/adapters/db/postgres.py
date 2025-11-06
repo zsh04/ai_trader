@@ -1,18 +1,19 @@
-from __future__ import annotations
-
 """
 Postgres engine/session helpers with safe DSN building, minimal logging, and
 resilient health checks. Prefers DATABASE_URL when set; otherwise builds from
 individual PG* env vars with sslmode=require by default (works for Azure FS).
 """
-import time
+
+from __future__ import annotations
+
 import contextlib
+import time
 from typing import Optional
 
 from loguru import logger
 from sqlalchemy import MetaData, create_engine, text
 from sqlalchemy.engine import Engine
-from sqlalchemy.orm import Session, sessionmaker, declarative_base
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
 from app.settings import get_database_settings
 
@@ -220,6 +221,7 @@ def ping(
             if attempts > retries:
                 return False
             time.sleep(backoff * attempts)
+
 
 @contextlib.contextmanager
 def get_db():

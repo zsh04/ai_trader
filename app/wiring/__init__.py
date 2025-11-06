@@ -1,17 +1,23 @@
-# app/wiring/__init__.py
 from __future__ import annotations
+
 from fastapi import APIRouter
 
-# Create a top-level router and include telegram
+from app.adapters.notifiers.telegram import (
+    build_client_from_env as build_client_from_env,
+)
+from app.api.routes.telegram import (
+    TelegramDep as TelegramDep,
+)
+from app.api.routes.telegram import (
+    get_telegram as get_telegram,
+)
+from app.api.routes.telegram import (
+    router as telegram_router,
+)
+
 router = APIRouter()
 
-# Re-export dependency factory (used in tests or elsewhere)
-from app.adapters.notifiers.telegram import build_client_from_env
-
-# Mount the webhook routes at /telegram
-from app.api.routes.telegram import router as telegram_router  # noqa: E402
 # Avoid double prefix; the telegram router already has prefix="/telegram"
 router.include_router(telegram_router)
 
-
-from app.api.routes.telegram import TelegramDep, get_telegram  # re-export
+__all__ = ["router", "TelegramDep", "get_telegram", "build_client_from_env"]

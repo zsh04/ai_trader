@@ -1,5 +1,4 @@
 # tests/unit/test_watchlist_service.py
-import os
 
 import pytest
 
@@ -16,10 +15,14 @@ def _reset_counters():
 def test_resolve_watchlist_auto_priority(monkeypatch):
     monkeypatch.delenv("WATCHLIST_SOURCE", raising=False)
     monkeypatch.setenv("WATCHLIST_TEXT", "")
-    monkeypatch.setattr(watchlist_service, "fetch_alpha_vantage_symbols", lambda: ["AAPL", "MSFT"])
+    monkeypatch.setattr(
+        watchlist_service, "fetch_alpha_vantage_symbols", lambda: ["AAPL", "MSFT"]
+    )
     monkeypatch.setattr(watchlist_service, "fetch_finnhub_symbols", lambda: [])
     monkeypatch.setattr(watchlist_service, "fetch_twelvedata_symbols", lambda: [])
-    monkeypatch.setattr(watchlist_service, "build_watchlist", lambda source="textlist": [])
+    monkeypatch.setattr(
+        watchlist_service, "build_watchlist", lambda source="textlist": []
+    )
 
     source, symbols = watchlist_service.resolve_watchlist()
     assert source == "alpha"
@@ -31,7 +34,11 @@ def test_resolve_watchlist_auto_fallback_to_textlist(monkeypatch):
     monkeypatch.setattr(watchlist_service, "fetch_alpha_vantage_symbols", lambda: [])
     monkeypatch.setattr(watchlist_service, "fetch_finnhub_symbols", lambda: [])
     monkeypatch.setattr(watchlist_service, "fetch_twelvedata_symbols", lambda: [])
-    monkeypatch.setattr(watchlist_service, "build_watchlist", lambda source="textlist": ["nvda", " tsla"])
+    monkeypatch.setattr(
+        watchlist_service,
+        "build_watchlist",
+        lambda source="textlist": ["nvda", " tsla"],
+    )
 
     source, symbols = watchlist_service.resolve_watchlist()
     assert source == "textlist"
@@ -49,7 +56,9 @@ def test_resolve_watchlist_manual(monkeypatch):
 
 def test_resolve_watchlist_specific_provider(monkeypatch):
     monkeypatch.setenv("WATCHLIST_SOURCE", "finnhub")
-    monkeypatch.setattr(watchlist_service, "fetch_finnhub_symbols", lambda: ["oklo", "rgti"])
+    monkeypatch.setattr(
+        watchlist_service, "fetch_finnhub_symbols", lambda: ["oklo", "rgti"]
+    )
 
     source, symbols = watchlist_service.resolve_watchlist()
     assert source == "finnhub"

@@ -6,7 +6,11 @@ import pandas as pd
 
 from app.agent.probabilistic.regime import RegimeSnapshot
 from app.dal.schemas import SignalFrame
-from app.probability import join_probabilistic_features, regimes_to_frame, signals_to_frame
+from app.probability import (
+    join_probabilistic_features,
+    regimes_to_frame,
+    signals_to_frame,
+)
 
 
 def _ts(idx: int) -> datetime:

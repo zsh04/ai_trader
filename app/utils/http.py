@@ -225,7 +225,9 @@ def request_json(
             break
 
     if last_exc:
-        logger.error("HTTP {} {} failed after retries: {}", method.upper(), url, last_exc)
+        logger.error(
+            "HTTP {} {} failed after retries: {}", method.upper(), url, last_exc
+        )
     return 599, {}
 
 

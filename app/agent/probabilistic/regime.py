@@ -44,10 +44,16 @@ class RegimeAnalysisAgent:
         if not frames_list:
             return []
 
-        prices = np.array([
-            frame.filtered_price if frame.filtered_price is not None else frame.price
-            for frame in frames_list
-        ])
+        prices = np.array(
+            [
+                (
+                    frame.filtered_price
+                    if frame.filtered_price is not None
+                    else frame.price
+                )
+                for frame in frames_list
+            ]
+        )
         returns = np.diff(np.log(prices + 1e-12), prepend=np.log(prices[0] + 1e-12))
         momentum = np.convolve(returns, np.ones(self.window) / self.window, mode="same")
 

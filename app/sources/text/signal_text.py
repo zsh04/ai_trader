@@ -5,6 +5,7 @@ Reads a comma-separated environment variable (SIGNAL_SAMPLE_SYMBOLS),
 parses it using the shared textlist extractor, and returns a normalized list
 of ticker symbols respecting the caller's max_symbols limit.
 """
+
 from __future__ import annotations
 
 import os

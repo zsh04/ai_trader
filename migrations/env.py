@@ -17,8 +17,11 @@ fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
+
 def run_migrations_offline():
-    url = context.get_x_argument(as_dictionary=True).get("DATABASE_URL") or config.get_main_option("sqlalchemy.url")
+    url = context.get_x_argument(as_dictionary=True).get(
+        "DATABASE_URL"
+    ) or config.get_main_option("sqlalchemy.url")
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -27,6 +30,7 @@ def run_migrations_offline():
     )
     with context.begin_transaction():
         context.run_migrations()
+
 
 def run_migrations_online():
     connectable = engine_from_config(
@@ -38,6 +42,7 @@ def run_migrations_online():
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():
             context.run_migrations()
+
 
 if context.is_offline_mode():
     run_migrations_offline()

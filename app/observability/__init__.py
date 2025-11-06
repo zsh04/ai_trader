@@ -6,12 +6,15 @@ gracefully degrade (no-op) when optional OpenTelemetry settings are not present.
 
 from __future__ import annotations
 
-import logging
-from typing import Any, Dict
-import os
 import atexit
+import logging
+import os
+from typing import TYPE_CHECKING, Any, Dict, Type
 
 from app.settings import get_otel_settings
+
+if TYPE_CHECKING:  # pragma: no cover - typing aid
+    from opentelemetry.sdk.resources import Resource
 
 logger = logging.getLogger(__name__)
 
@@ -44,21 +47,23 @@ def configure_tracing() -> bool:
 
     try:
         from opentelemetry import trace
-        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import (
+            OTLPSpanExporter,
+        )
         from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
     except ImportError:  # pragma: no cover - optional dependency
-        logger.warning("OpenTelemetry tracing dependencies not installed; tracing disabled.")
+        logger.warning(
+            "OpenTelemetry tracing dependencies not installed; tracing disabled."
+        )
         return False
 
     try:
         resource = _build_resource(Resource)
         tracer_provider = TracerProvider(resource=resource)
         tracer_provider.add_span_processor(
-            BatchSpanProcessor(
-                OTLPSpanExporter(**_exporter_kwargs("trace"))
-            )
+            BatchSpanProcessor(OTLPSpanExporter(**_exporter_kwargs("trace")))
         )
         trace.set_tracer_provider(tracer_provider)
         global _tracer_provider
@@ -83,12 +88,16 @@ def configure_metrics() -> bool:
 
     try:
         from opentelemetry import metrics
-        from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+        from opentelemetry.exporter.otlp.proto.http.metric_exporter import (
+            OTLPMetricExporter,
+        )
         from opentelemetry.sdk.metrics import MeterProvider
         from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
         from opentelemetry.sdk.resources import Resource
     except ImportError:  # pragma: no cover - optional dependency
-        logger.warning("OpenTelemetry metrics dependencies not installed; metrics disabled.")
+        logger.warning(
+            "OpenTelemetry metrics dependencies not installed; metrics disabled."
+        )
         return False
 
     try:
@@ -127,7 +136,9 @@ def configure_logging() -> bool:
         from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
         from opentelemetry.sdk.resources import Resource
     except ImportError:  # pragma: no cover - optional dependency
-        logger.warning("OpenTelemetry logging dependencies not installed; log export disabled.")
+        logger.warning(
+            "OpenTelemetry logging dependencies not installed; log export disabled."
+        )
         return False
 
     try:
@@ -189,7 +200,7 @@ def _exporter_kwargs(kind: str) -> Dict[str, Any]:
     return kwargs
 
 
-def _build_resource(resource_cls) -> "Resource":
+def _build_resource(resource_cls: Type["Resource"]) -> "Resource":
     """Create an OpenTelemetry resource honoring OTEL_* attributes if present."""
     attributes: Dict[str, str] = {}
 
@@ -206,7 +217,6 @@ def _build_resource(resource_cls) -> "Resource":
     if not attributes:
         return default_resource
     return default_resource.merge(resource_cls.create(attributes))
-
 
 
 # Shutdown helper and atexit hook
@@ -228,6 +238,7 @@ def shutdown_observability() -> None:
             _tracer_provider.shutdown()
     except Exception:
         logger.exception("Error during tracer provider shutdown")
+
 
 # Ensure we always flush on app termination
 atexit.register(shutdown_observability)

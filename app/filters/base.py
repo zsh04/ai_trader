@@ -6,6 +6,7 @@ Integrates with existing ai_trader structure:
 - Returns pandas Series with probabilistic scores [0,1]
 - Compatible with existing OHLCV data format
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -35,7 +36,9 @@ class ProbabilisticFilter(ABC):
         self._fitted = False
 
     @abstractmethod
-    def score(self, data: pd.DataFrame, context: Dict[str, Any] | None = None) -> pd.Series:
+    def score(
+        self, data: pd.DataFrame, context: Dict[str, Any] | None = None
+    ) -> pd.Series:
         """Return probability [0,1] for each symbol.
 
         Args:
@@ -59,7 +62,7 @@ class ProbabilisticFilter(ABC):
         self,
         data: pd.DataFrame,
         threshold: float = 0.5,
-        context: Dict[str, Any] | None = None
+        context: Dict[str, Any] | None = None,
     ) -> pd.Series:
         """Binary filter using threshold on probability scores.
 
@@ -74,7 +77,9 @@ class ProbabilisticFilter(ABC):
         scores = self.score(data, context or {})
         return scores >= threshold
 
-    def fit(self, data: pd.DataFrame, labels: pd.Series | None = None) -> ProbabilisticFilter:
+    def fit(
+        self, data: pd.DataFrame, labels: pd.Series | None = None
+    ) -> ProbabilisticFilter:
         """Train filter on historical data (optional, for ML-based filters).
 
         Args:
@@ -107,13 +112,13 @@ class FilterPipeline:
         final_scores = pipeline.score(data, context)
     """
 
-    VALID_METHODS = {'product', 'weighted_avg', 'min', 'max', 'mean'}
+    VALID_METHODS = {"product", "weighted_avg", "min", "max", "mean"}
 
     def __init__(
         self,
         filters: list[ProbabilisticFilter],
-        combination_method: str = 'product',
-        weights: list[float] | None = None
+        combination_method: str = "product",
+        weights: list[float] | None = None,
     ):
         """Initialize pipeline.
 
@@ -140,7 +145,7 @@ class FilterPipeline:
         self.combination_method = combination_method
         self.weights = weights
 
-        if combination_method == 'weighted_avg':
+        if combination_method == "weighted_avg":
             if weights is None:
                 # Default to equal weights
                 self.weights = [1.0 / len(filters)] * len(filters)
@@ -150,7 +155,9 @@ class FilterPipeline:
                     f"filters length ({len(filters)})"
                 )
 
-    def score(self, data: pd.DataFrame, context: Dict[str, Any] | None = None) -> pd.Series:
+    def score(
+        self, data: pd.DataFrame, context: Dict[str, Any] | None = None
+    ) -> pd.Series:
         """Compute combined probability scores from all filters.
 
         Args:
@@ -179,32 +186,34 @@ class FilterPipeline:
         scores_df = pd.concat(scores_list, axis=1, keys=[f.name for f in self.filters])
 
         # Apply combination method
-        if self.combination_method == 'product':
+        if self.combination_method == "product":
             # Independent assumption: P(A and B) = P(A) * P(B)
             return scores_df.prod(axis=1)
 
-        elif self.combination_method == 'weighted_avg':
+        elif self.combination_method == "weighted_avg":
             return scores_df.dot(self.weights)
 
-        elif self.combination_method == 'min':
+        elif self.combination_method == "min":
             # Conservative: weakest link
             return scores_df.min(axis=1)
 
-        elif self.combination_method == 'max':
+        elif self.combination_method == "max":
             # Aggressive: strongest signal
             return scores_df.max(axis=1)
 
-        elif self.combination_method == 'mean':
+        elif self.combination_method == "mean":
             return scores_df.mean(axis=1)
 
         else:
-            raise NotImplementedError(f"Method {self.combination_method} not implemented")
+            raise NotImplementedError(
+                f"Method {self.combination_method} not implemented"
+            )
 
     def filter(
         self,
         data: pd.DataFrame,
         threshold: float = 0.5,
-        context: Dict[str, Any] | None = None
+        context: Dict[str, Any] | None = None,
     ) -> pd.Series:
         """Binary filter using combined scores."""
         scores = self.score(data, context)

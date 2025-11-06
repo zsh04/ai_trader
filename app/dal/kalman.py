@@ -43,7 +43,9 @@ class KalmanFilter1D:
         # Prediction step
         x_pred = self.x + self.v * self.dt
         v_pred = self.v
-        p11_pred = self.p11 + (self.p12 + self.p21 + self.p22 * self.dt) * self.dt + self.q
+        p11_pred = (
+            self.p11 + (self.p12 + self.p21 + self.p22 * self.dt) * self.dt + self.q
+        )
         p12_pred = self.p12 + self.p22 * self.dt
         p21_pred = self.p21 + self.p22 * self.dt
         p22_pred = self.p22 + self.q

@@ -3,13 +3,14 @@ from __future__ import annotations
 
 from typing import Iterable, List, Optional
 
-# Existing sources you already have
-from app.sources.textlist_source import get_symbols as textlist_symbols
 from app.services.watchlist_sources import (
     fetch_alpha_vantage_symbols,
     fetch_finnhub_symbols,
     fetch_twelvedata_symbols,
 )
+
+# Existing sources you already have
+from app.sources.textlist_source import get_symbols as textlist_symbols
 
 
 def _dedupe(seq: Iterable[str]) -> List[str]:

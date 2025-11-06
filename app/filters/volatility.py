@@ -30,7 +30,7 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
         n_states: int = 2,
         lookback: int = 60,
         atr_period: int = 14,
-        name: str | None = None
+        name: str | None = None,
     ):
         """Initialize volatility regime filter.
 
@@ -47,10 +47,7 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
 
         # HMM model (will be fitted per symbol)
         self.hmm = GaussianHMM(
-            n_components=n_states,
-            covariance_type="full",
-            n_iter=100,
-            random_state=42
+            n_components=n_states, covariance_type="full", n_iter=100, random_state=42
         )
 
         # Maps state indices to regime labels
@@ -72,14 +69,13 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
         returns_vol = returns.rolling(self.atr_period).std()
 
         # Combine features
-        features = pd.DataFrame({
-            'atr': atr,
-            'returns_vol': returns_vol
-        }).dropna()
+        features = pd.DataFrame({"atr": atr, "returns_vol": returns_vol}).dropna()
 
         return features.values
 
-    def fit(self, data: pd.DataFrame, labels: pd.Series | None = None) -> VolatilityRegimeFilter:
+    def fit(
+        self, data: pd.DataFrame, labels: pd.Series | None = None
+    ) -> VolatilityRegimeFilter:
         """Train HMM on historical volatility data.
 
         Args:
@@ -94,7 +90,7 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
         if len(features) < self.lookback:
             self._fitted = False
             return self
-        
+
         # Fit HMM
         self.hmm.fit(features)
 
@@ -106,28 +102,32 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
             if len(state_data) > 0:
                 mean_atr = state_data[:, 0].mean()  # First column is ATR
                 state_means.append((i, mean_atr))
-        
+
         # Sort by volatility
         # self.hmm.means_ is shape (n_components, n_features)
         state_means = [(i, mean[0]) for i, mean in enumerate(self.hmm.means_)]
-        
+
         # Sort by volatility (mean of the first feature - ATR)
         state_means.sort(key=lambda x: x[1])
 
         # Map indices to labels
         if self.n_states == 2:
-            labels = ['low_vol', 'high_vol']
+            labels = ["low_vol", "high_vol"]
         elif self.n_states == 3:
-            labels = ['low_vol', 'medium_vol', 'high_vol']
+            labels = ["low_vol", "medium_vol", "high_vol"]
         else:
-            labels = [f'vol_state_{i}' for i in range(self.n_states)]
+            labels = [f"vol_state_{i}" for i in range(self.n_states)]
 
-        self.regime_labels = {state_means[i][0]: labels[i] for i in range(len(state_means))}
+        self.regime_labels = {
+            state_means[i][0]: labels[i] for i in range(len(state_means))
+        }
         self._fitted = True
 
         return self
 
-    def score(self, data: pd.DataFrame, context: Dict[str, Any] | None = None) -> pd.Series:
+    def score(
+        self, data: pd.DataFrame, context: Dict[str, Any] | None = None
+    ) -> pd.Series:
         """Return probability of high-volatility regime.
 
         Args:
@@ -143,7 +143,7 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
             )
 
         # Check if multi-symbol data
-        if 'symbol' in data.columns:
+        if "symbol" in data.columns:
             # Wide format with symbol column
             return self._score_multi_symbol(data)
 
@@ -156,29 +156,30 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
 
         if len(features) < self.lookback:
             # Not enough data - return neutral probability
-            return pd.Series([0.5], index=['symbol'])
+            return pd.Series([0.5], index=["symbol"])
 
         # Use last N periods for regime detection
-        recent_features = features[-self.lookback:]
+        recent_features = features[-self.lookback :]
 
         # Get state probabilities
         state_probs = self.hmm.predict_proba(recent_features)
 
         # Probability of high-vol regime = prob of highest state
-        high_vol_state = max(self.regime_labels.keys(),
-                            key=lambda k: k)  # Highest numbered state
+        high_vol_state = max(
+            self.regime_labels.keys(), key=lambda k: k
+        )  # Highest numbered state
 
         # Use latest probability
         high_vol_prob = state_probs[-1, high_vol_state]
 
-        return pd.Series([high_vol_prob], index=['symbol'])
+        return pd.Series([high_vol_prob], index=["symbol"])
 
     def _score_multi_symbol(self, data: pd.DataFrame) -> pd.Series:
         """Score multiple symbols."""
         scores = {}
 
-        for symbol in data['symbol'].unique():
-            symbol_data = data[data['symbol'] == symbol].copy()
+        for symbol in data["symbol"].unique():
+            symbol_data = data[data["symbol"] == symbol].copy()
 
             try:
                 score = self._score_single_symbol(symbol_data)
@@ -201,24 +202,23 @@ class VolatilityRegimeFilter(ProbabilisticFilter):
             }
         """
         features = self._extract_features(data)
-        recent = features[-self.lookback:]
+        recent = features[-self.lookback :]
 
         state_probs = self.hmm.predict_proba(recent)
         latest_probs = state_probs[-1]
 
         # Most likely state
         most_likely_state = int(np.argmax(latest_probs))
-        regime = self.regime_labels.get(most_likely_state, 'unknown')
+        regime = self.regime_labels.get(most_likely_state, "unknown")
         confidence = float(latest_probs[most_likely_state])
 
         # All state probabilities
         state_prob_dict = {
-            self.regime_labels[i]: float(latest_probs[i])
-            for i in range(self.n_states)
+            self.regime_labels[i]: float(latest_probs[i]) for i in range(self.n_states)
         }
 
         return {
-            'regime': regime,
-            'confidence': confidence,
-            'state_probs': state_prob_dict
+            "regime": regime,
+            "confidence": confidence,
+            "state_probs": state_prob_dict,
         }

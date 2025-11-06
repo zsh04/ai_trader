@@ -38,6 +38,10 @@ def bracket_for_entry(
         tp, sl = entry_px * 1.01, entry_px * 0.99
 
     logger.info(
-        "Bracket computed: entry={:.2f} atr={:.2f} → tp={:.2f} sl={:.2f}", entry_px, atr, tp, sl
+        "Bracket computed: entry={:.2f} atr={:.2f} → tp={:.2f} sl={:.2f}",
+        entry_px,
+        atr,
+        tp,
+        sl,
     )
     return round(tp, 2), round(sl, 2)

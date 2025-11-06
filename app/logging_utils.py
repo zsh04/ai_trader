@@ -5,23 +5,31 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from typing import Optional, Union, Dict, Any
+from contextlib import contextmanager
+from contextvars import ContextVar
 from os import PathLike
 from pathlib import Path
-from contextvars import ContextVar
-from contextlib import contextmanager
+from typing import Any, Dict, Optional, Union
+
 from loguru import logger
 
 from app.config import settings as app_settings
 
 # Global record factory to provide defaults for missing OTEL fields.
 _old_factory = logging.getLogRecordFactory()
+
+
 def _otel_safe_record_factory(*args, **kwargs):
     record = _old_factory(*args, **kwargs)
-    if not hasattr(record, "otelTraceID"):    record.otelTraceID = "-"
-    if not hasattr(record, "otelSpanID"):     record.otelSpanID = "-"
-    if not hasattr(record, "otelTraceFlags"): record.otelTraceFlags = "-"
+    if not hasattr(record, "otelTraceID"):
+        record.otelTraceID = "-"
+    if not hasattr(record, "otelSpanID"):
+        record.otelSpanID = "-"
+    if not hasattr(record, "otelTraceFlags"):
+        record.otelTraceFlags = "-"
     return record
+
+
 logging.setLogRecordFactory(_otel_safe_record_factory)
 
 PathLikeArg = Union[str, PathLike]  # simple alias
@@ -36,7 +44,9 @@ OTEL_MISSING = {"otelTraceID": "-", "otelSpanID": "-", "otelTraceFlags": "-"}
 
 _ctx_request_id: ContextVar[str] = ContextVar("log_request_id", default="-")
 _ctx_environment: ContextVar[str] = ContextVar("log_environment", default="local")
-_ctx_service_version: ContextVar[str] = ContextVar("log_service_version", default="unknown")
+_ctx_service_version: ContextVar[str] = ContextVar(
+    "log_service_version", default="unknown"
+)
 _ctx_git_sha: ContextVar[str] = ContextVar("log_git_sha", default="unknown")
 
 _CONTEXT_VARS: Dict[str, ContextVar[str]] = {
@@ -53,6 +63,7 @@ def _inject_context(record: Dict[str, Any]) -> Dict[str, Any]:
         extra.setdefault(key, ctx.get())
     return record
 
+
 def _std_logging_sink(message) -> None:
     record = message.record
     exc = record["exception"]
@@ -61,7 +72,9 @@ def _std_logging_sink(message) -> None:
         tb = getattr(exc.traceback, "as_traceback", None)
         std_tb = tb() if callable(tb) else exc.traceback  # fallback
         # If the fallback isn't a real traceback (older Loguru), just pass None to avoid type errors.
-        exc_info = (exc.type, exc.value, std_tb) if std_tb else (exc.type, exc.value, None)
+        exc_info = (
+            (exc.type, exc.value, std_tb) if std_tb else (exc.type, exc.value, None)
+        )
 
     log_record = logging.LogRecord(
         name=record["name"],
@@ -93,7 +106,9 @@ def setup_logging(*, force: bool = False, level: str | None = None) -> None:
 
     logger.remove()
 
-    log_level = (level or os.getenv("OTEL_LOG_LEVEL") or os.getenv("LOG_LEVEL") or "INFO").upper()
+    log_level = (
+        level or os.getenv("OTEL_LOG_LEVEL") or os.getenv("LOG_LEVEL") or "INFO"
+    ).upper()
     environment = os.getenv("ENV", "local")
     git_sha = (
         os.getenv("GIT_SHA")
@@ -148,8 +163,8 @@ def setup_test_logging(
     *,
     level: Optional[str] = None,
     file: Optional[PathLikeArg] = None,
-    filename: str = "pytest.log",       # default file name when a directory is provided
-    parallel_safe: bool = False,        # if True -> pytest-<pid>.log
+    filename: str = "pytest.log",  # default file name when a directory is provided
+    parallel_safe: bool = False,  # if True -> pytest-<pid>.log
 ) -> None:
     """
     Lightweight logging setup for tests.
@@ -170,13 +185,19 @@ def setup_test_logging(
         elif isinstance(arg, str):
             inferred_level = arg
 
-    effective_level = (level or inferred_level or os.getenv("PYTEST_LOGLEVEL") or "INFO").upper()
+    effective_level = (
+        level or inferred_level or os.getenv("PYTEST_LOGLEVEL") or "INFO"
+    ).upper()
 
     # Base setup (stdout sink + stdlib bridge)
     setup_logging(force=True, level=effective_level)
 
     # Resolve target path preference: explicit `file` wins, then inferred_path
-    target = Path(file) if file is not None else (inferred_path if inferred_path is not None else None)
+    target = (
+        Path(file)
+        if file is not None
+        else (inferred_path if inferred_path is not None else None)
+    )
     if target is None:
         return  # no file sink requested; stdout-only is fine
 

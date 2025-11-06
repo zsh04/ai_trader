@@ -1,10 +1,13 @@
 # app/repositories/watchlist_index.py
 from __future__ import annotations
+
+import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+
 from sqlalchemy import text
+
 from app.adapters.db.postgres import get_db
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +35,12 @@ def ensure_schema():
 
 
 def insert_index(
-    bucket: str, asof_utc: datetime, source: str, count: int, tags: List[str], blob_path: str
+    bucket: str,
+    asof_utc: datetime,
+    source: str,
+    count: int,
+    tags: List[str],
+    blob_path: str,
 ):
     sql = text(
         "INSERT INTO watchlist_index(bucket, asof_utc, source, count, tags, blob_path) "

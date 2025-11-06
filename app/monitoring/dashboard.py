@@ -12,13 +12,13 @@ Key features:
 
 from __future__ import annotations
 
+import inspect
 import os
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 import altair as alt
-import inspect
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -198,9 +198,15 @@ def _fetch_equity_from_db(since: datetime) -> Optional[pd.DataFrame]:
                     "timestamp": snap.ts_utc,
                     "equity": float(snap.equity),
                     "cash": float(snap.cash) if snap.cash is not None else None,
-                    "pnl_day": float(snap.pnl_day) if snap.pnl_day is not None else None,
-                    "drawdown": float(snap.drawdown) if snap.drawdown is not None else None,
-                    "leverage": float(snap.leverage) if snap.leverage is not None else None,
+                    "pnl_day": (
+                        float(snap.pnl_day) if snap.pnl_day is not None else None
+                    ),
+                    "drawdown": (
+                        float(snap.drawdown) if snap.drawdown is not None else None
+                    ),
+                    "leverage": (
+                        float(snap.leverage) if snap.leverage is not None else None
+                    ),
                 }
             )
         df = pd.DataFrame.from_records(records)
@@ -293,7 +299,9 @@ def _compute_summary(equity: pd.Series) -> Dict[str, float]:
     }
 
 
-def _render_stat_card(title: str, value: str, delta: str | None, delta_class: str, footnote: str) -> None:
+def _render_stat_card(
+    title: str, value: str, delta: str | None, delta_class: str, footnote: str
+) -> None:
     st.markdown(
         f"""
         <div class="card">

@@ -1,10 +1,15 @@
 import os
-import pytest
-from tests.conftest import _outbox, _clear_outbox, client
 
-pytestmark = pytest.mark.skip(reason="Parking lot: Telegram webhook tests temporarily disabled pending refactor.")
+import pytest
+
+from tests.conftest import _clear_outbox, _outbox
+
+pytestmark = pytest.mark.skip(
+    reason="Parking lot: Telegram webhook tests temporarily disabled pending refactor."
+)
 
 os.environ.setdefault("TELEGRAM_ALLOW_TEST_NO_SECRET", "1")
+
 
 def _last_text():
     ob = _outbox()
@@ -18,6 +23,7 @@ def _last_text():
         return last[1]
     return str(last)
 
+
 def _tg_update(cmd: str):
     return {
         "update_id": 1001,
@@ -30,6 +36,7 @@ def _tg_update(cmd: str):
         },
     }
 
+
 def test_ping_command_sends_reply(client):
     _clear_outbox()
     r = client.post("/telegram/webhook", json=_tg_update("/ping"))
@@ -38,6 +45,7 @@ def test_ping_command_sends_reply(client):
     assert len(ob) >= 1, "Expected a reply in telegram outbox"
     assert any("pong" in m.lower() for m in ob)
 
+
 def test_help_command_lists_commands(client):
     _clear_outbox()
     r = client.post("/telegram/webhook", json=_tg_update("/help"))
@@ -45,6 +53,7 @@ def test_help_command_lists_commands(client):
     ob = _outbox()
     assert len(ob) >= 1
     assert any("/watchlist" in m for m in ob)
+
 
 def test_unknown_command_is_graceful(client):
     _clear_outbox()

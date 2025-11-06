@@ -123,15 +123,22 @@ def _build_watchlist(
         raise HTTPException(status_code=500, detail=f"watchlist error: {e!s}") from e
 
 
+SYMBOLS_QUERY = Query(default=None)
+BOOL_TRUE_QUERY = Query(default=True)
+BOOL_FALSE_QUERY = Query(default=False)
+LIMIT_QUERY = Query(default=15, ge=1, le=100)
+OPTIONAL_STR_QUERY = Query(default=None)
+
+
 @tasks_router.post("/watchlist", tags=["watchlist"])
 def task_watchlist(
-    symbols: Optional[List[str]] = Query(None),
-    include_filters: bool = Query(True),
-    include_ohlcv: bool = Query(True),
-    limit: int = Query(15, ge=1, le=100),
-    notify: bool = Query(False),
-    title: Optional[str] = Query(None),
-    chat_id: Optional[str] = Query(None),
+    symbols: Optional[List[str]] = SYMBOLS_QUERY,
+    include_filters: bool = BOOL_TRUE_QUERY,
+    include_ohlcv: bool = BOOL_TRUE_QUERY,
+    limit: int = LIMIT_QUERY,
+    notify: bool = BOOL_FALSE_QUERY,
+    title: Optional[str] = OPTIONAL_STR_QUERY,
+    chat_id: Optional[str] = OPTIONAL_STR_QUERY,
 ) -> Dict[str, Any]:
     """
     Builds and optionally sends a watchlist.

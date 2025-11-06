@@ -82,9 +82,7 @@ class OTELSettings(_SettingsBase):
     resource_attributes: str | None = Field(
         default=None, alias="OTEL_RESOURCE_ATTRIBUTES"
     )
-    python_log_level: str | None = Field(
-        default=None, alias="OTEL_PYTHON_LOG_LEVEL"
-    )
+    python_log_level: str | None = Field(default=None, alias="OTEL_PYTHON_LOG_LEVEL")
 
     @computed_field
     @property
@@ -173,12 +171,8 @@ class TelegramSettings(_SettingsBase):
     allowed_user_ids_raw: str | None = Field(
         default=None, alias="TELEGRAM_ALLOWED_USER_IDS"
     )
-    default_chat_id: str | None = Field(
-        default=None, alias="TELEGRAM_DEFAULT_CHAT_ID"
-    )
-    webhook_secret: str | None = Field(
-        default=None, alias="TELEGRAM_WEBHOOK_SECRET"
-    )
+    default_chat_id: str | None = Field(default=None, alias="TELEGRAM_DEFAULT_CHAT_ID")
+    webhook_secret: str | None = Field(default=None, alias="TELEGRAM_WEBHOOK_SECRET")
     timeout_secs: int = Field(default=10, alias="TELEGRAM_TIMEOUT_SECS")
     fake_mode: bool = Field(default=False, alias="TELEGRAM_FAKE")
 
@@ -264,9 +258,7 @@ class DatabaseSettings(_SettingsBase):
 class MarketDataSettings(_SettingsBase):
     """API credentials and feature flags for external market data vendors."""
 
-    alphavantage_key: str | None = Field(
-        default=None, alias="ALPHAVANTAGE_API_KEY"
-    )
+    alphavantage_key: str | None = Field(default=None, alias="ALPHAVANTAGE_API_KEY")
     finnhub_key: str | None = Field(default=None, alias="FINNHUB_API_KEY")
 
     @computed_field
@@ -323,6 +315,7 @@ def get_database_settings() -> DatabaseSettings:
 
 def get_market_data_settings() -> MarketDataSettings:
     return get_settings().market_data
+
 
 # Hard guard: never allow Telegram fake mode in production
 if (os.getenv("ENV") or "dev").lower() == "prod":

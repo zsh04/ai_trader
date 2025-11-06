@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from app.agent.probabilistic.regime import RegimeSnapshot
 from app.dal.schemas import Bars, SignalFrame

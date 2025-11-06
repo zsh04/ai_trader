@@ -50,9 +50,7 @@ class AlpacaClient:
         env_backoff = float(getattr(ENV, "HTTP_BACKOFF", 1.5))
         self.timeout = float(timeout) if timeout is not None else env_timeout
         self.retries = max(0, int(retries)) if retries is not None else env_retries
-        self.backoff = (
-            max(0.0, float(backoff)) if backoff is not None else env_backoff
-        )
+        self.backoff = max(0.0, float(backoff)) if backoff is not None else env_backoff
 
     # -------------------------------------------------------------------------
     # Internal HTTP helpers
@@ -132,9 +130,7 @@ class AlpacaClient:
             r = self._request("GET", url)
             ok = 200 <= r.status_code < 300
             if not ok:
-                logger.error(
-                    "Alpaca health_check failed: {} {}", r.status_code, r.text
-                )
+                logger.error("Alpaca health_check failed: {} {}", r.status_code, r.text)
             return ok
         except Exception as e:  # pragma: no cover - defensive
             logger.exception("Alpaca health_check exception: {}", e)

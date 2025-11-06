@@ -1,7 +1,12 @@
 # tests/adapters/test_azure_blob_adapter.py
 from __future__ import annotations
-import io, json, re, types, sys, os
+
+import json
+import re
+import sys
+import types
 from importlib import import_module, reload
+
 import pytest
 
 
@@ -9,17 +14,29 @@ import pytest
 # Fake Azure SDK (blob + core.ex)
 # -------------------------------
 class _FakeDownloader:
-    def __init__(self, data: bytes): self._data = data
-    def readall(self) -> bytes: return self._data
+    def __init__(self, data: bytes):
+        self._data = data
+
+    def readall(self) -> bytes:
+        return self._data
+
     # some helpers use .content_as_text() on the SDK response
-    def content_as_text(self, encoding="utf-8") -> str: return self._data.decode(encoding)
+    def content_as_text(self, encoding="utf-8") -> str:
+        return self._data.decode(encoding)
+
 
 class _FakeBlobClient:
-    def __init__(self, container: str, name: str): self.url = f"https://fake/{container}/{name}"
+    def __init__(self, container: str, name: str):
+        self.url = f"https://fake/{container}/{name}"
+
 
 class _FakeContainerClient:
-    def __init__(self): self._store: dict[str, bytes] = {}
-    def create_container(self): return None
+    def __init__(self):
+        self._store: dict[str, bytes] = {}
+
+    def create_container(self):
+        return None
+
     def upload_blob(self, name: str, data, overwrite=False, **kwargs):
         if not overwrite and name in self._store:
             raise Exception("BlobExists")
@@ -33,25 +50,42 @@ class _FakeContainerClient:
             raw = bytes(data)
         self._store[name] = raw
         return None
+
     def download_blob(self, name: str) -> _FakeDownloader:
-        if name not in self._store: raise KeyError(name)
+        if name not in self._store:
+            raise KeyError(name)
         return _FakeDownloader(self._store[name])
+
     def list_blobs(self, name_starts_with: str = ""):
-        return [types.SimpleNamespace(name=k) for k in sorted(self._store) if k.startswith(name_starts_with)]
+        return [
+            types.SimpleNamespace(name=k)
+            for k in sorted(self._store)
+            if k.startswith(name_starts_with)
+        ]
+
     def get_blob_client(self, name: str) -> _FakeBlobClient:
         return _FakeBlobClient("utest", name)
 
+
 class _FakeBlobServiceClient:
-    def __init__(self): self._containers: dict[str, _FakeContainerClient] = {}
+    def __init__(self):
+        self._containers: dict[str, _FakeContainerClient] = {}
+
     @classmethod
-    def from_connection_string(cls, *_args, **_kwargs): return cls()
+    def from_connection_string(cls, *_args, **_kwargs):
+        return cls()
+
     def get_container_client(self, container: str) -> _FakeContainerClient:
         self._containers.setdefault(container, _FakeContainerClient())
         return self._containers[container]
 
+
 # exceptions shim
 class _ResExists(Exception): ...
+
+
 class _ResNotFound(Exception): ...
+
 
 @pytest.fixture(autouse=True)
 def fake_azure_sdk(monkeypatch):
@@ -60,9 +94,12 @@ def fake_azure_sdk(monkeypatch):
     mod_storage = types.ModuleType("azure.storage")
     mod_blob = types.ModuleType("azure.storage.blob")
     mod_blob.BlobServiceClient = _FakeBlobServiceClient
+
     # some code may import ContentSettings; provide a lightweight stub
     class ContentSettings:
-        def __init__(self, content_type=None): self.content_type = content_type
+        def __init__(self, content_type=None):
+            self.content_type = content_type
+
     mod_blob.ContentSettings = ContentSettings
 
     mod_core = types.ModuleType("azure.core")
@@ -71,7 +108,9 @@ def fake_azure_sdk(monkeypatch):
     mod_ex.ResourceNotFoundError = _ResNotFound
 
     mod_id = types.ModuleType("azure.identity")
+
     class DefaultAzureCredential: ...
+
     mod_id.DefaultAzureCredential = DefaultAzureCredential
 
     sys.modules["azure"] = mod_azure
@@ -96,7 +135,13 @@ def fake_azure_sdk(monkeypatch):
 
 def _import_exports():
     # Pull from the public export surface (storage/__init__.py)
-    from app.adapters.storage import blob_save_json, blob_load_text, blob_list, today_key
+    from app.adapters.storage import (
+        blob_list,
+        blob_load_text,
+        blob_save_json,
+        today_key,
+    )
+
     return blob_save_json, blob_load_text, blob_list, today_key
 
 

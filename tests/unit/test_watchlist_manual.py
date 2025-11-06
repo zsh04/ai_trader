@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import os
-from typing import Iterable
-
 import pytest
 
 from app.domain.watchlist_service import resolve_watchlist

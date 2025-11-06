@@ -45,7 +45,7 @@ class HybridVendor(VendorClient):
             yield payload
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio("asyncio")
 async def test_probabilistic_pipeline_end_to_end(tmp_path: Path):
     base = datetime(2024, 1, 1, tzinfo=timezone.utc)
     historical_bars = [
@@ -109,4 +109,9 @@ async def test_probabilistic_pipeline_end_to_end(tmp_path: Path):
     assert stream_frames[-1].signal.timestamp >= target_ts
     assert all(frame.signal.butterworth_price is not None for frame in stream_frames)
     assert all(frame.regime.symbol == "AAPL" for frame in stream_frames)
-    assert stream_frames[-1].regime.regime in {"trend_up", "sideways", "calm", "high_volatility"}
+    assert stream_frames[-1].regime.regime in {
+        "trend_up",
+        "sideways",
+        "calm",
+        "high_volatility",
+    }
