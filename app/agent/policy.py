@@ -3,7 +3,7 @@ Trading policy primitives — strategy-agnostic.
 
 These helpers gate entries/exits using probabilistic signals and basic risk rules.
 They are deliberately lightweight and have no external deps so they can be used
-from backtests, live execution, or Telegram commands.
+from backtests, live execution, or other command surfaces.
 """
 
 from __future__ import annotations

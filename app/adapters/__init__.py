@@ -2,7 +2,7 @@
 
 Provides namespaced access to external integration layers:
 - db: database adapters (e.g., PostgreSQL)
-- notifiers: outbound message systems (e.g., Telegram)
+- notifiers: outbound message systems
 - storage: blob/object storage helpers
 - telemetry: logging and monitoring utilities
 

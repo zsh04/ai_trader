@@ -1,9 +1,9 @@
-# AI Trader — v1.5.5
+# AI Trader — v1.6.6
 
 > Modular trading intelligence platform for watchlists, signal orchestration, and risk-aware execution.
 
 **Python:** 3.12.x  
-**Stack:** FastAPI • Alpaca • PostgreSQL • Telegram  
+**Stack:** FastAPI • Market Data DAL • Streamlit • PostgreSQL  
 **Deploy Target:** Azure App Service (Python)  
 **Author:** Zishan Malik
 
@@ -12,14 +12,14 @@
 - Multi-timeframe signal generation (5m → 1D) covering equities and ETFs via Alpaca.
 - Autonomous session-aware agents for watchlists, sizing, journaling, and guardrails.
 - Cloud-native deployment with GitHub Actions and Azure App Service.
-- Structured observability and Telegram notifications for trade and system health.
+- Structured observability via OpenTelemetry dashboards and Streamlit UI.
 
 ## Platform Capabilities
 
 - **Scanning & Watchlists:** Premarket gap/RVOL scans with continuous refresh windows.
 - **Trading Agent Suite:** Policy, sizing, execution, and journaling agents with PDT & drawdown gates.
 - **Backtesting:** Breakout strategy engine with metrics, CSV exports, and debug snapshots.
-- **Integrations:** Alpaca market/execution data, PostgreSQL persistence, Azure Blob storage, Telegram bot.
+- **Integrations:** Alpaca trading + market data, Alpha Vantage intraday/EOD (with Yahoo/Twelve Data fallback), Finnhub daily quotes, PostgreSQL persistence, Azure Blob storage.
 - **Probabilistic Market Data Layer:** Unified DAL that normalizes Alpaca, Alpha Vantage, and Finnhub feeds (HTTP + WebSocket) and emits Kalman-filtered probabilistic signals with parquet/Postgres persistence.
 
 ## Architecture
@@ -33,12 +33,16 @@ app/
  ├── core/             # Models, exceptions, utilities, time/calendar logic
  ├── features/         # Derived signals, multi-timeframe indicators
  ├── monitoring/       # Logging, telemetry, dashboards
- ├── notifiers/        # Telegram, alerts, webhooks
- ├── providers/        # Market data sources (Alpaca, Yahoo, Finviz)
+ ├── dal/              # Market data abstraction (vendors, cache, streaming)
+ ├── data/             # ETL helpers and lightweight transforms
+ ├── domain/           # Watchlist models and repositories
+ ├── monitoring/       # Streamlit dashboards and widgets
+ ├── observability/    # OpenTelemetry configuration helpers
+ ├── probability/      # Probabilistic pipeline definitions
  ├── scanners/         # Signal and watchlist generation
+ ├── services/         # Application services (watchlists, orchestration)
+ ├── sessions/         # Market-session calendar utilities
  ├── strats/           # Strategy implementations (breakout, momentum, etc.)
- ├── storage/          # Azure Blob, local caching
- ├── telemetry/        # Unified observability hooks
  └── tests/            # Unit, integration, and smoke tests
 ```
 
@@ -58,7 +62,7 @@ All modules are import-safe, follow snake_case for files/functions, and use stru
    export PYTHONPATH=.
    ```
 
-3. Create a `.env` file (copy from `.env.example`) with broker, storage, database, Telegram, and market data credentials. Never check secrets into source control—production uses Key Vault references.
+3. Create a `.env` file (copy from `.env.example`) with broker, storage, database, and market data credentials. Never check secrets into source control—production uses Key Vault references.
 4. Launch the FastAPI app locally:
 
    ```bash
@@ -107,30 +111,23 @@ deployment notes see `docs/operations/observability.md`.
 
 - GitHub Actions (`.github/workflows/ci-deploy.yml`) build, test, and deploy to the configured App Service.
 - App configuration lives in Azure App Settings—no `.env` files in production.
-- After every deployment, reset the Telegram webhook:
-
-  ```bash
-  curl -X POST "https://api.telegram.org/bot<TOKEN>/setWebhook" \
-       -H "Content-Type: application/json" \
-       -d '{"url":"<APP_SERVICE_URL>/telegram/webhook","secret_token":"<TELEGRAM_WEBHOOK_SECRET>"}'
-  ```
 
 ### Market Data DAL
 
 The probabilistic data abstraction layer (`app/dal/`) consolidates vendor access, Kalman filtering, caching, and streaming:
 
-- **Vendors:** Alpaca (HTTP + streaming), Alpha Vantage (HTTP), Finnhub (HTTP + streaming). Additional vendors plug in via the `VendorClient` interface.
+- **Vendors:** Alpaca (HTTP + streaming), Alpha Vantage intraday + daily (falls back to Yahoo/Twelve Data when rate-limited), Finnhub daily quotes (intraday disabled until plan upgrade). Additional vendors plug in via the `VendorClient` interface.
 - **Normalization:** `Bars`/`SignalFrame` schemas enforce UTC timestamps, corporate-action aware pricing, and deterministic replay.
 - **Probabilistic signals:** Each fetch/stream run produces Kalman-filtered price, velocity, and state uncertainty.
 - **Persistence:** Parquet snapshots stored under `artifacts/marketdata/cache/` (configurable) with optional metadata in Postgres (`market.price_snapshots`).
-- **Streaming manager:** Converts Alpaca/Finnhub WebSocket ticks into normalized frames with automatic gap backfill via HTTP.
+- **Streaming manager:** Converts Alpaca WebSocket ticks into normalized frames with automatic gap backfill via HTTP.
 
-Set the following environment variables to activate the primary data providers:
+Set the following environment variables to activate the primary data providers (Key Vault in production):
 
 ```bash
-ALPHAVANTAGE_API_KEY=...   # retrieved from https://www.alphavantage.co/
-FINNHUB_API_KEY=...        # retrieved from https://finnhub.io/
-TWELVEDATA_API_KEY=...     # retrieved from https://twelvedata.com/
+ALPHAVANTAGE_API_KEY=...   # falls back to Yahoo/Twelve Data when rate-limited
+FINNHUB_API_KEY=...        # used for daily quotes via /quote endpoint
+TWELVEDATA_API_KEY=...     # optional daily/intraday backup feed
 ```
 
 Instantiate the DAL from your module or notebook:
@@ -158,9 +155,11 @@ Unit/regression tests covering the DAL live under `tests/dal/`. Running `pytest 
 
 ### Watchlist Sources
 
-- `auto` → Alpha Vantage first, then Finnhub, then Twelve Data/textlist fallback.
-- `alpha` → direct pull from Alpha Vantage.
-- `finnhub` → direct pull from Finnhub.
+`app/services/watchlist_service.py` orchestrates symbol intake. Current options:
+
+- `auto` → Alpha Vantage listings, then Finnhub, then textlist, then Twelve Data.
+- `alpha` → direct pull from Alpha Vantage listings endpoint.
+- `finnhub` → US common stock listing feed (subject to API tier limits).
 - `textlist` → aggregates from backends listed in `TEXTLIST_BACKENDS` (e.g., `discord,signal`).
 - `manual` → parses `WATCHLIST_TEXT` (comma-separated user symbols).
 

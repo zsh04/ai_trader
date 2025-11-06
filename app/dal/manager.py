@@ -26,10 +26,15 @@ from app.dal.kalman import KalmanConfig
 from app.dal.results import ProbabilisticBatch, ProbabilisticStreamFrame
 from app.dal.schemas import Bars, SignalFrame
 from app.dal.streaming import StreamingManager
-from app.dal.vendors.alpaca import AlpacaVendor
-from app.dal.vendors.alphavantage import AlphaVantageVendor
 from app.dal.vendors.base import FetchRequest, VendorClient
-from app.dal.vendors.finnhub import FinnhubVendor
+from app.dal.vendors.market_data import (
+    AlpacaVendor,
+    AlphaVantageDailyVendor,
+    AlphaVantageVendor,
+    FinnhubVendor,
+    TwelveDataVendor,
+    YahooVendor,
+)
 from app.db.repositories.market import MarketRepository
 
 
@@ -65,7 +70,10 @@ class MarketDataDAL:
         return {
             "alpaca": AlpacaVendor(),
             "alphavantage": AlphaVantageVendor(),
+            "alphavantage_eod": AlphaVantageDailyVendor(),
             "finnhub": FinnhubVendor(),
+            "yahoo": YahooVendor(),
+            "twelvedata": TwelveDataVendor(),
         }
 
     def fetch_bars(
@@ -78,6 +86,9 @@ class MarketDataDAL:
         vendor: str = "alpaca",
         limit: Optional[int] = None,
     ) -> ProbabilisticBatch:
+        if vendor == "alphavantage" and interval in {"1Day", "1day", "1D"}:
+            vendor = "alphavantage_eod"
+
         client = self._get_vendor(vendor)
         request = FetchRequest(
             symbol=symbol,

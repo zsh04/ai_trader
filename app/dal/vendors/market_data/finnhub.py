@@ -13,15 +13,7 @@ from app.dal.vendors.base import FetchRequest, VendorClient
 from app.settings import get_market_data_settings
 from app.utils.http import http_get
 
-_RESOLUTION_MAP = {
-    "1Min": "1",
-    "5Min": "5",
-    "15Min": "15",
-    "30Min": "30",
-    "60Min": "60",
-    "1Hour": "60",
-    "1Day": "D",
-}
+_SUPPORTED_DAILY = {"1day", "1Day", "1D"}
 
 
 class FinnhubVendor(VendorClient):
@@ -37,54 +29,15 @@ class FinnhubVendor(VendorClient):
         if not self.api_key:
             raise RuntimeError("Finnhub API key missing")
 
-        resolution = _RESOLUTION_MAP.get(request.interval)
-        if not resolution:
-            raise ValueError(f"Unsupported Finnhub interval: {request.interval}")
-
-        if not request.start or not request.end:
-            raise ValueError("Finnhub fetch requires explicit start and end timestamps")
-
-        params = {
-            "symbol": request.symbol.upper(),
-            "resolution": resolution,
-            "from": int(request.start.timestamp()),
-            "to": int(request.end.timestamp()),
-            "token": self.api_key,
-        }
-        status, payload = http_get(f"{self.BASE_URL}/stock/candle", params=params)
-        if status != 200 or not isinstance(payload, dict) or payload.get("s") != "ok":
-            logger.warning(
-                "Finnhub candle fetch failed symbol={} status={} payload={} ",
-                request.symbol,
-                status,
-                payload,
+        interval = (request.interval or "").strip() or "1Day"
+        if interval not in _SUPPORTED_DAILY:
+            logger.debug(
+                "Finnhub intraday disabled for interval=%s; returning empty dataset",
+                interval,
             )
             return Bars(symbol=request.symbol.upper(), vendor=self.name, timezone="UTC")
 
-        bars = Bars(symbol=request.symbol.upper(), vendor=self.name, timezone="UTC")
-        timestamps = payload.get("t", [])
-        opens = payload.get("o", [])
-        highs = payload.get("h", [])
-        lows = payload.get("l", [])
-        closes = payload.get("c", [])
-        volumes = payload.get("v", [])
-        for idx, ts in enumerate(timestamps):
-            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
-            bars.append(
-                Bar(
-                    symbol=request.symbol.upper(),
-                    vendor=self.name,
-                    timestamp=dt,
-                    open=float(opens[idx]),
-                    high=float(highs[idx]),
-                    low=float(lows[idx]),
-                    close=float(closes[idx]),
-                    volume=float(volumes[idx]),
-                    timezone="UTC",
-                    source="historical",
-                )
-            )
-        return bars
+        return self._fetch_daily_quote(request)
 
     def supports_streaming(self) -> bool:
         return bool(self.api_key)
@@ -117,6 +70,43 @@ class FinnhubVendor(VendorClient):
                     "source": "trade",
                     "interval": interval,
                 }
+
+    def _fetch_daily_quote(self, request: FetchRequest) -> Bars:
+        params = {
+            "symbol": request.symbol.upper(),
+            "token": self.api_key,
+        }
+        status, payload = http_get(f"{self.BASE_URL}/quote", params=params)
+        if status != 200 or not isinstance(payload, dict):
+            logger.warning(
+                "Finnhub quote fetch failed symbol={} status={} payload={}",
+                request.symbol,
+                status,
+                payload,
+            )
+            return Bars(symbol=request.symbol.upper(), vendor=self.name, timezone="UTC")
+
+        timestamp = payload.get("t")
+        if not timestamp:
+            logger.debug("Finnhub quote missing timestamp for symbol=%s", request.symbol)
+            return Bars(symbol=request.symbol.upper(), vendor=self.name, timezone="UTC")
+
+        dt = datetime.fromtimestamp(int(timestamp), tz=timezone.utc)
+        bar = Bar(
+            symbol=request.symbol.upper(),
+            vendor=self.name,
+            timestamp=dt,
+            open=float(payload.get("o", 0.0)),
+            high=float(payload.get("h", 0.0)),
+            low=float(payload.get("l", 0.0)),
+            close=float(payload.get("c", payload.get("pc", 0.0))),
+            volume=float(payload.get("v", 0.0)) if "v" in payload else 0.0,
+            timezone="UTC",
+            source="daily_quote",
+        )
+        bars = Bars(symbol=request.symbol.upper(), vendor=self.name, timezone="UTC")
+        bars.append(bar)
+        return bars
 
 
 async def _finnhub_stream(

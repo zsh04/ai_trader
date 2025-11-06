@@ -12,29 +12,6 @@ tasks_router = APIRouter(prefix="/tasks", tags=["tasks"])
 public_router = APIRouter(tags=["watchlist"])
 
 
-def _send_watchlist(
-    session: str, items: List[dict], *, title: str, chat_id: Optional[int | str] = None
-) -> bool:
-    """
-    Sends a watchlist to a Telegram chat.
-
-    Args:
-        session (str): The trading session.
-        items (List[dict]): A list of watchlist items.
-        title (str): The message title.
-        chat_id (Optional[int | str]): The chat ID to send the watchlist to.
-
-    Returns:
-        bool: True if the watchlist was sent successfully, False otherwise.
-    """
-    try:
-        from app.adapters.notifiers.telegram import send_watchlist
-
-        return send_watchlist(session, items, chat_id=chat_id, title=title)
-    except Exception:
-        return False
-
-
 _build_counters: dict[str, dict[str, int]] = {}
 
 
@@ -125,9 +102,7 @@ def _build_watchlist(
 
 SYMBOLS_QUERY = Query(default=None)
 BOOL_TRUE_QUERY = Query(default=True)
-BOOL_FALSE_QUERY = Query(default=False)
 LIMIT_QUERY = Query(default=15, ge=1, le=100)
-OPTIONAL_STR_QUERY = Query(default=None)
 
 
 @tasks_router.post("/watchlist", tags=["watchlist"])
@@ -136,21 +111,15 @@ def task_watchlist(
     include_filters: bool = BOOL_TRUE_QUERY,
     include_ohlcv: bool = BOOL_TRUE_QUERY,
     limit: int = LIMIT_QUERY,
-    notify: bool = BOOL_FALSE_QUERY,
-    title: Optional[str] = OPTIONAL_STR_QUERY,
-    chat_id: Optional[str] = OPTIONAL_STR_QUERY,
 ) -> Dict[str, Any]:
     """
-    Builds and optionally sends a watchlist.
+    Builds a watchlist.
 
     Args:
         symbols (Optional[List[str]]): A list of symbols to include.
         include_filters (bool): Whether to include filters.
         include_ohlcv (bool): Whether to include OHLCV data.
         limit (int): The maximum number of symbols to include.
-        notify (bool): Whether to send the watchlist to a Telegram chat.
-        title (Optional[str]): The title of the watchlist.
-        chat_id (Optional[str]): The chat ID to send the watchlist to.
 
     Returns:
         Dict[str, Any]: The watchlist.
@@ -161,12 +130,6 @@ def task_watchlist(
         include_ohlcv=include_ohlcv,
         limit=limit,
     )
-    if notify and isinstance(wl, dict):
-        session = wl.get("session", "regular")
-        items = wl.get("items", [])
-        _send_watchlist(
-            session, items, title=title or "AI Trader • Watchlist", chat_id=chat_id
-        )
     return wl
 
 

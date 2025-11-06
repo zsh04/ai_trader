@@ -14,11 +14,6 @@ Environment matrix:
 | Sentry   | `SENTRY_DSN`                    | `None`                      | Sentry ingest DSN                        |
 | Sentry   | `SENTRY_TRACES_SAMPLE_RATE`     | `0.0`                       | Fraction of transactions to trace        |
 | Sentry   | `SENTRY_ENVIRONMENT`            | `None`                      | Deployment environment label             |
-| Telegram | `TELEGRAM_BOT_TOKEN`            | `None`                      | Telegram bot token                       |
-| Telegram | `TELEGRAM_ALLOWED_USER_IDS`     | `""`                        | Comma-separated allowlist of user IDs    |
-| Telegram | `TELEGRAM_DEFAULT_CHAT_ID`      | `None`                      | Default destination chat/channel         |
-| Telegram | `TELEGRAM_WEBHOOK_SECRET`       | `None`                      | Shared secret for webhook validation     |
-| Telegram | `TELEGRAM_TIMEOUT_SECS`         | `10`                        | HTTP timeout for Telegram API calls      |
 | Database | `DATABASE_URL`                  | `None`                      | Primary Postgres connection URI          |
 | Database | `TEST_DATABASE_URL`             | `None`                      | Fallback Postgres URI for tests/CI       |
 | Database | `PGHOST`                        | `localhost`                 | Postgres host when building DSN manually |
@@ -36,7 +31,6 @@ treated as read-only.
 
 from __future__ import annotations
 
-import os
 from functools import cached_property
 from typing import List, Tuple
 from urllib.parse import quote_plus
@@ -164,57 +158,6 @@ class SentrySettings(_SettingsBase):
         return bool(self.dsn)
 
 
-class TelegramSettings(_SettingsBase):
-    """Telegram notifier configuration."""
-
-    bot_token: str | None = Field(default=None, alias="TELEGRAM_BOT_TOKEN")
-    allowed_user_ids_raw: str | None = Field(
-        default=None, alias="TELEGRAM_ALLOWED_USER_IDS"
-    )
-    default_chat_id: str | None = Field(default=None, alias="TELEGRAM_DEFAULT_CHAT_ID")
-    webhook_secret: str | None = Field(default=None, alias="TELEGRAM_WEBHOOK_SECRET")
-    timeout_secs: int = Field(default=10, alias="TELEGRAM_TIMEOUT_SECS")
-    fake_mode: bool = Field(default=False, alias="TELEGRAM_FAKE")
-
-    @field_validator("timeout_secs", mode="before")
-    @classmethod
-    def _coerce_timeout(cls, value: int | str | None) -> int:
-        if value in (None, ""):
-            return 10
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return 10
-
-    @computed_field
-    @property
-    def allowed_user_ids(self) -> Tuple[int, ...]:
-        raw = (self.allowed_user_ids_raw or "").strip()
-        if not raw:
-            return tuple()
-        ids: List[int] = []
-        for token in raw.split(","):
-            token = token.strip()
-            if not token:
-                continue
-            try:
-                ids.append(int(token))
-            except ValueError:
-                continue
-        return tuple(ids)
-
-    @computed_field
-    @property
-    def enabled(self) -> bool:
-        return bool(self.bot_token)
-
-    @computed_field
-    @property
-    def effective_fake_mode(self) -> bool:
-        env = (os.getenv("ENV") or "dev").lower()
-        return False if env == "prod" else bool(self.fake_mode)
-
-
 class DatabaseSettings(_SettingsBase):
     """Postgres configuration, supports DSN override or manual assembly."""
 
@@ -277,7 +220,6 @@ class Settings(BaseModel):
 
     otel: OTELSettings = Field(default_factory=OTELSettings)
     sentry: SentrySettings = Field(default_factory=SentrySettings)
-    telegram: TelegramSettings = Field(default_factory=TelegramSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     market_data: MarketDataSettings = Field(default_factory=MarketDataSettings)
 
@@ -305,10 +247,6 @@ def get_sentry_settings() -> SentrySettings:
     return get_settings().sentry
 
 
-def get_telegram_settings() -> TelegramSettings:
-    return get_settings().telegram
-
-
 def get_database_settings() -> DatabaseSettings:
     return get_settings().database
 
@@ -317,23 +255,15 @@ def get_market_data_settings() -> MarketDataSettings:
     return get_settings().market_data
 
 
-# Hard guard: never allow Telegram fake mode in production
-if (os.getenv("ENV") or "dev").lower() == "prod":
-    if (os.getenv("TELEGRAM_FAKE") or "").lower() in {"1", "true"}:
-        # Force-disable any accidental fake flag in prod
-        os.environ["TELEGRAM_FAKE"] = "0"
-
 __all__ = [
     "Settings",
     "get_settings",
     "reload_settings",
     "get_otel_settings",
     "get_sentry_settings",
-    "get_telegram_settings",
     "get_database_settings",
     "OTELSettings",
     "SentrySettings",
-    "TelegramSettings",
     "DatabaseSettings",
     "MarketDataSettings",
     "get_market_data_settings",

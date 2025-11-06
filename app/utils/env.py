@@ -202,27 +202,6 @@ class EnvSettings:
     #: Full DATABASE_URL if provided (takes precedence elsewhere).
     DATABASE_URL: str = field(default_factory=lambda: get_str("DATABASE_URL", ""))
 
-    #: Telegram Bot API token.
-    TELEGRAM_BOT_TOKEN: str = field(
-        default_factory=lambda: get_str("TELEGRAM_BOT_TOKEN", "")
-    )
-    #: Comma-delimited list of authorized Telegram user IDs.
-    TELEGRAM_ALLOWED_USER_IDS: Set[int] = field(
-        default_factory=lambda: get_int_set("TELEGRAM_ALLOWED_USER_IDS")
-    )
-    #: Telegram webhook secret for FastAPI verification.
-    TELEGRAM_WEBHOOK_SECRET: str = field(
-        default_factory=lambda: get_str("TELEGRAM_WEBHOOK_SECRET", "")
-    )
-    #: Default chat/channel for proactive notifications.
-    TELEGRAM_DEFAULT_CHAT_ID: str = field(
-        default_factory=lambda: get_str("TELEGRAM_DEFAULT_CHAT_ID", "")
-    )
-    #: HTTP timeout used by Telegram client.
-    TELEGRAM_TIMEOUT_SECS: int = field(
-        default_factory=lambda: get_int("TELEGRAM_TIMEOUT_SECS", 10)
-    )
-
     #: Default HTTP request timeout (seconds).
     HTTP_TIMEOUT_SECS: int = field(
         default_factory=lambda: get_int_chain(("HTTP_TIMEOUT", "HTTP_TIMEOUT_SECS"), 10)
@@ -317,12 +296,6 @@ PGUSER = ENV.PGUSER
 PGPASSWORD = ENV.PGPASSWORD
 PGSSLMODE = ENV.PGSSLMODE
 DATABASE_URL = ENV.DATABASE_URL
-
-TELEGRAM_BOT_TOKEN = ENV.TELEGRAM_BOT_TOKEN
-TELEGRAM_ALLOWED_USER_IDS = ENV.TELEGRAM_ALLOWED_USER_IDS
-TELEGRAM_WEBHOOK_SECRET = ENV.TELEGRAM_WEBHOOK_SECRET
-TELEGRAM_DEFAULT_CHAT_ID = ENV.TELEGRAM_DEFAULT_CHAT_ID
-TELEGRAM_TIMEOUT_SECS = ENV.TELEGRAM_TIMEOUT_SECS
 
 HTTP_TIMEOUT_SECS = ENV.HTTP_TIMEOUT_SECS
 HTTP_RETRY_ATTEMPTS = ENV.HTTP_RETRY_ATTEMPTS

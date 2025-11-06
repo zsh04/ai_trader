@@ -1,21 +1,21 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta
+from datetime import UTC, datetime, time, timedelta
 from typing import Dict, Iterable, List, Optional
 from zoneinfo import ZoneInfo
 
+from app.dal.helpers import fetch_latest_bar
+from app.dal.manager import MarketDataDAL
 from app.data.data_client import get_universe
-from app.providers.yahoo_provider import (
-    get_history_daily,  # daily history for ADV computation
-    intraday_last,
-    latest_volume,
-)
 
 NY_TZ = ZoneInfo("America/New_York")
 SESSION_OPEN = time(9, 30)
 SESSION_CLOSE = time(16, 0)
 SESSION_MINUTES = 390  # 6.5 hours
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -44,23 +44,34 @@ def _expected_volume_fraction(now: Optional[datetime] = None) -> float:
     return _minutes_since_open(now) / SESSION_MINUTES
 
 
-def _adv20(symbol: str, window: int) -> Optional[float]:
+def _adv20(dal: MarketDataDAL, symbol: str, window: int) -> Optional[float]:
     """
     Compute ADV over `window` *previous* sessions (exclude today).
     """
     try:
-        # 60 trading days back is plenty to cover a 20d lookback
-        start = datetime.now(tz=NY_TZ).date() - timedelta(days=90)
-        df = get_history_daily(symbol, start=start.isoformat())
-        if df is None or df.empty or "volume" not in df.columns:
+        start_dt = datetime.now(tz=NY_TZ) - timedelta(days=90)
+        batch = dal.fetch_bars(
+            symbol,
+            start=start_dt.astimezone(UTC),
+            end=None,
+            interval="1Day",
+            vendor="yahoo",
+            limit=window + 5,
+        )
+        rows = batch.bars.data
+        if not rows:
             return None
-        # Drop the last row if it's today (sometimes yfinance includes partial)
-        if df.index[-1].date() == datetime.now(tz=NY_TZ).date():
-            df = df.iloc[:-1]
-        lookback = df.tail(window)
-        if lookback.empty:
+        today = datetime.now(tz=NY_TZ).date()
+        volumes: List[float] = []
+        for bar in rows:
+            bar_date = bar.timestamp.astimezone(NY_TZ).date()
+            if bar_date == today:
+                continue
+            if bar.volume:
+                volumes.append(float(bar.volume))
+        if len(volumes) < window:
             return None
-        return float(lookback["volume"].mean())
+        return float(sum(volumes[-window:]) / window)
     except Exception:
         return None
 
@@ -107,9 +118,19 @@ def scan_intraday(
     if len(uni) > p.max_symbols:
         uni = uni[: p.max_symbols]
 
-    # Current price and volume (batched)
-    last_map: Dict[str, float] = intraday_last(uni)
-    vol_map: Dict[str, int] = latest_volume(uni)
+    dal = MarketDataDAL(enable_postgres_metadata=False)
+
+    last_map: Dict[str, float] = {}
+    vol_map: Dict[str, int] = {}
+    source_map: Dict[str, str] = {}
+
+    for sym in uni:
+        bar, vendor = fetch_latest_bar(dal, sym, interval="1Min")
+        if not bar:
+            continue
+        last_map[sym] = float(bar.close or 0.0)
+        vol_map[sym] = int(bar.volume or 0)
+        source_map[sym] = f"{vendor}_1m" if vendor else "unknown"
 
     frac = _expected_volume_fraction()
     out: List[Dict] = []
@@ -122,7 +143,7 @@ def scan_intraday(
         if last < p.min_price or vol < p.min_curr_vol:
             continue
 
-        adv = _adv20(sym, p.adv_window)
+        adv = _adv20(dal, sym, p.adv_window)
         rvol = None
         if adv and adv > 0 and frac > 0:
             rvol = vol / (adv * frac)
@@ -140,7 +161,7 @@ def scan_intraday(
             "rvol": rvol,
             "elapsed_frac": round(frac, 3),
             "reasons": _tag_reasons(last, rvol, adv),
-            "price_source": "yahoo_1m",
+            "price_source": source_map.get(sym, "unknown"),
         }
         out.append(entry)
 

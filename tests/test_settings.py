@@ -33,18 +33,6 @@ def test_otel_settings_flags(monkeypatch):
     assert ("env", "local") in otel.resource_attributes_map
 
 
-def test_telegram_settings_parses_allowlist(monkeypatch):
-    monkeypatch.setenv("TELEGRAM_ALLOWED_USER_IDS", "123 , 456,notint, 789 ")
-    monkeypatch.setenv("TELEGRAM_TIMEOUT_SECS", "15")
-    monkeypatch.setenv("TELEGRAM_FAKE", "1")
-
-    settings_module.reload_settings()
-    telegram = settings_module.get_telegram_settings()
-    assert telegram.allowed_user_ids == (123, 456, 789)
-    assert telegram.timeout_secs == 15
-    assert telegram.fake_mode is True
-
-
 def test_database_settings_fallback(monkeypatch):
     for key in ("DATABASE_URL", "TEST_DATABASE_URL"):
         monkeypatch.delenv(key, raising=False)

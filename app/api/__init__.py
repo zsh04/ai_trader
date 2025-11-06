@@ -17,17 +17,7 @@ from fastapi import APIRouter
 
 # Required routes
 from app.api.routes.health import router as health_router
-
-# Optional routes (present in most setups but imported defensively)
-try:  # telegram commands/webhook
-    from app.api.routes.telegram import router as telegram_router  # type: ignore
-except Exception:  # pragma: no cover - survive partial installations
-    telegram_router = None  # type: ignore
-
-try:  # watchlist/build tasks and utilities
-    from app.api.routes.tasks import router as tasks_router  # type: ignore
-except Exception:  # pragma: no cover
-    tasks_router = None  # type: ignore
+from app.api.routes.tasks import public_router, tasks_router
 
 
 def get_api_router() -> APIRouter:
@@ -41,13 +31,8 @@ def get_api_router() -> APIRouter:
     # Health / version endpoints (no prefix for convenience)
     api.include_router(health_router, tags=["health"])  # /health, /health/db, /version
 
-    if telegram_router is not None:
-        api.include_router(
-            telegram_router, prefix="/telegram", tags=["telegram"]
-        )  # /telegram/*
-
-    if tasks_router is not None:
-        api.include_router(tasks_router, prefix="/tasks", tags=["tasks"])  # /tasks/*
+    api.include_router(tasks_router, prefix="/tasks", tags=["tasks"])  # /tasks/*
+    api.include_router(public_router, prefix="/watchlist", tags=["watchlist"])
 
     return api
 

@@ -169,28 +169,13 @@ def test_breakout_run_probabilistic_smoke(
     start_dt = datetime(2021, 1, 1, tzinfo=timezone.utc)
 
     dates = pd.date_range(start=start_str, end=end_str, freq="D")
-    history_df = pd.DataFrame(
-        {
-            "Open": 100 + np.arange(len(dates)),
-            "High": 101 + np.arange(len(dates)),
-            "Low": 99 + np.arange(len(dates)),
-            "Close": 100 + np.arange(len(dates)),
-            "Volume": np.full(len(dates), 1_000.0),
-        },
-        index=dates,
-    )
-
-    def fake_get_history_daily(symbol_: str, start, end):
-        assert symbol_ == symbol
-        return history_df.copy()
-
     def fake_generate_signals(df: pd.DataFrame, params: Dict[str, Any]) -> pd.DataFrame:
         base = pd.DataFrame(
             {
-                "open": df["Open"],
-                "high": df["High"],
-                "low": df["Low"],
-                "close": df["Close"],
+                "open": df.get("open", df.get("Open")),
+                "high": df.get("high", df.get("High")),
+                "low": df.get("low", df.get("Low")),
+                "close": df.get("close", df.get("Close")),
                 "long_entry": [True] + [False] * (len(df) - 1),
                 "long_exit": [False] * (len(df) - 1) + [True],
                 "atr": np.full(len(df), 1.5),
@@ -225,9 +210,6 @@ def test_breakout_run_probabilistic_smoke(
     monkeypatch.setenv("BACKTEST_NO_SAVE", "1")
     monkeypatch.setenv("BACKTEST_OUT_DIR", str(tmp_path))
 
-    monkeypatch.setattr(
-        "app.backtest.run_breakout.get_history_daily", fake_get_history_daily
-    )
     monkeypatch.setattr(
         "app.backtest.run_breakout.generate_signals", fake_generate_signals
     )

@@ -343,3 +343,94 @@
 2025-11-05 23:29:49.034 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
 2025-11-05 23:29:49.039 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
 2025-11-05 23:29:49.039 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-06 07:51:11.357 | INFO     | req=e3d2dd9a3209424e9693f6e66ae62e39 | env=test | ver=1.6.6 | sha=unknown | [Telegram] Using FakeTelegramClient (test mode)
+2025-11-06 07:51:11.358 | WARNING  | req=e3d2dd9a3209424e9693f6e66ae62e39 | env=test | ver=1.6.6 | sha=unknown | [tg-webhook] debug override enabled (skipping secret check) secret=
+2025-11-06 07:51:11.358 | INFO     | req=e3d2dd9a3209424e9693f6e66ae62e39 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/telegram/webhook status=200 duration_ms=2.16
+2025-11-06 08:43:02.676 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-06 08:43:02.677 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-06 08:43:02.683 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-06 08:43:02.684 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-06 08:43:02.684 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-06 08:43:02.685 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-06 08:43:02.686 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-06 08:43:02.688 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-06 08:43:02.688 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-06 08:43:02.850 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-06 08:43:02.981 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-06 08:43:02.983 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-06 08:43:02.984 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-06 08:43:50.954 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-06 08:43:50.955 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-06 08:43:50.959 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-06 08:43:50.959 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-06 08:43:50.959 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-06 08:43:50.960 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-06 08:43:50.961 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-06 08:43:50.963 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-06 08:43:50.963 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-06 08:43:51.015 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-06 08:43:51.016 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-06 08:43:51.027 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-06 08:43:51.132 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-06 08:43:51.135 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-06 08:43:51.135 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-06 08:55:19.016 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-06 08:55:19.016 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-06 08:55:19.022 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-06 08:55:19.022 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-06 08:55:19.022 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-06 08:55:19.024 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-06 08:55:19.024 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-06 08:55:19.026 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-06 08:55:19.026 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-06 08:55:19.085 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-06 08:55:19.085 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-06 08:55:19.095 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-06 08:55:19.199 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-06 08:55:19.202 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-06 08:55:19.202 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-06 09:00:37.108 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo history fetch failed status=500 symbol=AAPL start=2024-01-01 end=2024-01-10 error=nope
+2025-11-06 09:00:37.110 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo request error attempt=1 url=https://example.com error=boom
+2025-11-06 09:00:37.110 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo throttled status=429 attempt=2 url=https://example.com
+2025-11-06 09:00:56.230 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-06 09:00:56.231 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-06 09:00:56.238 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-06 09:00:56.239 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-06 09:00:56.239 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-06 09:00:56.240 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-06 09:00:56.240 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-06 09:00:56.242 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-06 09:00:56.243 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-06 09:40:29.516 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo chart history failed symbol=AAPL status=500 error=nope
+2025-11-06 09:41:09.170 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo chart history failed symbol=AAPL status=500 error=nope
+2025-11-06 09:42:19.138 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-06 09:42:19.138 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-06 09:42:35.527 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-06 09:42:35.527 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-06 09:44:02.003 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-06 09:44:02.005 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-06 09:44:02.010 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-06 09:44:02.011 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-06 09:44:02.011 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-06 09:44:02.012 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-06 09:44:02.012 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-06 09:44:02.014 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-06 09:44:02.014 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-06 10:03:27.071 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Finnhub falling back to daily resolution for symbol=AAPL interval=1Min
+2025-11-06 10:03:34.993 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Finnhub falling back to daily resolution for symbol=AAPL interval=1Min
+2025-11-06 10:03:34.996 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo chart history failed symbol=AAPL status=500 error=nope
+2025-11-06 10:21:29.559 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo chart history failed symbol=AAPL status=500 error=nope
+2025-11-06 10:26:12.638 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo chart history failed symbol=AAPL status=500 error=nope
+2025-11-06 10:40:56.763 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-06 10:40:56.764 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-06 10:40:56.769 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-06 10:40:56.769 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-06 10:40:56.769 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-06 10:40:56.771 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching daily history for AAPL: 2021-01-01 → 2021-01-05
+2025-11-06 10:40:56.771 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic DAL fetch ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-06 10:40:56.773 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-06 10:40:56.773 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-06 10:40:56.906 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo chart history failed symbol=AAPL status=500 error=nope
+2025-11-06 10:40:56.921 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-06 10:40:56.921 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-06 10:40:56.932 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)

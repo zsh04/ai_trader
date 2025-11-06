@@ -9,8 +9,8 @@ secrets are provisioned or rotated:
 |------------------------------------|----------------------------------|----------------------------------------|
 | `ALPACA-KEY-ID`                    | `ALPACA_API_KEY`                 | Alpaca broker API key (paper/live)     |
 | `ALPACA-SECRET-KEY`                | `ALPACA_API_SECRET`              | Alpaca broker API secret               |
-| `ALPHAVANTAGE-API-KEY`             | `ALPHAVANTAGE_API_KEY`           | Alpha Vantage market data key          |
-| `FINNHUB-API-KEY`                  | `FINNHUB_API_KEY`                | Finnhub market data key                |
+| `ALPHAVANTAGE-API-KEY`             | `ALPHAVANTAGE_API_KEY`           | Alpha Vantage intraday/EOD key *(falls back to Yahoo/TwelveData when rate-limited)* |
+| `FINNHUB-API-KEY`                  | `FINNHUB_API_KEY`                | Finnhub daily quote key *(intraday disabled until paid plan)* |
 | `TWELVEDATA-API-KEY` *(optional)*  | `TWELVEDATA_API_KEY`             | Twelve Data fallback feed              |
 | `AZURE-STORAGE-CONNECTION-STRING`  | `AZURE_STORAGE_CONNECTION_STRING`| Full Blob storage connection (legacy)  |
 | `AZURE-STORAGE-ACCOUNT-KEY`        | `AZURE_STORAGE_ACCOUNT_KEY`      | Storage account key (legacy)           |

@@ -13,7 +13,7 @@
 
 ## Data Sources
 - **"alpha"** — Pulls symbols via Alpha Vantage (`watchlist_sources.fetch_alpha_vantage_symbols`).
-- **"finnhub"** — Pulls symbols via Finnhub (`watchlist_sources.fetch_finnhub_symbols`).
+- **"finnhub"** — Pulls symbols via Finnhub (`watchlist_sources.fetch_finnhub_symbols`); limited to listing endpoints under the current plan.
 - **"twelvedata"** — Optional fallback using Twelve Data (`watchlist_sources.fetch_twelvedata_symbols`).
 - **"textlist"** — Parses a curated list from `WATCHLIST_TEXTLIST`, `WATCHLIST_TEXT`, or `WATCHLIST_TEXTLIST_FILE` using `app.sources.textlist_source.get_symbols`. Intended for manual overrides or fallback lists.
 
@@ -23,11 +23,6 @@
 - `limit` (optional): Integer cap on the number of symbols returned. Defaults to 15, maximum 100.
 - `sort` (optional): Sort key for ordered outputs (e.g., `"momentum"`, `"gap_pct"`).
 
-### Telegram Positional Syntax
-- `/watchlist auto 30` → `source=auto`, `limit=30`, default sort.
-- `/watchlist alpha breakout 20 momentum` → `source=alpha`, `scanner=breakout`, `limit=20`, `sort=momentum`.
-- `/watchlist textlist` → forces `source=textlist` with no overrides.
-- Positional order: `source` (auto|alpha|finnhub|textlist|twelvedata) → `scanner` → `limit` → `sort`; switches back to flag parsing (`--limit=`, `--sort=`) when additional options appear.
 
 ## Auto-Fallback Logic
 1. Attempt to resolve the requested `source`.
@@ -36,7 +31,7 @@
 4. Unknown values default to `"textlist"` with a warning.
 
 ## Response Schema
-All consumers (API route `/tasks/watchlist`, Telegram `/watchlist`, backend services) receive a normalized payload:
+All consumers (API route `/tasks/watchlist`, backend services) receive a normalized payload:
 
 ```json
 {
@@ -49,12 +44,6 @@ All consumers (API route `/tasks/watchlist`, Telegram `/watchlist`, backend serv
 - `source`: string identifier of the data source actually used after fallback.
 - `count`: integer number of unique symbols returned.
 - `symbols`: array of uppercase ticker strings in stable insertion order.
-
-## Telegram Command Syntax
-- `/watchlist` — Fetches the current symbols via the resolver (uses auto-fallback).
-- `/watchlist auto 30` — Invokes the scanner-aware builder with `scanner="auto"` and `limit=30`.
-- `/watchlist alpha --limit=20` — Overrides the source to Alpha Vantage, limiting output to 20 symbols.
-- `/watchlist textlist AAPL TSLA` — Uses manual symbols while preserving normalization.
 
 ## Example Integration Test Response
 

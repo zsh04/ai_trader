@@ -22,7 +22,7 @@ except Exception:
 from app.adapters.db.postgres import ping
 from app.api.routes.tasks import get_build_counters
 from app.domain.watchlist_service import get_watchlist_counters
-from app.settings import get_database_settings, get_telegram_settings
+from app.settings import get_database_settings
 
 router = APIRouter(tags=["health"])
 
@@ -152,11 +152,8 @@ async def health_config() -> Dict[str, Any]:
     """
     env = os.getenv("ENV", "dev").lower()
 
-    telegram_settings = get_telegram_settings()
     database_settings = get_database_settings()
 
-    telegram_token = telegram_settings.bot_token or ""
-    telegram_chat = telegram_settings.default_chat_id or ""
     database_url = database_settings.primary_dsn or ""
     alpaca_key = os.getenv("ALPACA_API_KEY", "")
     alpaca_secret = os.getenv("ALPACA_API_SECRET", "")
@@ -164,7 +161,6 @@ async def health_config() -> Dict[str, Any]:
     watchlist_source = os.getenv("WATCHLIST_SOURCE", "")
     textlist_backends = os.getenv("TEXTLIST_BACKENDS", "")
 
-    has_telegram = bool(telegram_token)
     has_db = bool(database_url)
     has_alpaca = bool(alpaca_key and alpaca_secret)
 
@@ -176,8 +172,6 @@ async def health_config() -> Dict[str, Any]:
         masked_db = f"{_mask(db_host)}/{_mask(db_name)}".strip("/")
 
     config = {
-        "telegram_bot_token": _mask(telegram_token),
-        "telegram_default_chat_id": telegram_chat,
         "database_url": masked_db or _mask(database_url),
         "alpaca_api_key": _mask(alpaca_key),
         "alpaca_feed": alpaca_feed,
@@ -186,20 +180,17 @@ async def health_config() -> Dict[str, Any]:
     }
 
     checks = {
-        "has_telegram_token": has_telegram,
         "has_db_url": has_db,
         "has_alpaca_keys": has_alpaca,
     }
 
-    required_ok = has_telegram and has_db and has_alpaca
+    required_ok = has_db and has_alpaca
     status = "ok"
     if env == "prod" and not required_ok:
         status = "degraded"
 
     env_dump = {
         "ENV": env,
-        "TELEGRAM_BOT_TOKEN": _mask(telegram_token),
-        "TELEGRAM_DEFAULT_CHAT_ID": telegram_chat,
         "DATABASE_URL": _mask(database_url) or masked_db,
         "ALPACA_API_KEY": _mask(alpaca_key),
         "ALPACA_API_SECRET": _mask(alpaca_secret),

@@ -50,7 +50,7 @@ def parse_kv_flags(text: str) -> Dict[str, str]:
 
 def parse_watchlist_args(text: str) -> Dict[str, Any]:
     """
-    Parse CLI/Telegram watchlist arguments into structured options.
+    Parse CLI watchlist arguments into structured options.
 
     Args:
         text: Raw argument string (e.g. "--limit=10 --title='Custom' AAPL").

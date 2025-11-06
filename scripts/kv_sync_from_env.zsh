@@ -26,12 +26,6 @@ typeset -A MAP; MAP=(
   DATABASE_URL                    DATABASE-URL
   PGPASSWORD                      PG-PASSWORD
 
-  # Telegram
-  TELEGRAM_BOT_TOKEN              TELEGRAM-BOT-TOKEN
-  TELEGRAM_WEBHOOK_SECRET         TELEGRAM-WEBHOOK-SECRET
-  TELEGRAM_DEFAULT_CHAT_ID        TELEGRAM-DEFAULT-CHAT-ID
-  TELEGRAM_TOKEN                  TELEGRAM-BOT-TOKEN  # alias
-
   # ACR (prefer MI; temporary)
   ACR_USERNAME                    ACR-USERNAME
   ACR_PASSWORD                    ACR-PASSWORD

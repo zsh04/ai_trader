@@ -26,7 +26,6 @@ from app.probability.pipeline import (
     fetch_probabilistic_batch,
     join_probabilistic_features,
 )
-from app.providers.yahoo_provider import get_history_daily
 from app.strats.breakout import BreakoutParams, generate_signals
 
 # ------------------------------------------------------------------------------
@@ -113,8 +112,31 @@ def run(
     start_dt = pd.to_datetime(start).date()
     end_dt = pd.to_datetime(end).date() if end else datetime.now(UTC).date()
 
+    dal_instance = MarketDataDAL(enable_postgres_metadata=False)
+
+    start_ts = datetime.combine(start_dt, datetime.min.time(), tzinfo=UTC)
+    end_ts = (
+        datetime.combine(end_dt, datetime.min.time(), tzinfo=UTC) + timedelta(days=1)
+        if end
+        else None
+    )
+
     logger.info("Fetching daily history for {}: {} → {}", symbol, start_dt, end_dt)
-    df = get_history_daily(symbol, start_dt, end_dt).dropna().copy()
+    daily_batch = dal_instance.fetch_bars(
+        symbol,
+        start=start_ts,
+        end=end_ts,
+        interval="1Day",
+        vendor="yahoo",
+    )
+    df = daily_batch.bars.to_dataframe().copy()
+    if not df.empty:
+        idx = df.index
+        if getattr(idx, "tz", None) is None:
+            idx = idx.tz_localize(UTC)
+        else:
+            idx = idx.tz_convert(UTC)
+        df.index = pd.Index([ts.date() for ts in idx], name="date")
     if df.empty:
         logger.error(
             "No history returned for {} in [{}, {}]. Check data provider/API keys.",
@@ -124,13 +146,6 @@ def run(
         )
         return
 
-    start_ts = datetime.combine(start_dt, datetime.min.time(), tzinfo=UTC)
-    end_ts = (
-        datetime.combine(end_dt, datetime.min.time(), tzinfo=UTC) + timedelta(days=1)
-        if end
-        else None
-    )
-
     # Strategy params
     p = BreakoutParams(**params_kwargs)
     sig = generate_signals(df, asdict(p))
@@ -138,7 +153,6 @@ def run(
     prob_batch = None
     if use_probabilistic:
         try:
-            dal_instance = MarketDataDAL(enable_postgres_metadata=False)
             prob_batch = fetch_probabilistic_batch(
                 symbol,
                 start=start_ts,

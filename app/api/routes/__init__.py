@@ -2,7 +2,7 @@
 Aggregate API routes for AI Trader.
 
 This module simply assembles sub-routers from sibling modules
-(e.g., `health.py`, `telegram.py`, `tasks.py`).
+(e.g., `health.py`, `tasks.py`).
 
 Usage in app.main:
     from app.api.routes import mount as mount_routes
@@ -19,13 +19,11 @@ import logging
 from fastapi import APIRouter, FastAPI
 
 from .health import router as health_router
-from .telegram import router as telegram_router
 from .watchlists import router as watchlists_router
 
 router = APIRouter()
 router.include_router(health_router, prefix="/health", tags=["health"])
 router.include_router(watchlists_router, prefix="/watchlists", tags=["watchlists"])
-router.include_router(telegram_router, prefix="/telegram", tags=["telegram"])
 
 
 def _include_optional(module_path: str, attr: str = "router") -> None:

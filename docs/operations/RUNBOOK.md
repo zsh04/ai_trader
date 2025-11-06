@@ -14,14 +14,6 @@
 - **PostgreSQL Flexible Server**: tier **B1ms** (burstable), storage 32GB; **SSL required**; configure VNet or allow App Service outbound IPs; set
 
 ## Post-Deployment Steps
-- **Run Telegram webhook setup:**
-
-  ```bash
-  curl -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
-    -H "Content-Type: application/json" \
-    -d '{"url":"'$APP_URL'/telegram/webhook","secret_token":"'$TELEGRAM_WEBHOOK_SECRET'"}'
-  ```
-
 - **Tail Azure logs:**
 
   ```bash
@@ -33,9 +25,3 @@
   ```bash
   pm2 flush ai-trader
   ```
-
-## Telegram Watchlist Examples
-- `/watchlist` → auto-selects Finviz and falls back to TextList if Finviz is unavailable.
-- `/watchlist auto 30` → same as above but limits the response to 30 symbols.
-- `/watchlist alpha breakout 20 momentum` → Alpha Vantage with `scanner=breakout`, `limit=20`, sorted by momentum.
-- `/watchlist textlist` → bypasses external calls and uses the curated TextList source.

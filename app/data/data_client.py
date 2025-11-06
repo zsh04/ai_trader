@@ -4,59 +4,28 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
-from app.adapters.notifiers.telegram import TelegramClient
-from app.providers.alpaca_provider import day_bars as alpaca_day_bars
-from app.providers.alpaca_provider import minute_bars as alpaca_minute_bars
+from app.dal.helpers import batch_latest_close, batch_latest_volume, fetch_latest_bar
+from app.dal.manager import MarketDataDAL
+from app.adapters.market.alpaca_provider import day_bars as alpaca_day_bars
+from app.adapters.market.alpaca_provider import minute_bars as alpaca_minute_bars
 
-# Providers (all external I/O lives here)
-from app.providers.alpaca_provider import snapshots as alpaca_snapshots
-from app.providers.yahoo_provider import intraday_last as yf_intraday_last
-from app.providers.yahoo_provider import latest_close as yf_latest_close
-from app.providers.yahoo_provider import latest_volume as yf_latest_volume
+# Providers (external I/O lives here)
+from app.adapters.market.alpaca_provider import snapshots as alpaca_snapshots
 
 # Config flags (pure)
-from app.utils import env as ENV
 from app.utils.env import PRICE_PROVIDERS
 
 # Yahoo enabled flag derived from PRICE_PROVIDERS
 YF_ENABLED: bool = any(p.lower() == "yahoo" for p in PRICE_PROVIDERS)
 
-_PROVIDER_GAP_STREAK: Dict[str, int] = {"snapshots": 0, "bars": 0}
-_ALERT_CLIENT: Optional[TelegramClient] = None
+_DAL_SINGLETON: Optional[MarketDataDAL] = None
 
 
-def _send_gap_alert(kind: str, symbol_count: int) -> None:
-    token = getattr(ENV, "TELEGRAM_BOT_TOKEN", "") or ""
-    chat = getattr(ENV, "TELEGRAM_DEFAULT_CHAT_ID", "") or ""
-    if not token or not chat:
-        return
-    global _ALERT_CLIENT
-    if _ALERT_CLIENT is None:
-        try:
-            _ALERT_CLIENT = TelegramClient(bot_token=token)
-        except Exception as exc:
-            logger.debug("Failed to initialize TelegramClient for alerts: {}", exc)
-            return
-    try:
-        _ALERT_CLIENT.send_text(
-            chat,
-            f"⚠️ Alpaca {kind} feed empty twice consecutively for {symbol_count} symbols.",
-        )
-    except Exception as exc:
-        logger.debug("Telegram alert send failed: {}", exc)
-
-
-def _record_provider_gap(kind: str, is_empty: bool, symbol_count: int) -> None:
-    if kind not in _PROVIDER_GAP_STREAK:
-        _PROVIDER_GAP_STREAK[kind] = 0
-    if not is_empty:
-        _PROVIDER_GAP_STREAK[kind] = 0
-        return
-    _PROVIDER_GAP_STREAK[kind] += 1
-    if _PROVIDER_GAP_STREAK[kind] >= 2:
-        _send_gap_alert(kind, symbol_count)
-        _PROVIDER_GAP_STREAK[kind] = 0
-
+def _get_dal() -> MarketDataDAL:
+    global _DAL_SINGLETON
+    if _DAL_SINGLETON is None:
+        _DAL_SINGLETON = MarketDataDAL(enable_postgres_metadata=False)
+    return _DAL_SINGLETON
 
 def _apply_yahoo_prices(target: Dict[str, Dict[str, Any]], symbols: List[str]) -> None:
     if not symbols:
@@ -66,30 +35,36 @@ def _apply_yahoo_prices(target: Dict[str, Dict[str, Any]], symbols: List[str]) -
             "Yahoo provider disabled; cannot fall back for {} symbols", len(symbols)
         )
         return
-    try:
-        intr = yf_intraday_last(symbols) or {}
-    except Exception as exc:
-        logger.debug("Yahoo intraday fallback failed: {}", exc)
-        intr = {}
-    remaining = [s for s in symbols if s not in intr]
-    try:
-        close = yf_latest_close(remaining) if remaining else {}
-    except Exception as exc:
-        logger.debug("Yahoo close fallback failed: {}", exc)
-        close = {}
+    dal = _get_dal()
+    intr: Dict[str, float] = {}
+    source: Dict[str, str] = {}
+    for sym in symbols:
+        key = sym.strip().upper()
+        if not key:
+            continue
+        bar, vendor = fetch_latest_bar(dal, key, interval="1Min")
+        if bar and bar.close and float(bar.close) > 0:
+            intr[key] = float(bar.close)
+            source[key] = f"dal_{vendor}_1m" if vendor else "dal_1m"
+
+    remaining = [s.strip().upper() for s in symbols if s and s.strip().upper() not in intr]
+    close = batch_latest_close(dal, remaining) if remaining else {}
 
     for sym in symbols:
+        key = sym.strip().upper()
+        if not key:
+            continue
         entry = target.setdefault(
-            sym, {"last": 0.0, "price_source": "none", "ohlcv": {}}
+            key, {"last": 0.0, "price_source": "none", "ohlcv": {}}
         )
-        price = intr.get(sym)
-        source = "yahoo_1m"
-        if price is None:
-            price = close.get(sym)
-            source = "yahoo_close"
+        if key in intr:
+            entry["last"] = intr[key]
+            entry["price_source"] = source.get(key, "dal_1m")
+            continue
+        price = close.get(key)
         if price and float(price) > 0:
             entry["last"] = float(price)
-            entry["price_source"] = source
+            entry["price_source"] = "dal_yahoo_close"
 
 
 # --------------------------------------------------------------------------------------
@@ -170,19 +145,24 @@ def latest_price_with_source(snap: Dict[str, Any], symbol: str) -> Tuple[float, 
 
     # 5) yahoo fallbacks if enabled
     if YF_ENABLED:
+        dal = _get_dal()
         try:
-            y = yf_intraday_last([symbol]).get(symbol.upper())
-            if y and float(y) > 0:
-                return float(y), "yahoo_1m"
-        except Exception as exc:
-            logger.debug("latest_price_with_source yahoo_1m error {}: {}", symbol, exc)
-        try:
-            y = yf_latest_close([symbol]).get(symbol.upper())
-            if y and float(y) > 0:
-                return float(y), "yahoo_close"
+            bar, vendor = fetch_latest_bar(dal, symbol, interval="1Min")
+            if bar and bar.close and float(bar.close) > 0:
+                source = f"dal_{vendor}_1m" if vendor else "dal_1m"
+                return float(bar.close), source
         except Exception as exc:
             logger.debug(
-                "latest_price_with_source yahoo_close error {}: {}", symbol, exc
+                "latest_price_with_source dal 1m error {}: {}", symbol, exc
+            )
+        try:
+            closes = batch_latest_close(dal, [symbol])
+            y_close = closes.get(symbol.upper())
+            if y_close and float(y_close) > 0:
+                return float(y_close), "dal_yahoo_close"
+        except Exception as exc:
+            logger.debug(
+                "latest_price_with_source dal close error {}: {}", symbol, exc
             )
 
     return 0.0, "none"
@@ -219,7 +199,6 @@ def batch_latest_ohlcv(
             "alpaca snapshots returned empty payload; falling back to Yahoo for {} symbols",
             len(syms),
         )
-    _record_provider_gap("snapshots", snaps_empty, len(syms))
     force_yahoo_fallback = snaps_empty
     out: Dict[str, Dict[str, Any]] = {}
 
@@ -250,7 +229,6 @@ def batch_latest_ohlcv(
                 "alpaca day bars returned empty payload; falling back to Yahoo for {} symbols",
                 len(union_syms),
             )
-        _record_provider_gap("bars", bars_empty, len(union_syms))
         force_yahoo_fallback = force_yahoo_fallback or bars_empty
         for sym in union_syms:
             seq = bars_map.get(sym, [])
@@ -303,34 +281,37 @@ def batch_latest_ohlcv(
             if changed:
                 out[sym]["ohlcv"] = ohlcv
 
-    else:
-        _record_provider_gap("bars", False, 0)
-
     if force_yahoo_fallback:
         _apply_yahoo_prices(out, syms)
 
     # Third pass: Yahoo fallbacks for any unresolved zeros
     unresolved_price = [s for s, d in out.items() if (d.get("last") or 0) <= 0]
     if YF_ENABLED and unresolved_price:
-        y_intr_all = yf_intraday_last(unresolved_price)
-        ok_intr = {s: v for s, v in (y_intr_all or {}).items() if v and float(v) > 0}
+        dal = _get_dal()
+        ok_intr: Dict[str, Tuple[float, str]] = {}
+        for sym in unresolved_price:
+            bar, vendor = fetch_latest_bar(dal, sym, interval="1Min")
+            if bar and bar.close and float(bar.close) > 0:
+                source = f"dal_{vendor}_1m" if vendor else "dal_1m"
+                ok_intr[sym] = (float(bar.close), source)
         remaining = [s for s in unresolved_price if s not in ok_intr]
-        y_close_all = yf_latest_close(remaining) if remaining else {}
-        ok_close = {s: v for s, v in (y_close_all or {}).items() if v and float(v) > 0}
+        ok_close = batch_latest_close(dal, remaining) if remaining else {}
         for sym in unresolved_price:
             if sym in ok_intr:
-                out[sym]["last"] = float(ok_intr[sym])
-                out[sym]["price_source"] = "yahoo_1m"
+                price, src = ok_intr[sym]
+                out[sym]["last"] = price
+                out[sym]["price_source"] = src
             elif sym in ok_close:
                 out[sym]["last"] = float(ok_close[sym])
-                out[sym]["price_source"] = "yahoo_close"
+                out[sym]["price_source"] = "dal_yahoo_close"
 
     # Fourth pass: Yahoo daily volume for any symbols still showing v==0
     unresolved_vol = [
         s for s, d in out.items() if int((d.get("ohlcv") or {}).get("v", 0)) <= 0
     ]
     if YF_ENABLED and unresolved_vol:
-        y_vol = yf_latest_volume(unresolved_vol)
+        dal = _get_dal()
+        y_vol = batch_latest_volume(dal, unresolved_vol)
         for sym in unresolved_vol:
             vol = y_vol.get(sym)
             if vol and vol > 0:

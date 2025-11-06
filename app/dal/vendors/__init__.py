@@ -1,12 +1,22 @@
-from .alpaca import AlpacaVendor
-from .alphavantage import AlphaVantageVendor
+"""Vendor registry and public exports."""
+
 from .base import FetchRequest, VendorClient
-from .finnhub import FinnhubVendor
+from .market_data import (
+    AlpacaVendor,
+    AlphaVantageDailyVendor,
+    AlphaVantageVendor,
+    FinnhubVendor,
+    TwelveDataVendor,
+    YahooVendor,
+)
 
 __all__ = [
     "VendorClient",
     "FetchRequest",
     "AlpacaVendor",
     "AlphaVantageVendor",
+    "AlphaVantageDailyVendor",
     "FinnhubVendor",
+    "YahooVendor",
+    "TwelveDataVendor",
 ]

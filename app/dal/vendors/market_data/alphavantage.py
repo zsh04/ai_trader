@@ -13,7 +13,7 @@ from app.utils.http import http_get
 
 class AlphaVantageVendor(VendorClient):
     BASE_URL = "https://www.alphavantage.co/query"
-    SUPPORTED_INTERVALS = {"1Min", "5Min", "15Min", "30Min", "60Min"}
+    SUPPORTED_INTERVALS = {"1min", "5min", "15min", "30min", "60min"}
 
     def __init__(self, api_key: Optional[str] = None) -> None:
         super().__init__("alphavantage")
@@ -25,16 +25,17 @@ class AlphaVantageVendor(VendorClient):
         if not self.api_key:
             raise RuntimeError("AlphaVantage API key missing")
 
-        interval = request.interval
+        interval = _normalize_interval(request.interval)
         if interval not in self.SUPPORTED_INTERVALS:
             raise ValueError(
-                f"AlphaVantage only supports intervals: {self.SUPPORTED_INTERVALS}"
+                "AlphaVantage only supports intraday intervals "
+                "{'1Min','5Min','15Min','30Min','60Min'}"
             )
 
         params = {
             "function": "TIME_SERIES_INTRADAY",
             "symbol": request.symbol.upper(),
-            "interval": interval.lower(),
+            "interval": interval,
             "apikey": self.api_key,
             "outputsize": "full" if request.limit is None else "compact",
         }
@@ -83,3 +84,29 @@ class AlphaVantageVendor(VendorClient):
             except Exception as exc:  # pragma: no cover - defensive guard
                 logger.debug("alphavantage parse error ts={} err={}", ts_str, exc)
         return bars
+
+
+def _normalize_interval(interval: Optional[str]) -> str:
+    if not interval:
+        return ""
+    val = interval.strip()
+    if not val:
+        return ""
+    aliases = {
+        "1m": "1min",
+        "1minute": "1min",
+        "1min": "1min",
+        "1Min": "1min",
+        "5m": "5min",
+        "5minute": "5min",
+        "5Min": "5min",
+        "15m": "15min",
+        "15Min": "15min",
+        "30m": "30min",
+        "30Min": "30min",
+        "60m": "60min",
+        "60Min": "60min",
+        "1h": "60min",
+        "1H": "60min",
+    }
+    return aliases.get(val, aliases.get(val.lower(), val.lower()))

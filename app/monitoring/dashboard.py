@@ -552,7 +552,6 @@ with lower_tabs[2]:
     st.write(
         """
         - ✅ **Latency**: no anomalies detected.
-        - ⚙️ **Telegram**: webhook heartbeat received in the past 5 minutes.
         - 📡 **Market data**: Alpaca streaming stable. Yahoo fallback engaged when snapshots unavailable.
         """
     )
