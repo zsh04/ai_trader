@@ -37,7 +37,9 @@ from app.utils import env as ENV
 FALLBACK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "SPY", "QQQ"]
 ALTAIR_ACCEPTS_WIDTH = "width" in inspect.signature(st.altair_chart).parameters
 DATAFRAME_ACCEPTS_WIDTH = "width" in inspect.signature(st.dataframe).parameters
-PROB_FRAME_ROOT = Path(os.getenv("BACKTEST_PROB_FRAME_DIR", "artifacts/probabilistic/frames"))
+PROB_FRAME_ROOT = Path(
+    os.getenv("BACKTEST_PROB_FRAME_DIR", "artifacts/probabilistic/frames")
+)
 
 # ---------------------------------------------------------------------------
 # Observability (Loguru + OpenTelemetry exporters)
@@ -358,7 +360,11 @@ def _render_symbol_detail(symbol: str, row: pd.Series, history: pd.DataFrame) ->
                     chart = (
                         alt.Chart(prob_chart_df)
                         .mark_line(color="#60a5fa", strokeWidth=1.5)
-                        .encode(x="timestamp:T", y="close:Q", tooltip=["timestamp:T", "close:Q"])
+                        .encode(
+                            x="timestamp:T",
+                            y="close:Q",
+                            tooltip=["timestamp:T", "close:Q"],
+                        )
                     )
                     if "prob_filtered_price" in prob_chart_df:
                         filtered = (
@@ -737,7 +743,9 @@ with tabs[3]:
             help="Scales the Kelly output (matches --risk-agent-fraction)",
         )
     use_prob = st.checkbox("Use probabilistic data (MarketDataDAL)", value=True)
-    dal_vendor = st.selectbox("DAL vendor", ["alpaca", "alphavantage", "finnhub"], index=1)
+    dal_vendor = st.selectbox(
+        "DAL vendor", ["alpaca", "alphavantage", "finnhub"], index=1
+    )
     dal_interval = st.selectbox("DAL interval", ["1Day", "5Min", "15Min"], index=1)
     symbol_input = st.text_input("Symbol", value="AAPL")
     start_input = st.text_input("Start date", value="2021-01-01")
@@ -750,7 +758,11 @@ with tabs[3]:
     ]
     if use_prob:
         cmd.extend(
-            ["--use-probabilistic", f"--dal-vendor {dal_vendor}", f"--dal-interval {dal_interval}"]
+            [
+                "--use-probabilistic",
+                f"--dal-vendor {dal_vendor}",
+                f"--dal-interval {dal_interval}",
+            ]
         )
     if risk_agent_choice != "none":
         cmd.append(f"--risk-agent {risk_agent_choice}")

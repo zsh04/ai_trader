@@ -98,7 +98,9 @@ def run_sweep(config_path: Path) -> Dict[str, Any]:
     param_grid = cfg.get("params", {}) or {}
     combos = _expand_param_grid(param_grid)
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    base_output = Path(cfg.get("output_dir") or f"artifacts/backtests/{base_kwargs['strategy']}")
+    base_output = Path(
+        cfg.get("output_dir") or f"artifacts/backtests/{base_kwargs['strategy']}"
+    )
     sweep_dir = base_output / timestamp
     sweep_dir.mkdir(parents=True, exist_ok=True)
     logger.info("[sweep] starting run dir=%s jobs=%s", sweep_dir, len(combos))
@@ -106,7 +108,10 @@ def run_sweep(config_path: Path) -> Dict[str, Any]:
     max_workers = int(cfg.get("max_workers", min(4, len(combos) or 1))) or 1
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_map = {
-            executor.submit(_execute_job, idx, base_kwargs, params, sweep_dir): (idx, params)
+            executor.submit(_execute_job, idx, base_kwargs, params, sweep_dir): (
+                idx,
+                params,
+            )
             for idx, params in enumerate(combos, start=1)
         }
         for future in as_completed(future_map):
@@ -122,7 +127,11 @@ def run_sweep(config_path: Path) -> Dict[str, Any]:
         for record in results:
             handle.write(json.dumps(record, default=str) + "\n")
     logger.info("[sweep] completed dir=%s succeeded=%s", sweep_dir, len(results))
-    return {"sweep_dir": str(sweep_dir), "summary_path": str(summary_path), "results": results}
+    return {
+        "sweep_dir": str(sweep_dir),
+        "summary_path": str(summary_path),
+        "results": results,
+    }
 
 
 def main() -> None:

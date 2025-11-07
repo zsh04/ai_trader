@@ -191,7 +191,9 @@ def _load_sweep_records(limit: int = 5) -> Optional[pd.DataFrame]:
                     metrics = record.get("metrics") or {}
                     for key in ("sharpe", "sortino", "total_return", "max_drawdown"):
                         record[f"metric_{key}"] = metrics.get(key)
-                    record["params_text"] = json.dumps(record.get("params") or {}, sort_keys=True)
+                    record["params_text"] = json.dumps(
+                        record.get("params") or {}, sort_keys=True
+                    )
                     rows.append(record)
         except FileNotFoundError:
             continue
@@ -569,7 +571,9 @@ with st.expander("Backtest Sweeps", expanded=False):
                         alt.Tooltip("sweep_timestamp:N", title="Sweep"),
                         alt.Tooltip("job_id:Q", title="Job"),
                         alt.Tooltip("metric_sharpe:Q", title="Sharpe", format=".2f"),
-                        alt.Tooltip("metric_total_return:Q", title="Total Return", format=".2f"),
+                        alt.Tooltip(
+                            "metric_total_return:Q", title="Total Return", format=".2f"
+                        ),
                         alt.Tooltip("params_text:N", title="Params"),
                     ],
                 )

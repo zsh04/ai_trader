@@ -15,7 +15,9 @@ def test_expand_param_grid():
     assert combos == [{"a": 1, "b": "x"}, {"a": 2, "b": "x"}]
 
 
-def test_run_sweep_uses_persisted_frames(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_run_sweep_uses_persisted_frames(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
     cfg = {
         "symbol": "AAPL",
         "start": "2023-01-01",

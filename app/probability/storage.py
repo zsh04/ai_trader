@@ -48,7 +48,9 @@ def persist_probabilistic_frame(
 ) -> Optional[Path]:
     if frame is None or getattr(frame, "empty", True):
         logger.debug(
-            "[prob-cache] Skip persist symbol=%s strategy=%s empty frame", symbol, strategy
+            "[prob-cache] Skip persist symbol=%s strategy=%s empty frame",
+            symbol,
+            strategy,
         )
         return None
     path = build_frame_path(

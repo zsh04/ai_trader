@@ -29,7 +29,9 @@ class _RecordingEngine:
         self.last_kwargs = kwargs
         length = len(kwargs["df"])
         index = pd.date_range("2021-01-01", periods=length, freq="D")
-        equity = pd.Series(np.linspace(100.0, 100.0 + length, length), index=index, name="equity")
+        equity = pd.Series(
+            np.linspace(100.0, 100.0 + length, length), index=index, name="equity"
+        )
         return {"equity": equity, "trades": []}
 
 
@@ -64,7 +66,9 @@ class _FakeMarketDataDAL:
         return self.batch
 
 
-def _build_prob_batch(symbol: str, closes: List[float], *, vendor: str = "stub") -> ProbabilisticBatch:
+def _build_prob_batch(
+    symbol: str, closes: List[float], *, vendor: str = "stub"
+) -> ProbabilisticBatch:
     bars = Bars(symbol=symbol, vendor=vendor, timezone="UTC")
     signals: List[SignalFrame] = []
     regimes: List[RegimeSnapshot] = []
@@ -109,18 +113,27 @@ def _build_prob_batch(symbol: str, closes: List[float], *, vendor: str = "stub")
                 momentum=0.001 * idx,
             )
         )
-    return ProbabilisticBatch(bars=bars, signals=signals, regimes=regimes, cache_paths={})
+    return ProbabilisticBatch(
+        bars=bars, signals=signals, regimes=regimes, cache_paths={}
+    )
 
 
 @pytest.fixture(autouse=True)
 def _patch_metrics(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("app.backtest.run_breakout.bt_metrics.equity_stats", lambda equity, use_mtm=True: _FakeMetrics())
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.bt_metrics.equity_stats",
+        lambda equity, use_mtm=True: _FakeMetrics(),
+    )
     monkeypatch.setattr("app.backtest.run_breakout.BetaWinrate", lambda: _FixedBeta())
 
 
-def _setup_common(monkeypatch: pytest.MonkeyPatch, batch: ProbabilisticBatch, tmp_path: Path) -> _RecordingEngine:
+def _setup_common(
+    monkeypatch: pytest.MonkeyPatch, batch: ProbabilisticBatch, tmp_path: Path
+) -> _RecordingEngine:
     fake_dal = _FakeMarketDataDAL(batch)
-    monkeypatch.setattr("app.backtest.run_breakout.MarketDataDAL", lambda *args, **kwargs: fake_dal)
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.MarketDataDAL", lambda *args, **kwargs: fake_dal
+    )
     engine = _RecordingEngine()
     monkeypatch.setattr("app.backtest.run_breakout.backtest_long_only", engine)
     monkeypatch.setenv("BACKTEST_PROB_FRAME_DIR", str(tmp_path / "frames"))
@@ -129,7 +142,9 @@ def _setup_common(monkeypatch: pytest.MonkeyPatch, batch: ProbabilisticBatch, tm
     return engine
 
 
-def _expected_entry_events(sig: pd.DataFrame, *, strategy: str, params_obj: Any) -> pd.Series:
+def _expected_entry_events(
+    sig: pd.DataFrame, *, strategy: str, params_obj: Any
+) -> pd.Series:
     entry_state = sig.get("long_entry", pd.Series(False, index=sig.index)).astype(bool)
     entry_event = entry_state & ~entry_state.shift(1, fill_value=False)
     if strategy == "breakout":
@@ -142,17 +157,23 @@ def _expected_entry_events(sig: pd.DataFrame, *, strategy: str, params_obj: Any)
     return entry_event.astype(bool)
 
 
-def test_breakout_regression_entry_count(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_breakout_regression_entry_count(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
     closes = [10, 11, 12, 11.5, 13, 14]
     batch = _build_prob_batch("AAPL", closes)
     engine = _setup_common(monkeypatch, batch, tmp_path)
 
     df = batch.bars.to_dataframe()
-    enriched = join_probabilistic_features(df, signals=batch.signals, regimes=batch.regimes)
+    enriched = join_probabilistic_features(
+        df, signals=batch.signals, regimes=batch.regimes
+    )
     params = {"lookback": 2, "atr_len": 2, "atr_mult": 1.5}
     params_obj = BreakoutParams(**params)
     sig = breakout_signals(enriched, asdict(params_obj))
-    expected_events = _expected_entry_events(sig, strategy="breakout", params_obj=params_obj)
+    expected_events = _expected_entry_events(
+        sig, strategy="breakout", params_obj=params_obj
+    )
 
     result = breakout_run(
         symbol="AAPL",
@@ -172,17 +193,23 @@ def test_breakout_regression_entry_count(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert Path(result["prob_frame_path"]).exists()
 
 
-def test_momentum_regression_probabilistic_join(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_momentum_regression_probabilistic_join(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
     closes = [100, 101, 103, 104, 105, 106]
     batch = _build_prob_batch("MSFT", closes)
     engine = _setup_common(monkeypatch, batch, tmp_path)
 
     df = batch.bars.to_dataframe()
-    enriched = join_probabilistic_features(df, signals=batch.signals, regimes=batch.regimes)
+    enriched = join_probabilistic_features(
+        df, signals=batch.signals, regimes=batch.regimes
+    )
     params = {"roc_lookback": 1, "ema_fast": 2, "rank_window": 3, "atr_len": 2}
     params_obj = MomentumParams(**params)
     sig = momentum_signals(enriched, asdict(params_obj))
-    expected_events = _expected_entry_events(sig, strategy="momentum", params_obj=params_obj)
+    expected_events = _expected_entry_events(
+        sig, strategy="momentum", params_obj=params_obj
+    )
 
     result = breakout_run(
         symbol="MSFT",
@@ -202,17 +229,23 @@ def test_momentum_regression_probabilistic_join(monkeypatch: pytest.MonkeyPatch,
     assert Path(result["prob_frame_path"]).exists()
 
 
-def test_mean_reversion_regression_probabilistic_join(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_mean_reversion_regression_probabilistic_join(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
     closes = [50, 49, 48, 47, 48, 49, 50]
     batch = _build_prob_batch("QQQ", closes)
     engine = _setup_common(monkeypatch, batch, tmp_path)
 
     df = batch.bars.to_dataframe()
-    enriched = join_probabilistic_features(df, signals=batch.signals, regimes=batch.regimes)
+    enriched = join_probabilistic_features(
+        df, signals=batch.signals, regimes=batch.regimes
+    )
     params = {"lookback": 3, "z_entry": -0.5, "z_exit": -0.1, "atr_len": 2}
     params_obj = MeanReversionParams(**params)
     sig = mean_reversion_signals(enriched, asdict(params_obj))
-    expected_events = _expected_entry_events(sig, strategy="mean_reversion", params_obj=params_obj)
+    expected_events = _expected_entry_events(
+        sig, strategy="mean_reversion", params_obj=params_obj
+    )
 
     result = breakout_run(
         symbol="QQQ",

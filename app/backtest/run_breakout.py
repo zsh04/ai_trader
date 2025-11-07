@@ -196,6 +196,7 @@ def run(
         risk_agent_fraction=risk_agent_fraction,
     )
 
+
 def _run_backtest_core(
     symbol: str,
     start: str,
@@ -287,7 +288,9 @@ def _run_backtest_core(
                 len(prob_batch.regimes),
             )
             if prob_batch.cache_paths:
-                logger.debug("Probabilistic cache artifacts: {}", prob_batch.cache_paths)
+                logger.debug(
+                    "Probabilistic cache artifacts: {}", prob_batch.cache_paths
+                )
             signal_input = join_probabilistic_features(
                 signal_input, signals=prob_batch.signals, regimes=prob_batch.regimes
             )
@@ -349,8 +352,12 @@ def _run_backtest_core(
         if missing:
             raise ValueError(f"OHLC columns missing for engine: {missing}")
 
-    entry_state = sig.get("long_entry", pd.Series(False, index=df_engine.index)).astype(bool)
-    exit_state = sig.get("long_exit", pd.Series(False, index=df_engine.index)).astype(bool)
+    entry_state = sig.get("long_entry", pd.Series(False, index=df_engine.index)).astype(
+        bool
+    )
+    exit_state = sig.get("long_exit", pd.Series(False, index=df_engine.index)).astype(
+        bool
+    )
 
     entry_event = entry_state & ~entry_state.shift(1, fill_value=False)
     exit_event = exit_state & ~exit_state.shift(1, fill_value=False)
@@ -361,7 +368,9 @@ def _run_backtest_core(
         entry_event = entry_event.shift(1, fill_value=False)
         exit_event = exit_event.shift(1, fill_value=False)
 
-    if not entry_event.index.equals(df_engine.index) or not exit_event.index.equals(df_engine.index):
+    if not entry_event.index.equals(df_engine.index) or not exit_event.index.equals(
+        df_engine.index
+    ):
         entry_event = entry_event.reindex(df_engine.index, fill_value=False)
         exit_event = exit_event.reindex(df_engine.index, fill_value=False)
 
@@ -408,7 +417,9 @@ def _run_backtest_core(
         0.01 * beta.kelly_fraction() / max(beta.fmax, 1e-6) if beta.fmax > 0 else 0.01
     )
 
-    base_risk_frac = risk_frac_override if risk_frac_override is not None else default_risk
+    base_risk_frac = (
+        risk_frac_override if risk_frac_override is not None else default_risk
+    )
 
     risk_multiplier = 1.0
     applied_regime = None
@@ -590,9 +601,7 @@ def _run_backtest_core(
     out_name = f"backtest_{symbol}.csv"
     out = os.path.join(target_dir, out_name)
     skip_save = (
-        no_save
-        if no_save is not None
-        else os.getenv("BACKTEST_NO_SAVE", "0") == "1"
+        no_save if no_save is not None else os.getenv("BACKTEST_NO_SAVE", "0") == "1"
     )
     equity_path = None
     if skip_save:
@@ -637,6 +646,8 @@ def _run_backtest_core(
         "prob_frame_path": persisted_path,
         "export_dir": str(export_dir) if export_csv else None,
     }
+
+
 if __name__ == "__main__":
     # Minimal logging config for CLI use; app runtime can configure root logging.
     _setup_cli_logging("INFO")
