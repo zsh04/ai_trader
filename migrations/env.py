@@ -6,22 +6,22 @@ from sqlalchemy import engine_from_config, pool
 
 from app.db import Base  # ensures models are imported via app.db.__init__
 
-# Load DATABASE_URL from environment
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Load DATABASE_URL from environment or CLI override
+x_args = context.get_x_argument(as_dictionary=True)
+url_from_cli = x_args.get("url")
+DATABASE_URL = url_from_cli or os.getenv("DATABASE_URL")
 if not DATABASE_URL:
-    raise RuntimeError("DATABASE_URL not set")
+    raise RuntimeError("DATABASE_URL not set; pass -x url=... or export env var")
 
 config = context.config
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+config.set_main_option("sqlalchemy.url", DATABASE_URL.replace("%", "%%"))
 fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
 
 def run_migrations_offline():
-    url = context.get_x_argument(as_dictionary=True).get(
-        "DATABASE_URL"
-    ) or config.get_main_option("sqlalchemy.url")
+    url = DATABASE_URL
     context.configure(
         url=url,
         target_metadata=target_metadata,
