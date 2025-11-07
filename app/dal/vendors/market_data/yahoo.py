@@ -113,7 +113,9 @@ class YahooVendor(VendorClient):
             ticker = yf.Ticker(symbol)
             df = ticker.history(**history_kwargs)
         except Exception as exc:  # pragma: no cover - network/pathological errors
-            logger.debug("yahoo vendor yfinance failure symbol={} error={}", symbol, exc)
+            logger.debug(
+                "yahoo vendor yfinance failure symbol={} error={}", symbol, exc
+            )
             return None
 
         if df is None or df.empty:
@@ -134,7 +136,10 @@ class YahooVendor(VendorClient):
         if interval not in {"1d", "1Day", "1day"}:
             return None
 
-        start_date = _coerce_date(request.start) or (datetime.now(timezone.utc) - timedelta(days=365)).date()
+        start_date = (
+            _coerce_date(request.start)
+            or (datetime.now(timezone.utc) - timedelta(days=365)).date()
+        )
         end_date = _coerce_date(request.end) or datetime.now(timezone.utc).date()
         if end_date <= start_date:
             end_date = start_date + timedelta(days=1)

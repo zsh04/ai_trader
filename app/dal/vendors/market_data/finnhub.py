@@ -88,7 +88,9 @@ class FinnhubVendor(VendorClient):
 
         timestamp = payload.get("t")
         if not timestamp:
-            logger.debug("Finnhub quote missing timestamp for symbol=%s", request.symbol)
+            logger.debug(
+                "Finnhub quote missing timestamp for symbol=%s", request.symbol
+            )
             return Bars(symbol=request.symbol.upper(), vendor=self.name, timezone="UTC")
 
         dt = datetime.fromtimestamp(int(timestamp), tz=timezone.utc)

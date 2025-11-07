@@ -169,6 +169,7 @@ def test_breakout_run_probabilistic_smoke(
     start_dt = datetime(2021, 1, 1, tzinfo=timezone.utc)
 
     dates = pd.date_range(start=start_str, end=end_str, freq="D")
+
     def fake_generate_signals(df: pd.DataFrame, params: Dict[str, Any]) -> pd.DataFrame:
         base = pd.DataFrame(
             {

@@ -24,7 +24,9 @@ class AlphaVantageDailyVendor(VendorClient):
         super().__init__("alphavantage_eod")
         self.api_key = api_key or get_market_data_settings().alphavantage_key
         if not self.api_key:
-            logger.warning("AlphaVantage API key not configured; daily fetches will fail")
+            logger.warning(
+                "AlphaVantage API key not configured; daily fetches will fail"
+            )
         self._fallback_vendors: Sequence[VendorClient] = (
             list(fallback_vendors)
             if fallback_vendors is not None

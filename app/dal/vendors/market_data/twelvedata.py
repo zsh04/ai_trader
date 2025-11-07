@@ -24,8 +24,10 @@ class TwelveDataVendor(VendorClient):
         timezone_name: str = "UTC",
     ) -> None:
         super().__init__("twelvedata")
-        self.api_key = api_key or os.getenv("TWELVEDATA_API_KEY") or getattr(
-            ENV, "TWELVEDATA_API_KEY", ""
+        self.api_key = (
+            api_key
+            or os.getenv("TWELVEDATA_API_KEY")
+            or getattr(ENV, "TWELVEDATA_API_KEY", "")
         )
         self.base_url = base_url.rstrip("/")
         self.timezone_name = timezone_name

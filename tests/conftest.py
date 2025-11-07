@@ -10,8 +10,10 @@ from fastapi.testclient import TestClient
 try:
     from dotenv import load_dotenv
 except ImportError:  # pragma: no cover
+
     def load_dotenv(*_args, **_kwargs):
         return None
+
 
 from app.logging_utils import setup_test_logging
 from app.main import app
