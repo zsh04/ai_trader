@@ -52,6 +52,6 @@ pytest tests/probability/test_pipeline.py -q
 ```
 
 ## References
-- docs/operations/observability.md
-- docs/operations/azure_backup.md
-- docs/architecture/PHASE3_BACKTESTING.md
+- docs/howto/operations/observability.md
+- docs/howto/operations/azure-backup.md
+- docs/explanations/architecture/backtesting.md

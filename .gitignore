@@ -4,6 +4,7 @@
 .idea/
 .gemini
 .streamlit
+.docs-policy.json
 
 # Python
 __pycache__/

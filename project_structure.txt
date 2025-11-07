@@ -96,6 +96,7 @@
 │   │           ├── __init__.py
 │   │           ├── alpaca.py
 │   │           ├── alphavantage.py
+│   │           ├── alphavantage_daily.py
 │   │           ├── finnhub.py
 │   │           ├── twelvedata.py
 │   │           └── yahoo.py
@@ -177,50 +178,66 @@
 │   └── wiring
 │       └── __init__.py
 ├── artifacts
-│   └── __init__.py
+│   ├── __init__.py
+│   └── marketdata
+│       └── cache
 ├── config
 │   ├── __init__.py
 │   ├── config.yaml
 │   └── watchlist_source.yaml
 ├── docs
-│   ├── .DS_Store
-│   ├── architecture
-│   │   ├── ARCHITECTURE.md
-│   │   ├── PHASE1_CORE_RUNTIME.md
-│   │   ├── PHASE2_OBSERVABILITY.md
-│   │   ├── PHASE3_BACKTESTING.md
-│   │   ├── PHASE4_EXECUTION.md
-│   │   ├── PHASE5_CODEX_DOCS.md
-│   │   └── database.md
-│   ├── architecture.md
-│   ├── operations
-│   │   ├── CI_CD.md
-│   │   ├── ROADMAP.md
-│   │   ├── RUNBOOK.md
-│   │   ├── azure_backup.md
-│   │   ├── health_checklist.md
-│   │   ├── managed_identity.md
-│   │   ├── observability.md
-│   │   ├── project_progress.md
-│   │   ├── secrets.md
-│   │   └── telegram_deprecation.md
-│   ├── reference
-│   │   ├── CHANGELOG.md
-│   │   ├── CONTRIBUTING.md
-│   │   ├── GLOSSARY.md
-│   │   ├── LICENSE
+│   ├── _assets
+│   ├── explanations
+│   │   ├── adr
+│   │   │   └── 0001-record-architecture-decisions.md
+│   │   ├── architecture
+│   │   │   ├── backtesting.md
+│   │   │   ├── core-runtime.md
+│   │   │   ├── docs-program.md
+│   │   │   ├── execution.md
+│   │   │   ├── observability.md
+│   │   │   ├── overview.md
+│   │   │   └── system.md
+│   │   ├── operations
+│   │   │   ├── roadmap.md
+│   │   │   └── telegram-deprecation.md
+│   │   ├── platform
+│   │   │   ├── deployment-environments.md
+│   │   │   ├── security-model.md
+│   │   │   └── system-architecture.md
+│   │   └── specs
+│   │       ├── dashboard.md
+│   │       ├── data-layer.md
+│   │       ├── data-sources.md
+│   │       └── watchlist.md
+│   ├── howto
+│   │   ├── alpaca
+│   │   │   └── configure-bracket-orders.md
+│   │   ├── operations
+│   │   │   ├── azure-backup.md
+│   │   │   ├── ci-cd.md
+│   │   │   ├── health-checklist.md
+│   │   │   ├── managed-identity.md
+│   │   │   ├── observability.md
+│   │   │   └── runbook.md
 │   │   └── testing.md
-│   ├── research
-│   │   └── data_sources.md
-│   └── specs
-│       ├── CONFIG.md
-│       ├── DASHBOARD_SPEC.md
-│       ├── DATA_SCHEMA.md
-│       ├── RISK_POLICY.md
-│       ├── SESSION_MODEL.md
-│       ├── SOURCES.md
-│       ├── WATCHLIST_SPEC.md
-│       └── data_layer.md
+│   ├── reference
+│   │   ├── LICENSE
+│   │   ├── api.md
+│   │   ├── config.md
+│   │   ├── contributing.md
+│   │   ├── data-models.md
+│   │   ├── data-schema.md
+│   │   ├── database-architecture.md
+│   │   ├── database.md
+│   │   ├── doc-guidelines.md
+│   │   ├── glossary.md
+│   │   ├── risk-policy.md
+│   │   ├── secrets.md
+│   │   ├── session-model.md
+│   │   ├── sources.md
+│   │   └── sre-slos.md
+│   └── tutorials
 ├── infra
 │   ├── README.md
 │   ├── __init__.py
@@ -260,11 +277,8 @@
 │   ├── AI_Trader_Mind_Map.png
 │   ├── Autonomous Probabilistic Trading Agent (AI Trader) - Project Plan.pdf
 │   ├── Financial Data Source Comparison.pdf
-│   ├── M1 – Foundational Architecture & Data Layer.md
-│   ├── Phase 1 - Foundational Hardening & Data Resilience (P0).md
-│   ├── Phase 2 - Probabilistic Core Integration (P1).md
-│   ├── Phase 3 - Orchestration & Risk Control (P2P3).md
-│   └── Phase 4 - Final Validation and Scaling (P4).md
+│   ├── project_notes.md
+│   └── project_progress.md
 ├── runtime.txt
 ├── scripts
 │   ├── README.md
@@ -292,6 +306,9 @@
 │   │   ├── test_manager.py
 │   │   ├── test_probabilistic_pipeline.py
 │   │   └── vendors
+│   │       ├── test_alphavantage_daily_vendor.py
+│   │       ├── test_alphavantage_vendor.py
+│   │       ├── test_finnhub_vendor.py
 │   │       ├── test_twelvedata_vendor.py
 │   │       └── test_yahoo_vendor.py
 │   ├── data
@@ -347,4 +364,4 @@
     │   └── Monitoring Dashboard.py
     └── streamlit_app.py
 
-85 directories, 263 files
+87 directories, 262 files

@@ -1,0 +1,9 @@
+{
+  "extends": ["config:recommended"],
+  "platformAutomerge": true,
+  "labels": ["deps"],
+  "packageRules": [
+    { "matchManagers": ["github-actions"], "automerge": true },
+    { "matchManagers": ["npm"], "automerge": false }
+  ]
+}

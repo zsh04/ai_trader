@@ -1,0 +1,29 @@
+name: Docs QA
+on: [pull_request]
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Markdown lint
+        run: |
+          npm i -g markdownlint-cli
+          markdownlint "**/*.md" --ignore node_modules
+
+      - name: Vale (Google style)
+        uses: errata-ai/vale-action@v2
+        with: { files: "docs internal README.md" }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Link check
+        uses: lycheeverse/lychee-action@v1
+        with:
+          args: --no-progress --accept 200,204 --verbose "docs/**/*.md" "internal/**/*.md" "README.md"
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        with: { args: detect --no-banner --redact }

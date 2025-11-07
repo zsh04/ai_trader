@@ -14,6 +14,18 @@
 - Cloud-native deployment with GitHub Actions and Azure App Service.
 - Structured observability via OpenTelemetry dashboards and Streamlit UI.
 
+## Documentation Index
+
+| Track | Purpose | Key docs |
+|-------|---------|----------|
+| How-to | Procedural steps for operations, CI/CD, testing | [Operations runbook](docs/howto/operations/runbook.md), [Daily health checklist](docs/howto/operations/health-checklist.md), [CI/CD guide](docs/howto/operations/ci-cd.md), [Testing guide](docs/howto/testing.md) |
+| Reference | Canonical tables, configs, policies | [Configuration defaults](docs/reference/config.md), [Secrets & Key Vault](docs/reference/secrets.md), [Risk policy](docs/reference/risk-policy.md), [Market data schemas](docs/reference/data-schema.md) |
+| Explanations | Architecture narratives and roadmap context | [Architecture overview](docs/explanations/architecture/overview.md), [Core runtime](docs/explanations/architecture/core-runtime.md), [Backtesting](docs/explanations/architecture/backtesting.md), [Operations roadmap](docs/explanations/operations/roadmap.md) |
+| Tutorials | Guided labs for new contributors | [Run a breakout backtest](docs/tutorials/dev-backtest.md) |
+| Research (private) | Future plans, internal notes | `research-docs/` (gitignored, not published) |
+
+All documents follow the Diátaxis framework with required front matter defined in `.docs-policy.json`.
+
 ## Platform Capabilities
 
 - **Scanning & Watchlists:** Premarket gap/RVOL scans with continuous refresh windows.
@@ -105,7 +117,7 @@ pm2 logs ai_trader
 ```
 
 Logs rotate daily and retain seven days by default. For OpenTelemetry / Application Insights
-deployment notes see `docs/operations/observability.md`.
+deployment notes see `docs/howto/operations/observability.md`.
 
 ## Deployment (Azure App Service)
 
@@ -149,9 +161,9 @@ Unit/regression tests covering the DAL live under `tests/dal/`. Running `pytest 
 
 ## Additional Docs
 
-- `ARCHITECTURE.md` — design deep dive
-- `RUNBOOK.md` — operational checklists and incident flows
-- `AGENTS.md` — coding conventions and agent collaboration guide
+- `AGENTS.md` — MCP usage guidelines for coding agents.
+- `docs/explanations/architecture/*` — full architecture deep dives.
+- `docs/reference/*` — canonical tables, policies, and configs (see index above).
 
 ### Watchlist Sources
 
