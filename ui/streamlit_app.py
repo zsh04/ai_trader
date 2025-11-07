@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import inspect
+import logging
+import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
@@ -29,10 +31,25 @@ if load_dotenv:
 from app.services.market_data import get_intraday_bars, get_market_snapshots
 from app.services.watchlist_service import build_watchlist
 from app.utils import env as ENV
+from app.logging_utils import setup_logging
+from app.observability import configure_observability
 
 FALLBACK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "SPY", "QQQ"]
 ALTAIR_ACCEPTS_WIDTH = "width" in inspect.signature(st.altair_chart).parameters
 DATAFRAME_ACCEPTS_WIDTH = "width" in inspect.signature(st.dataframe).parameters
+
+# ---------------------------------------------------------------------------
+# Observability (Loguru + OpenTelemetry exporters)
+# ---------------------------------------------------------------------------
+os.environ.setdefault("OTEL_SERVICE_NAME", "ai-trader-ui")
+os.environ.setdefault("ENV", os.getenv("APP_ENVIRONMENT", "local"))
+setup_logging()
+otel_enabled = configure_observability()
+logger = logging.getLogger("ui.streamlit")
+if otel_enabled:
+    logger.info("Streamlit UI OpenTelemetry exporters configured.")
+else:
+    logger.info("Streamlit UI running without OTEL exporters (env not set).")
 
 # ---------------------------------------------------------------------------
 # Streamlit configuration

@@ -25,6 +25,7 @@
 
 3. **Enable code hooks**
    - `app/main.py` → call `configure_observability()` in the lifespan context.
+   - `ui/streamlit_app.py` → invokes `setup_logging()` + `configure_observability()` so `/ui` traffic shares OTEL exporters (`OTEL_SERVICE_NAME=ai-trader-ui`).
    - `app/logging_utils.setup_logging()` to emit structured Loguru logs and bridge to OTEL.
    - Wrap background jobs/handlers with `logging_context(request_id=...)`.
    - For CLI/backtests, call `setup_logging()` and `configure_observability()` when OTLP env vars exist.
