@@ -12,7 +12,7 @@ Phase 2 ensures the platform is transparent, supportable, and ready for 24/5 tr
 
 ## Telemetry Surfaces
 
-- **Structured Logging** – Loguru emits JSON enriched with request IDs, chat IDs (for Telegram routes), service version, and OTEL trace context. Logs flow into Azure Application Insights / Log Analytics via the App Service integration.
+- **Structured Logging** – Loguru emits JSON enriched with request IDs, Streamlit session IDs, service version, and OTEL trace context. Logs flow into Azure Application Insights / Log Analytics via the App Service integration.
 - **Tracing** – `opentelemetry-instrumentation-fastapi` and custom spans in the MarketDataDAL capture vendor calls, cache behaviour, and strategy execution steps. Attributes such as `vendor`, `interval`, `symbol`, `env`, and error details make trace search practical.
 - **Metrics** – OTEL metrics export latency histograms, request counters, DAL fallback counts, cache hit ratio, and data freshness gauges. Dashboards in Azure Monitor and Streamlit surface these metrics alongside operational KPIs.
 - **Health Probes** – `/health/live`, `/health/ready`, `/health/db`, and `/health/dal` (planned) drive App Service readiness, Azure Monitor checks, and the Runbook diagnostics flow.

@@ -134,7 +134,7 @@ type: explanation
 - News/NLP features (earnings PR, sentiment) with guardrails
 - Options module (once equity edge proven); covered calls/put-selling
 - Multi-venue data redundancy (Polygon fallback)
-- Telegram/Discord notifier & manual-approval UI for 50% AV gate
+- Streamlit manual-approval UI (replaces retired Telegram path) for 50% AV gate
 
 ---
 

@@ -27,3 +27,4 @@ ops/delta/
 .gemini
 .streamlit
 .gitignore
+internal/

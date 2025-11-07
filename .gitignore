@@ -41,4 +41,4 @@ ops/delta/
 *.env
 .env.local
 prompts/
-research-docs/
+internal/

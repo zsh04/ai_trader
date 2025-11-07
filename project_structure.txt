@@ -2,15 +2,52 @@
 ├── .DS_Store
 ├── .codex
 ├── .dockerignore
+├── .docs-policy.json
 ├── .env.dev
 ├── .env.example
 ├── .gemini
 │   └── settings.json
 ├── .github
+│   ├── vale-styles
+│   │   └── Google
+│   │       ├── AMPM.yml
+│   │       ├── Acronyms.yml
+│   │       ├── Colons.yml
+│   │       ├── Contractions.yml
+│   │       ├── DateFormat.yml
+│   │       ├── Ellipses.yml
+│   │       ├── EmDash.yml
+│   │       ├── Exclamation.yml
+│   │       ├── FirstPerson.yml
+│   │       ├── Gender.yml
+│   │       ├── GenderBias.yml
+│   │       ├── HeadingPunctuation.yml
+│   │       ├── Headings.yml
+│   │       ├── Latin.yml
+│   │       ├── LyHyphens.yml
+│   │       ├── OptionalPlurals.yml
+│   │       ├── Ordinal.yml
+│   │       ├── OxfordComma.yml
+│   │       ├── Parens.yml
+│   │       ├── Passive.yml
+│   │       ├── Periods.yml
+│   │       ├── Quotes.yml
+│   │       ├── Ranges.yml
+│   │       ├── Semicolons.yml
+│   │       ├── Slang.yml
+│   │       ├── Spacing.yml
+│   │       ├── Spelling.yml
+│   │       ├── Units.yml
+│   │       ├── We.yml
+│   │       ├── Will.yml
+│   │       ├── WordList.yml
+│   │       ├── meta.json
+│   │       └── vocab.txt
 │   └── workflows
 │       ├── ci-api.yml
 │       ├── ci-smoke.yml
 │       ├── ci-ui.yml
+│       ├── docs.yml
 │       └── lint.yml
 ├── .gitignore
 ├── .pytest.ini
@@ -26,7 +63,9 @@
 ├── .streamlit
 │   └── config.toml
 ├── .tool-versions
+├── .vale.ini
 ├── .vscode
+│   ├── docs.json
 │   ├── mcp.json
 │   └── settings.json
 ├── AGENTS.md
@@ -186,8 +225,10 @@
 │   ├── config.yaml
 │   └── watchlist_source.yaml
 ├── docs
+│   ├── .DS_Store
 │   ├── _assets
 │   ├── explanations
+│   │   ├── .DS_Store
 │   │   ├── adr
 │   │   │   └── 0001-record-architecture-decisions.md
 │   │   ├── architecture
@@ -211,6 +252,7 @@
 │   │       ├── data-sources.md
 │   │       └── watchlist.md
 │   ├── howto
+│   │   ├── .DS_Store
 │   │   ├── alpaca
 │   │   │   └── configure-bracket-orders.md
 │   │   ├── operations
@@ -220,6 +262,7 @@
 │   │   │   ├── managed-identity.md
 │   │   │   ├── observability.md
 │   │   │   └── runbook.md
+│   │   ├── runbooks.md
 │   │   └── testing.md
 │   ├── reference
 │   │   ├── LICENSE
@@ -238,6 +281,7 @@
 │   │   ├── sources.md
 │   │   └── sre-slos.md
 │   └── tutorials
+│       └── dev-backtest.md
 ├── infra
 │   ├── README.md
 │   ├── __init__.py
@@ -249,6 +293,27 @@
 │   └── otel
 │       ├── collector-config.yml
 │       └── otel.Dockerfile
+├── internal
+│   ├── .DS_Store
+│   ├── project-docs
+│   │   ├── backlog.md
+│   │   ├── charter.md
+│   │   ├── comms-plan.md
+│   │   ├── decision-log.md
+│   │   ├── raci.md
+│   │   ├── risk-register.md
+│   │   ├── roadmap.md
+│   │   ├── sprint-plan.md
+│   │   └── sprint-status.md
+│   └── research-docs
+│       ├── AI Agents for Probabilistic Trading.pdf
+│       ├── AI_Trader_Handover.pdf
+│       ├── AI_Trader_Mind_Map.png
+│       ├── Autonomous Probabilistic Trading Agent (AI Trader) - Project Plan.pdf
+│       ├── Financial Data Source Comparison.pdf
+│       ├── health-checklist.md
+│       ├── project_notes.md
+│       └── project_progress.md
 ├── migrations
 │   ├── README
 │   ├── __init__.py
@@ -269,16 +334,9 @@
 ├── project_structure.txt
 ├── pyproject.toml
 ├── pytest.ini
+├── renovate.json
 ├── requirements-dev.txt
 ├── requirements.txt
-├── research-docs
-│   ├── AI Agents for Probabilistic Trading.pdf
-│   ├── AI_Trader_Handover.pdf
-│   ├── AI_Trader_Mind_Map.png
-│   ├── Autonomous Probabilistic Trading Agent (AI Trader) - Project Plan.pdf
-│   ├── Financial Data Source Comparison.pdf
-│   ├── project_notes.md
-│   └── project_progress.md
 ├── runtime.txt
 ├── scripts
 │   ├── README.md
@@ -364,4 +422,4 @@
     │   └── Monitoring Dashboard.py
     └── streamlit_app.py
 
-87 directories, 262 files
+98 directories, 325 files
