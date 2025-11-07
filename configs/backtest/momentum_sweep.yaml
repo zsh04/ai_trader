@@ -1,0 +1,23 @@
+symbol: AAPL
+start: 2023-01-01
+end: 2023-06-30
+strategy: momentum
+use_probabilistic: true
+regime_aware_sizing: true
+slippage_bps: 2.0
+fee_per_share: 0.001
+min_notional: 200.0
+dal:
+  vendor: yahoo
+  interval: 1Day
+risk_agent:
+  name: fractional_kelly
+  fraction: 0.4
+params:
+  roc_lookback: [10, 20, 30]
+  ema_fast: [30, 50]
+  rank_window: [90]
+  min_rank: [0.75, 0.9]
+  atr_len: [10]
+output_dir: artifacts/backtests/momentum
+max_workers: 4

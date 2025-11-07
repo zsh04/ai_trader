@@ -95,16 +95,28 @@ Always add type hints, avoid circular imports, and keep modules composable. New 
 
 ## Backtesting
 
-Run the breakout engine with optional risk guardrails and debug exports:
+Available strategies (pass via `--strategy`):
+
+- `breakout` – classic Donchian breakout with ATR trail + regime-aware sizing.
+- `momentum` – trend-following using probabilistic filtered prices, velocity, and regime whitelists.
+- `mean_reversion` – z-score based entries/exits that lean on calm regimes and filtered prices.
+
+Example CLI (probabilistic momentum run with Fractional Kelly sizing):
 
 ```bash
-python3 -m app.backtest.run_breakout --symbol AAPL --start 2021-01-01 --debug
-# optional
-#   --min-notional <USD>
-#   --debug-entries   # emit CSV snapshots for inspection
-#   --use-probabilistic --dal-vendor finnhub --regime-aware-sizing
-#     # pull MarketDataDAL signals/regimes and scale risk via latest regime snapshot
+python3 -m app.backtest.run_breakout \
+  --symbol AAPL --start 2021-01-01 --strategy momentum \
+  --use-probabilistic --dal-vendor alphavantage --dal-interval 5Min \
+  --regime-aware-sizing --risk-agent fractional_kelly --risk-agent-fraction 0.5 \
+  --debug
 ```
+
+Key flags:
+
+- `--strategy {breakout|momentum|mean_reversion}` – select the signal engine.
+- `--use-probabilistic` + `--dal-*` – pull `SignalFrame` + regimes from MarketDataDAL.
+- `--risk-agent fractional_kelly` – apply fractional Kelly sizing using probabilistic signals (falls back to base risk if missing data).
+- `--debug`, `--debug-signals`, `--debug-entries` – dump diagnostics/CSVs.
 
 ## Operations & Observability
 

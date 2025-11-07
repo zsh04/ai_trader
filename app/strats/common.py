@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import is_dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -113,6 +113,44 @@ def ensure_flat_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
 
     out = out.loc[:, ~out.columns.duplicated(keep="first")]
     return out
+
+
+def choose_probabilistic_price(df: pd.DataFrame) -> pd.Series:
+    """Prefer probabilistic filtered price columns when available."""
+    for col in (
+        "prob_filtered_price",
+        "filtered_price",
+        "prob_price",
+        "prob_butterworth_price",
+    ):
+        if col in df.columns:
+            series = as_series(df[col])
+            if series.notna().any():
+                return series.astype(float)
+    return pick_col(df, "close", "adj_close", "close_price", "c", "ohlc_close")
+
+
+def probabilistic_velocity_gate(df: pd.DataFrame, threshold: float) -> pd.Series:
+    vel = None
+    for col in ("prob_velocity", "velocity"):
+        if col in df.columns:
+            vel = as_series(df[col])
+            break
+    if vel is None:
+        return pd.Series(True, index=df.index)
+    return vel.fillna(0.0) >= threshold
+
+
+def probabilistic_regime_gate(
+    df: pd.DataFrame, whitelist: Sequence[str] | None
+) -> pd.Series:
+    if "regime_label" not in df.columns or not whitelist:
+        return pd.Series(True, index=df.index)
+    allowed = {str(item).lower() for item in whitelist if str(item).strip()}
+    if not allowed:
+        return pd.Series(True, index=df.index)
+    regimes = as_series(df["regime_label"]).astype(str).str.lower()
+    return regimes.isin(allowed)
 
 
 # -------- Math helpers --------

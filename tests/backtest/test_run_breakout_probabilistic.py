@@ -14,6 +14,7 @@ from app.backtest.run_breakout import run as breakout_run
 from app.dal.results import ProbabilisticBatch
 from app.dal.schemas import Bar, Bars, SignalFrame
 from app.dal.vendors.base import FetchRequest, VendorClient
+from app.probability.storage import build_frame_path
 
 
 @dataclass
@@ -171,19 +172,15 @@ def test_breakout_run_probabilistic_smoke(
     dates = pd.date_range(start=start_str, end=end_str, freq="D")
 
     def fake_generate_signals(df: pd.DataFrame, params: Dict[str, Any]) -> pd.DataFrame:
-        base = pd.DataFrame(
-            {
-                "open": df.get("open", df.get("Open")),
-                "high": df.get("high", df.get("High")),
-                "low": df.get("low", df.get("Low")),
-                "close": df.get("close", df.get("Close")),
-                "long_entry": [True] + [False] * (len(df) - 1),
-                "long_exit": [False] * (len(df) - 1) + [True],
-                "atr": np.full(len(df), 1.5),
-                "atr_ok": True,
-            },
-            index=df.index,
-        )
+        base = df.copy()
+        base["open"] = df.get("open", df.get("Open"))
+        base["high"] = df.get("high", df.get("High"))
+        base["low"] = df.get("low", df.get("Low"))
+        base["close"] = df.get("close", df.get("Close"))
+        base["long_entry"] = [True] + [False] * (len(df) - 1)
+        base["long_exit"] = [False] * (len(df) - 1) + [True]
+        base["atr"] = np.full(len(df), 1.5)
+        base["atr_ok"] = True
         return base
 
     fake_beta = _FakeBetaWinrate()
@@ -224,7 +221,7 @@ def test_breakout_run_probabilistic_smoke(
         "app.backtest.run_breakout.MarketDataDAL", fake_market_data_dal_factory
     )
 
-    breakout_run(
+    result = breakout_run(
         symbol=symbol,
         start=start_str,
         end=end_str,
@@ -254,3 +251,202 @@ def test_breakout_run_probabilistic_smoke(
 
     if use_probabilistic:
         assert vendor.fetch_called_with is not None
+    assert isinstance(result["metrics"], dict)
+
+
+@pytest.mark.filterwarnings("ignore:Mean of empty slice")
+def test_fractional_kelly_agent_caps_risk(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    symbol = "AAPL"
+    start_str = "2021-01-01"
+    end_str = "2021-01-05"
+    start_dt = datetime(2021, 1, 1, tzinfo=timezone.utc)
+
+    bars = _build_bars(symbol, "hybrid", start_dt, 5)
+    signals = _build_signals(symbol, "hybrid", start_dt, 5)
+    regimes = _build_regimes(symbol, start_dt, 5)
+    vendor = _HybridVendor(bars=bars, signals=signals, regimes=regimes)
+
+    def fake_market_data_dal_factory(*args: Any, **kwargs: Any):
+        kwargs["vendor"] = vendor
+        return _FakeMarketDataDAL(*args, **kwargs)
+
+    monkeypatch.setenv("BACKTEST_NO_SAVE", "1")
+    monkeypatch.setenv("BACKTEST_OUT_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.MarketDataDAL", fake_market_data_dal_factory
+    )
+    engine_stub = _FakeBacktestEngine()
+    monkeypatch.setattr("app.backtest.run_breakout.backtest_long_only", engine_stub)
+    fake_beta = _FakeBetaWinrate()
+    monkeypatch.setattr("app.backtest.run_breakout.BetaWinrate", lambda: fake_beta)
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.bt_metrics.equity_stats",
+        lambda equity, use_mtm=True: _FakeMetrics(),
+    )
+
+    captured: Dict[str, Any] = {}
+
+    class _StubKelly:
+        def __init__(self, fraction: float) -> None:
+            self.fraction = fraction
+
+        def __call__(self, *, probability: float, payoff: float) -> float:
+            captured["probability"] = probability
+            captured["payoff"] = payoff
+            return 0.0015
+
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.FractionalKellyAgent",
+        lambda fraction: _StubKelly(fraction),
+    )
+
+    result = breakout_run(
+        symbol=symbol,
+        start=start_str,
+        end=end_str,
+        params_kwargs={"lookback": 3},
+        strategy="breakout",
+        use_probabilistic=True,
+        dal_vendor="hybrid",
+        dal_interval="1Day",
+        risk_agent="fractional_kelly",
+        risk_agent_fraction=0.5,
+    )
+
+    assert engine_stub.last_kwargs is not None
+    assert "probability" in captured
+    assert captured["probability"] > 0
+    assert pytest.approx(engine_stub.last_kwargs["risk_frac"], rel=1e-6) == 0.0015
+    assert isinstance(result["metrics"], dict)
+
+
+def test_momentum_strategy_persists_probabilistic_frame(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    symbol = "AAPL"
+    start = "2021-01-01"
+    end = "2021-01-06"
+    start_dt = datetime(2021, 1, 1, tzinfo=timezone.utc)
+
+    frames_dir = tmp_path / "frames"
+    monkeypatch.setenv("BACKTEST_NO_SAVE", "1")
+    monkeypatch.setenv("BACKTEST_OUT_DIR", str(tmp_path))
+    monkeypatch.setenv("BACKTEST_PROB_FRAME_DIR", str(frames_dir))
+
+    bars = _build_bars(symbol, "hybrid", start_dt, 6)
+    signals = _build_signals(symbol, "hybrid", start_dt, 6)
+    regimes = _build_regimes(symbol, start_dt, 6)
+    vendor = _HybridVendor(bars=bars, signals=signals, regimes=regimes)
+
+    def fake_market_data_dal_factory(*args: Any, **kwargs: Any):
+        kwargs["vendor"] = vendor
+        return _FakeMarketDataDAL(*args, **kwargs)
+
+    engine_stub = _FakeBacktestEngine()
+    monkeypatch.setattr("app.backtest.run_breakout.backtest_long_only", engine_stub)
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.MarketDataDAL", fake_market_data_dal_factory
+    )
+    fake_beta = _FakeBetaWinrate()
+    monkeypatch.setattr("app.backtest.run_breakout.BetaWinrate", lambda: fake_beta)
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.bt_metrics.equity_stats",
+        lambda equity, use_mtm=True: _FakeMetrics(),
+    )
+
+    result = breakout_run(
+        symbol=symbol,
+        start=start,
+        end=end,
+        params_kwargs={
+            "roc_lookback": 2,
+            "ema_fast": 2,
+            "rank_window": 3,
+            "z_window": 2,
+        },
+        slippage_bps=0.5,
+        fee_per_share=0.0,
+        min_notional=10.0,
+        strategy="momentum",
+        use_probabilistic=False,
+        dal_vendor="hybrid",
+        dal_interval="1Day",
+    )
+
+    assert vendor.fetch_called_with is not None
+    assert engine_stub.last_kwargs is not None
+    expected_path = build_frame_path(
+        symbol,
+        "momentum",
+        vendor="hybrid",
+        interval="1Day",
+        root=frames_dir,
+    )
+    assert expected_path.exists()
+    persisted = pd.read_parquet(expected_path)
+    assert "momentum" in persisted.columns
+    assert "prob_filtered_price" in persisted.columns
+    assert isinstance(result["metrics"], dict)
+
+
+def test_mean_reversion_strategy_enables_probabilistic(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    symbol = "AAPL"
+    start = "2021-01-01"
+    end = "2021-01-05"
+    start_dt = datetime(2021, 1, 1, tzinfo=timezone.utc)
+
+    frames_dir = tmp_path / "frames"
+    monkeypatch.setenv("BACKTEST_NO_SAVE", "1")
+    monkeypatch.setenv("BACKTEST_OUT_DIR", str(tmp_path))
+    monkeypatch.setenv("BACKTEST_PROB_FRAME_DIR", str(frames_dir))
+
+    bars = _build_bars(symbol, "hybrid", start_dt, 5)
+    signals = _build_signals(symbol, "hybrid", start_dt, 5)
+    regimes = _build_regimes(symbol, start_dt, 5)
+    vendor = _HybridVendor(bars=bars, signals=signals, regimes=regimes)
+
+    def fake_market_data_dal_factory(*args: Any, **kwargs: Any):
+        kwargs["vendor"] = vendor
+        return _FakeMarketDataDAL(*args, **kwargs)
+
+    engine_stub = _FakeBacktestEngine()
+    monkeypatch.setattr("app.backtest.run_breakout.backtest_long_only", engine_stub)
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.MarketDataDAL", fake_market_data_dal_factory
+    )
+    fake_beta = _FakeBetaWinrate()
+    monkeypatch.setattr("app.backtest.run_breakout.BetaWinrate", lambda: fake_beta)
+    monkeypatch.setattr(
+        "app.backtest.run_breakout.bt_metrics.equity_stats",
+        lambda equity, use_mtm=True: _FakeMetrics(),
+    )
+
+    result = breakout_run(
+        symbol=symbol,
+        start=start,
+        end=end,
+        params_kwargs={"lookback": 3, "z_entry": -1.0, "z_exit": -0.2},
+        slippage_bps=0.5,
+        fee_per_share=0.0,
+        min_notional=10.0,
+        strategy="mean_reversion",
+        use_probabilistic=False,
+        dal_vendor="hybrid",
+        dal_interval="1Day",
+    )
+
+    assert vendor.fetch_called_with is not None
+    assert engine_stub.last_kwargs is not None
+    expected_path = build_frame_path(
+        symbol,
+        "mean_reversion",
+        vendor="hybrid",
+        interval="1Day",
+        root=frames_dir,
+    )
+    assert expected_path.exists()
+    assert isinstance(result["metrics"], dict)

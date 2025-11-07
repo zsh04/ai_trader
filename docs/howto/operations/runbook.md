@@ -70,6 +70,30 @@ Run this validation after migrations or vendor credential updates to ensure the 
 3. **Pass criteria:** Alpha Vantage returns thousands of intraday bars with matching signal/regime counts, and Finnhub returns the latest daily quote. Investigate vendor credentials or rate limits if either response is empty/errored.
 4. **Record results** in the sprint log / Confluence so ops knows the last verified timestamp.
 
+## Probabilistic backtest validation
+
+Use this CLI run after code changes to momentum/mean-reversion/risk management so we confirm the end-to-end wiring (DAL → strategy → Fractional Kelly) still functions. It also drops the merged probabilistic frame under `artifacts/probabilistic/frames` for Streamlit reuse.
+
+1. Activate the virtualenv and export a temporary output directory so we do not litter the repo:
+   ```bash
+   source .venv/bin/activate
+   export BACKTEST_NO_SAVE=1 BACKTEST_OUT_DIR=$(mktemp -d)
+   ```
+2. Run a DAL-backed CLI invocation (the vendor can be Yahoo to avoid API limits):
+   ```bash
+   python -m app.backtest.run_breakout \
+     --symbol AAPL --start 2023-01-03 --end 2023-02-03 \
+     --strategy momentum --use-probabilistic \
+     --dal-vendor yahoo --dal-interval 1Day \
+     --risk-agent fractional_kelly --risk-agent-fraction 0.4 \
+     --regime-aware-sizing --debug
+   ```
+3. **Pass criteria:**
+   - Logs show the DAL fetch succeeded with matching counts for bars/signals/regimes.
+   - Fractional Kelly logs a capped risk fraction (`prob=... frac=...`).
+   - A frame file appears under `artifacts/probabilistic/frames/AAPL_momentum_yahoo_1day.parquet`.
+4. Capture the command output in the sprint status doc so we have an auditable timestamp for the last smoke test.
+
 ## References
 
 - `docs/howto/operations/observability.md`

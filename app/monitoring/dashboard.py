@@ -13,9 +13,11 @@ Key features:
 from __future__ import annotations
 
 import inspect
+import json
 import os
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import altair as alt
@@ -119,6 +121,7 @@ DB_URL_RAW = os.getenv("DATABASE_URL", "")
 DB_URL = DB_URL_RAW.strip().strip("'\"")
 TZ_LOCAL = os.getenv("DASHBOARD_TZ", "America/New_York")
 DEFAULT_SYMBOLS = os.getenv("DASHBOARD_SYMBOLS", "AAPL,MSFT,NVDA,SPY,QQQ")
+SWEEP_BASE_DIR = Path(os.getenv("BACKTEST_SWEEP_DIR", "artifacts/backtests"))
 ALTAIR_ACCEPTS_WIDTH = "width" in inspect.signature(st.altair_chart).parameters
 DATAFRAME_ACCEPTS_WIDTH = "width" in inspect.signature(st.dataframe).parameters
 
@@ -160,6 +163,45 @@ def _session_scope():
         yield session
     finally:
         session.close()
+
+
+@st.cache_data(show_spinner=False, ttl=60)
+def _load_sweep_records(limit: int = 5) -> Optional[pd.DataFrame]:
+    if not SWEEP_BASE_DIR.exists():
+        return None
+    summary_files = sorted(
+        SWEEP_BASE_DIR.rglob("summary.jsonl"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    rows: List[Dict[str, object]] = []
+    for path in summary_files:
+        try:
+            strategy = path.parent.parent.name if path.parent.parent else "unknown"
+            sweep_ts = path.parent.name
+            with path.open() as handle:
+                for line in handle:
+                    data = line.strip()
+                    if not data:
+                        continue
+                    record = json.loads(data)
+                    record["strategy"] = strategy
+                    record["sweep_timestamp"] = sweep_ts
+                    record["summary_path"] = str(path)
+                    metrics = record.get("metrics") or {}
+                    for key in ("sharpe", "sortino", "total_return", "max_drawdown"):
+                        record[f"metric_{key}"] = metrics.get(key)
+                    record["params_text"] = json.dumps(record.get("params") or {}, sort_keys=True)
+                    rows.append(record)
+        except FileNotFoundError:
+            continue
+        if len(rows) >= limit * 10:
+            break
+    if not rows:
+        return None
+    df = pd.DataFrame(rows)
+    df["_timestamp"] = pd.to_datetime(df["sweep_timestamp"], errors="coerce")
+    return df
 
 
 @st.cache_data(show_spinner=False, ttl=45)
@@ -501,6 +543,49 @@ with equity_container:
             ]
         )
         st.table(metrics_table)
+
+# -----------------------------------------------------------------------------
+# Backtest sweeps summary
+# -----------------------------------------------------------------------------
+sweep_df = _load_sweep_records(limit=5)
+with st.expander("Backtest Sweeps", expanded=False):
+    if sweep_df is None or sweep_df.empty:
+        st.info(
+            "No sweep summaries found. Run `python -m app.backtest.sweeps --config <file>` to populate artifacts/backtests."
+        )
+    else:
+        latest = sweep_df.sort_values("_timestamp", ascending=False)
+        sharpe_df = latest.dropna(subset=["metric_sharpe"])
+        if not sharpe_df.empty:
+            chart = (
+                alt.Chart(sharpe_df)
+                .mark_circle(size=80, opacity=0.7)
+                .encode(
+                    x=alt.X("metric_sharpe:Q", title="Sharpe"),
+                    y=alt.Y("metric_sortino:Q", title="Sortino"),
+                    color=alt.Color("strategy:N", title="Strategy"),
+                    tooltip=[
+                        alt.Tooltip("strategy:N"),
+                        alt.Tooltip("sweep_timestamp:N", title="Sweep"),
+                        alt.Tooltip("job_id:Q", title="Job"),
+                        alt.Tooltip("metric_sharpe:Q", title="Sharpe", format=".2f"),
+                        alt.Tooltip("metric_total_return:Q", title="Total Return", format=".2f"),
+                        alt.Tooltip("params_text:N", title="Params"),
+                    ],
+                )
+            )
+            _render_altair(chart)
+        st.caption("Top jobs by Sharpe (latest sweeps)")
+        display_cols = [
+            "sweep_timestamp",
+            "strategy",
+            "job_id",
+            "metric_sharpe",
+            "metric_total_return",
+            "metric_max_drawdown",
+            "params_text",
+        ]
+        _render_dataframe(latest[display_cols].head(10), height=260)
 
 # -----------------------------------------------------------------------------
 # Trades & Positions

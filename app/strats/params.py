@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Tuple
 
 
 @dataclass(frozen=True)
@@ -26,3 +27,20 @@ class MomentumParams:
 
     # Diagnostics
     z_window: int = 20  # for optional z-scoring of momentum
+
+    # Probabilistic gating
+    min_prob_velocity: float = 0.0  # require velocity >= threshold when available
+    regime_whitelist: Tuple[str, ...] = ("trend_up", "calm", "sideways")
+
+
+@dataclass(frozen=True)
+class MeanReversionParams:
+    lookback: int = 20
+    z_entry: float = -2.0
+    z_exit: float = -0.5
+    atr_len: int = 14
+    atr_mult: float = 1.5
+    entry_price: str = "close"
+    enter_on_signal_bar: bool = False
+    min_prob_velocity: float = -1.0
+    regime_whitelist: Tuple[str, ...] = ("calm", "sideways", "trend_up")

@@ -9,13 +9,14 @@ import traceback
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Dict, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from loguru import logger
 from pandas import Timestamp
 
+from app.agent.risk import FractionalKellyAgent
 from app.backtest import metrics as bt_metrics
 from app.backtest.engine import Costs, backtest_long_only
 from app.backtest.model import BetaWinrate
@@ -26,7 +27,15 @@ from app.probability.pipeline import (
     fetch_probabilistic_batch,
     join_probabilistic_features,
 )
-from app.strats.breakout import BreakoutParams, generate_signals
+from app.probability.storage import persist_probabilistic_frame
+from app.strats.breakout import BreakoutParams
+from app.strats.breakout import generate_signals as breakout_signals
+from app.strats.mean_reversion import generate_signals as mean_reversion_signals
+from app.strats.momentum import generate_signals as momentum_signals
+from app.strats.params import MeanReversionParams, MomentumParams
+
+# Backwards-compat alias for older tests that monkeypatch run_breakout.generate_signals
+generate_signals = breakout_signals
 
 # ------------------------------------------------------------------------------
 # Logging
@@ -51,6 +60,28 @@ def _roundish(x, ndigits=4):
     if isinstance(x, Timestamp):
         return x.isoformat()
     return str(x)
+
+
+def infer_probabilistic_success(sig: pd.DataFrame) -> float:
+    probability = 0.55
+    vel = sig.get("prob_velocity")
+    if vel is not None and not vel.dropna().empty:
+        probability = 0.5 + 0.5 * np.tanh(float(vel.dropna().iloc[-1]))
+    uncertainty = sig.get("prob_uncertainty")
+    if uncertainty is not None and not uncertainty.dropna().empty:
+        probability -= float(uncertainty.dropna().iloc[-1])
+    regime = sig.get("regime_label")
+    if regime is not None and not regime.dropna().empty:
+        latest = str(regime.dropna().iloc[-1]).lower()
+        probability += {
+            "trend_up": 0.05,
+            "calm": 0.02,
+            "sideways": 0.0,
+            "trend_down": -0.07,
+            "high_volatility": -0.08,
+            "uncertain": -0.1,
+        }.get(latest, 0.0)
+    return max(0.05, min(0.95, probability))
 
 
 def _try_backtest(
@@ -87,12 +118,32 @@ def _try_backtest(
 MarketDataDAL = _LegacyMarketDataDAL
 
 
+STRATEGIES: Dict[str, Dict[str, Any]] = {
+    "breakout": {
+        "params_cls": BreakoutParams,
+        "signal_fn": breakout_signals,
+        "enter_attr": "enter_on_break_bar",
+    },
+    "momentum": {
+        "params_cls": MomentumParams,
+        "signal_fn": momentum_signals,
+        "enter_attr": "enter_on_signal_bar",
+    },
+    "mean_reversion": {
+        "params_cls": MeanReversionParams,
+        "signal_fn": mean_reversion_signals,
+        "enter_attr": "enter_on_signal_bar",
+    },
+}
+
+
 def run(
     symbol: str,
     start: str,
     end: str | None,
     params_kwargs: Dict[str, Any],
     *,
+    strategy: str = "breakout",
     slippage_bps: float | None = None,
     fee_per_share: float | None = None,
     risk_frac_override: float | None = None,
@@ -105,10 +156,70 @@ def run(
     dal_vendor: str = "alpaca",
     dal_interval: str = "1Day",
     export_csv: str | None = None,
-) -> None:
-    """
-    Execute a long-only breakout backtest for a single symbol.
-    """
+    risk_agent: str | None = None,
+    risk_agent_fraction: float = 0.5,
+) -> Dict[str, Any]:
+    strategy_key = strategy.lower()
+    if strategy_key not in STRATEGIES:
+        raise ValueError(f"Unsupported strategy '{strategy}'")
+    strategy = strategy_key
+
+    requires_probabilistic = strategy in {"momentum", "mean_reversion"}
+    effective_prob_flag = use_probabilistic or requires_probabilistic
+    if requires_probabilistic and not use_probabilistic:
+        logger.info(
+            "Strategy %s depends on probabilistic features; enabling use_probabilistic automatically.",
+            strategy,
+        )
+
+    risk_agent_label = risk_agent or "none"
+
+    return _run_backtest_core(
+        symbol,
+        start,
+        end,
+        params_kwargs,
+        strategy=strategy,
+        slippage_bps=slippage_bps,
+        fee_per_share=fee_per_share,
+        risk_frac_override=risk_frac_override,
+        min_notional=min_notional,
+        debug=debug,
+        debug_signals=debug_signals,
+        debug_entries=debug_entries,
+        regime_aware_sizing=regime_aware_sizing,
+        use_probabilistic=effective_prob_flag,
+        dal_vendor=dal_vendor,
+        dal_interval=dal_interval,
+        export_csv=export_csv,
+        risk_agent=risk_agent_label,
+        risk_agent_fraction=risk_agent_fraction,
+    )
+
+def _run_backtest_core(
+    symbol: str,
+    start: str,
+    end: str | None,
+    params_kwargs: Dict[str, Any],
+    *,
+    strategy: str,
+    slippage_bps: float | None = None,
+    fee_per_share: float | None = None,
+    risk_frac_override: float | None = None,
+    min_notional: float = 100.0,
+    debug: bool = False,
+    debug_signals: bool = False,
+    debug_entries: bool = False,
+    regime_aware_sizing: bool = False,
+    use_probabilistic: bool = False,
+    dal_vendor: str = "alpaca",
+    dal_interval: str = "1Day",
+    export_csv: str | None = None,
+    risk_agent: str = "none",
+    risk_agent_fraction: float = 0.5,
+    output_dir: Optional[str] = None,
+    no_save: Optional[bool] = None,
+) -> Dict[str, Any]:
     start_dt = pd.to_datetime(start).date()
     end_dt = pd.to_datetime(end).date() if end else datetime.now(UTC).date()
 
@@ -130,13 +241,6 @@ def run(
         vendor="yahoo",
     )
     df = daily_batch.bars.to_dataframe().copy()
-    if not df.empty:
-        idx = df.index
-        if getattr(idx, "tz", None) is None:
-            idx = idx.tz_localize(UTC)
-        else:
-            idx = idx.tz_convert(UTC)
-        df.index = pd.Index([ts.date() for ts in idx], name="date")
     if df.empty:
         logger.error(
             "No history returned for {} in [{}, {}]. Check data provider/API keys.",
@@ -146,10 +250,20 @@ def run(
         )
         return
 
-    # Strategy params
-    p = BreakoutParams(**params_kwargs)
-    sig = generate_signals(df, asdict(p))
+    idx = df.index
+    if getattr(idx, "tz", None) is None:
+        idx = idx.tz_localize(UTC)
+    else:
+        idx = idx.tz_convert(UTC)
+    df.index = pd.Index([ts.date() for ts in idx], name="date")
 
+    strategy_cfg = STRATEGIES[strategy]
+    params = strategy_cfg["params_cls"](**params_kwargs)
+    signal_fn = strategy_cfg["signal_fn"]
+    if strategy == "breakout":
+        signal_fn = globals().get("generate_signals", signal_fn)
+
+    signal_input = df.copy()
     prob_batch = None
     if use_probabilistic:
         try:
@@ -173,24 +287,10 @@ def run(
                 len(prob_batch.regimes),
             )
             if prob_batch.cache_paths:
-                logger.debug(
-                    "Probabilistic cache artifacts: {}", prob_batch.cache_paths
-                )
-
-            sig = join_probabilistic_features(
-                sig, signals=prob_batch.signals, regimes=prob_batch.regimes
+                logger.debug("Probabilistic cache artifacts: {}", prob_batch.cache_paths)
+            signal_input = join_probabilistic_features(
+                signal_input, signals=prob_batch.signals, regimes=prob_batch.regimes
             )
-            joined_cols = [
-                col
-                for col in ("prob_filtered_price", "regime_label")
-                if col in sig.columns
-            ]
-            if joined_cols:
-                nonnull = sig[joined_cols].count()
-                logger.debug(
-                    "Probabilistic features joined: {}",
-                    {col: int(nonnull.get(col, 0)) for col in joined_cols},
-                )
         except Exception as err:
             logger.warning(
                 "Probabilistic DAL fetch failed (vendor={}, interval={}): {}",
@@ -204,11 +304,44 @@ def run(
             "Regime-aware sizing requested but --use-probabilistic disabled; ignoring regime sizing toggle."
         )
 
-    # Engine OHLC input (ensure lowercase columns)
+    if strategy == "momentum" and not use_probabilistic:
+        logger.warning(
+            "Momentum strategy works best with --use-probabilistic to supply filtered prices/regimes."
+        )
+
+    sig = signal_fn(signal_input, asdict(params))
+
+    persisted_path: Optional[str] = None
+    if prob_batch:
+        joined_cols = [
+            col
+            for col in (
+                "prob_filtered_price",
+                "prob_velocity",
+                "prob_uncertainty",
+                "regime_label",
+            )
+            if col in sig.columns
+        ]
+        if joined_cols:
+            nonnull = sig[joined_cols].count()
+            logger.debug(
+                "Probabilistic features joined: {}",
+                {col: int(nonnull.get(col, 0)) for col in joined_cols},
+            )
+        persisted_path = persist_probabilistic_frame(
+            symbol,
+            strategy,
+            sig,
+            vendor=dal_vendor,
+            interval=dal_interval,
+        )
+        if persisted_path:
+            logger.debug("Persisted probabilistic signal frame -> {}", persisted_path)
+
     if all(c in sig.columns for c in ["open", "high", "low", "close"]):
         df_engine = sig[["open", "high", "low", "close"]].copy()
     else:
-        # Fallback to original df (supporting the provider’s column names)
         df_engine = df.rename(
             columns={"Open": "open", "High": "high", "Low": "low", "Close": "close"}
         )
@@ -216,33 +349,25 @@ def run(
         if missing:
             raise ValueError(f"OHLC columns missing for engine: {missing}")
 
-    # Convert persistent states to one-bar events
-    entry_state = sig.get("long_entry", pd.Series(False, index=df_engine.index)).astype(
-        bool
-    )
-    exit_state = sig.get("long_exit", pd.Series(False, index=df_engine.index)).astype(
-        bool
-    )
+    entry_state = sig.get("long_entry", pd.Series(False, index=df_engine.index)).astype(bool)
+    exit_state = sig.get("long_exit", pd.Series(False, index=df_engine.index)).astype(bool)
 
     entry_event = entry_state & ~entry_state.shift(1, fill_value=False)
     exit_event = exit_state & ~exit_state.shift(1, fill_value=False)
 
-    # If engine executes next-bar by design and we are NOT entering on break bar,
-    # shift the edge events to the following bar.
-    if not getattr(p, "enter_on_break_bar", False):
+    enter_attr = strategy_cfg.get("enter_attr", "enter_on_break_bar")
+    enter_samebar = bool(getattr(params, enter_attr, False))
+    if not enter_samebar:
         entry_event = entry_event.shift(1, fill_value=False)
         exit_event = exit_event.shift(1, fill_value=False)
 
-    # Sanity: keep indexes aligned and dtype boolean
-    if not entry_event.index.equals(df_engine.index) or not exit_event.index.equals(
-        df_engine.index
-    ):
+    if not entry_event.index.equals(df_engine.index) or not exit_event.index.equals(df_engine.index):
         entry_event = entry_event.reindex(df_engine.index, fill_value=False)
         exit_event = exit_event.reindex(df_engine.index, fill_value=False)
+
     entry_event = entry_event.astype(bool)
     exit_event = exit_event.astype(bool)
 
-    # Diagnostics
     if debug:
         logger.debug(
             "Signals: entries={} exits={} rows={}",
@@ -256,57 +381,35 @@ def run(
             int(exit_event.sum()),
         )
 
-    # Optional signal dumps
     if debug_signals:
-        cols_dbg_all = [
+        cols_dbg = [
             c
             for c in [
                 "open",
                 "high",
                 "low",
                 "close",
-                "hh",
-                "hh_buf",
-                "ema",
-                "atr",
-                "atr_ok",
-                "trail_stop",
-                "trend_ok",
-                "trigger",
                 "prob_filtered_price",
                 "prob_velocity",
                 "prob_uncertainty",
-                "prob_butterworth_price",
-                "prob_ema_price",
                 "regime_label",
-                "regime_volatility",
-                "regime_uncertainty",
-                "regime_momentum",
                 "long_entry",
                 "long_exit",
             ]
             if c in sig.columns
         ]
         try:
-            sig.tail(200)[cols_dbg_all].to_csv(f"signals_tail_{symbol}.csv")
-            mask = sig.get("long_entry", False) | sig.get("long_exit", False)
-            sig.loc[mask, cols_dbg_all].tail(200).to_csv(f"signals_events_{symbol}.csv")
-            logger.debug(
-                "Saved signal snapshots: signals_tail_{}.csv, signals_events_{}.csv",
-                symbol,
-                symbol,
-            )
-        except Exception as e_dump:
-            logger.debug("Signal dump failed: {}", e_dump)
+            sig.tail(200)[cols_dbg].to_csv(f"signals_tail_{symbol}.csv")
+        except Exception as exc:
+            logger.debug("Signal dump failed: {}", exc)
 
     beta = BetaWinrate()
     default_risk = (
         0.01 * beta.kelly_fraction() / max(beta.fmax, 1e-6) if beta.fmax > 0 else 0.01
     )
 
-    base_risk_frac = (
-        risk_frac_override if risk_frac_override is not None else default_risk
-    )
+    base_risk_frac = risk_frac_override if risk_frac_override is not None else default_risk
+
     risk_multiplier = 1.0
     applied_regime = None
     applied_uncertainty = None
@@ -354,17 +457,31 @@ def run(
 
     risk_frac_value = base_risk_frac * risk_multiplier
 
+    if risk_agent == "fractional_kelly" and prob_batch:
+        prob_success = infer_probabilistic_success(sig)
+        payoff = max(float(getattr(params, "atr_mult", 2.0)), 0.5)
+        kelly_fraction = FractionalKellyAgent(fraction=risk_agent_fraction)(
+            probability=prob_success, payoff=payoff
+        )
+        risk_frac_value = min(risk_frac_value, kelly_fraction)
+        logger.info(
+            "Fractional Kelly applied prob={:.3f} payoff={:.2f} frac={:.4f}",
+            prob_success,
+            payoff,
+            risk_frac_value,
+        )
+
     atr_series = sig.get("atr")
     if atr_series is None:
         raise ValueError("Signal frame must contain 'atr' column")
 
     bt_kwargs: Dict[str, Any] = dict(
         df=df_engine,
-        entry=entry_event,  # pass one-bar boolean events (Series for engine .iloc)
-        exit_=exit_event,  # pass one-bar boolean events
+        entry=entry_event,
+        exit_=exit_event,
         atr=atr_series,
-        entry_price=p.entry_price,
-        atr_mult=p.atr_mult,
+        entry_price=getattr(params, "entry_price", "close"),
+        atr_mult=getattr(params, "atr_mult", 2.0),
         risk_frac=risk_frac_value,
         costs=Costs(
             slippage_bps=slippage_bps if slippage_bps is not None else 1.0,
@@ -378,7 +495,6 @@ def run(
     if used_extra:
         logger.debug("backtest_long_only extra kwargs applied: {}", used_extra)
 
-    # Introspection
     try:
         trades_obj = res.get("trades")
         trades_len = len(trades_obj) if hasattr(trades_obj, "__len__") else -1
@@ -386,8 +502,8 @@ def run(
         if trades_len > 0:
             preview = trades_obj[: min(3, trades_len)]
             logger.debug("first_trades={}", preview)
-    except Exception as e_tr:
-        logger.debug("Trades introspection failed: {}", e_tr)
+    except Exception as exc:
+        logger.debug("Trades introspection failed: {}", exc)
 
     try:
         keys = list(res.keys())
@@ -400,10 +516,9 @@ def run(
                 else float(np.nansum(np.abs(eq.diff().values)))
             )
             logger.debug("equity moved (abs sum diffs): {:.6f}", moved)
-    except Exception as e_keys:
-        logger.debug("Result introspection failed: {}", e_keys)
+    except Exception as exc:
+        logger.debug("Result introspection failed: {}", exc)
 
-    # Equity flatline diagnostics
     try:
         eq = res.get("equity")
         flat = False
@@ -414,8 +529,8 @@ def run(
                 else:
                     moved = float(eq.diff().abs().sum())
                 flat = moved == 0.0
-            except Exception as e_calc:
-                logger.debug("Equity move calc failed: {}", e_calc)
+            except Exception as calc_exc:
+                logger.debug("Equity move calc failed: {}", calc_exc)
                 flat = False
         if flat or debug_signals:
             invalid_atr = None
@@ -459,39 +574,50 @@ def run(
             dbg2_path = f"signals_flat_debug_{symbol}.csv"
             snap.to_csv(dbg2_path)
             logger.debug("Equity flat; saved snapshot -> {}", dbg2_path)
-    except Exception as e_diag:
-        logger.debug("Equity-flat diagnostics failed: {}", e_diag)
+    except Exception as exc:
+        logger.debug("Equity-flat diagnostics failed: {}", exc)
 
-    # Metrics & outputs
-    m = bt_metrics.equity_stats(res["equity"], use_mtm=True)
+    res_equity = res.get("equity")
+    if res_equity is None:
+        raise RuntimeError("Backtest engine returned no equity curve")
+
+    m = bt_metrics.equity_stats(res_equity, use_mtm=True)
     m_dict = asdict(m)
     m_pretty = {k: _roundish(v) for k, v in m_dict.items()}
     logger.info("[{}] equity metrics: {}", symbol, m_pretty)
-    out_dir = os.getenv("BACKTEST_OUT_DIR", ".")
+
+    target_dir = output_dir or os.getenv("BACKTEST_OUT_DIR", ".")
     out_name = f"backtest_{symbol}.csv"
-    out = os.path.join(out_dir, out_name)
-    if os.getenv("BACKTEST_NO_SAVE", "0") == "1":
+    out = os.path.join(target_dir, out_name)
+    skip_save = (
+        no_save
+        if no_save is not None
+        else os.getenv("BACKTEST_NO_SAVE", "0") == "1"
+    )
+    equity_path = None
+    if skip_save:
         logger.info("Skipping save of equity curve due to BACKTEST_NO_SAVE=1")
     else:
         os.makedirs(os.path.dirname(out), exist_ok=True)
-        res["equity"].to_csv(out)
+        res_equity.to_csv(out)
         logger.info("Saved equity curve -> {}", out)
+        equity_path = out
 
+    export_dir: Optional[Path] = None
     if export_csv:
         export_dir = Path(export_csv).expanduser()
         export_dir.mkdir(parents=True, exist_ok=True)
 
-        equity_data = res.get("equity")
-        if isinstance(equity_data, pd.DataFrame):
-            eq_df = equity_data.copy()
-        elif isinstance(equity_data, pd.Series):
-            eq_df = equity_data.to_frame(name="equity")
+        if isinstance(res_equity, pd.DataFrame):
+            eq_df = res_equity.copy()
+        elif isinstance(res_equity, pd.Series):
+            eq_df = res_equity.to_frame(name="equity")
         else:
             eq_df = pd.DataFrame()
 
-        equity_path = (export_dir / f"{symbol}_equity.csv").resolve()
-        eq_df.to_csv(equity_path)
-        logger.info("Exported equity CSV -> {}", equity_path)
+        export_equity_path = (export_dir / f"{symbol}_equity.csv").resolve()
+        eq_df.to_csv(export_equity_path)
+        logger.info("Exported equity CSV -> {}", export_equity_path)
 
         trades = res.get("trades")
         if isinstance(trades, pd.DataFrame):
@@ -505,7 +631,12 @@ def run(
         trades_df.to_csv(trades_path, index=False)
         logger.info("Exported trades CSV -> {}", trades_path)
 
-
+    return {
+        "metrics": m_dict,
+        "equity_path": equity_path,
+        "prob_frame_path": persisted_path,
+        "export_dir": str(export_dir) if export_csv else None,
+    }
 if __name__ == "__main__":
     # Minimal logging config for CLI use; app runtime can configure root logging.
     _setup_cli_logging("INFO")
@@ -541,6 +672,13 @@ if __name__ == "__main__":
         dest="export_csv",
         default=None,
         help="Directory to write <symbol>_equity.csv and <symbol>_trades.csv exports",
+    )
+    ap.add_argument(
+        "--strategy",
+        dest="strategy",
+        choices=sorted(STRATEGIES.keys()),
+        default="breakout",
+        help="Which strategy module to execute (default: breakout).",
     )
     ap.add_argument(
         "--use-probabilistic",
@@ -626,7 +764,7 @@ if __name__ == "__main__":
         "--breakout-buffer-pct",
         dest="breakout_buffer_pct",
         type=float,
-        help="Breakout buffer percentage above high-high level (e.g., 0.001 = 0.1%)",
+        help="Breakout buffer above high-high level (e.g., 0.001 = 0.1 percent)",
     )
     ap.add_argument(
         "--min-break-valid",
@@ -680,7 +818,7 @@ if __name__ == "__main__":
         "--risk-frac",
         type=float,
         default=0.03,
-        help="Risk fraction per trade (default: 0.03 = 3%)",
+        help="Risk fraction per trade (default: 0.03 ≈ three percent)",
     )
     ap.add_argument(
         "--min-notional",
@@ -688,6 +826,20 @@ if __name__ == "__main__":
         type=float,
         default=100.0,
         help="Minimum notional value per trade (default: 100.0)",
+    )
+    ap.add_argument(
+        "--risk-agent",
+        dest="risk_agent",
+        choices=["none", "fractional_kelly"],
+        default="none",
+        help="Optional risk agent to adjust sizing (default: none)",
+    )
+    ap.add_argument(
+        "--risk-agent-fraction",
+        dest="risk_agent_fraction",
+        type=float,
+        default=0.5,
+        help="Fraction applied when using fractional Kelly (default: 0.5)",
     )
 
     # --- Debug / Diagnostics ---
@@ -763,6 +915,9 @@ if __name__ == "__main__":
             dal_vendor=args.dal_vendor,
             dal_interval=args.dal_interval,
             export_csv=args.export_csv,
+            strategy=args.strategy,
+            risk_agent=args.risk_agent,
+            risk_agent_fraction=args.risk_agent_fraction,
         )
         if args.print_metrics_json:
             # Determine output file and emit metrics as JSON if available

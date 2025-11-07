@@ -14,12 +14,15 @@ except Exception:  # breakout exists in your tree; this keeps imports resilient
 
 
 # Momentum strategy
+from .mean_reversion import generate_signals as mean_reversion_signals
 from .momentum import generate_signals as momentum_signals
-from .params import MomentumParams
+from .params import MeanReversionParams, MomentumParams
 
 __all__ = [
     "BreakoutParams",
     "breakout_signals",
     "MomentumParams",
     "momentum_signals",
+    "MeanReversionParams",
+    "mean_reversion_signals",
 ]

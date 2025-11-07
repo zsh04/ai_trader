@@ -28,15 +28,16 @@ if load_dotenv:
         if candidate.exists():
             load_dotenv(candidate, override=False)
 
+from app.logging_utils import setup_logging
+from app.observability import configure_observability
 from app.services.market_data import get_intraday_bars, get_market_snapshots
 from app.services.watchlist_service import build_watchlist
 from app.utils import env as ENV
-from app.logging_utils import setup_logging
-from app.observability import configure_observability
 
 FALLBACK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "SPY", "QQQ"]
 ALTAIR_ACCEPTS_WIDTH = "width" in inspect.signature(st.altair_chart).parameters
 DATAFRAME_ACCEPTS_WIDTH = "width" in inspect.signature(st.dataframe).parameters
+PROB_FRAME_ROOT = Path(os.getenv("BACKTEST_PROB_FRAME_DIR", "artifacts/probabilistic/frames"))
 
 # ---------------------------------------------------------------------------
 # Observability (Loguru + OpenTelemetry exporters)
@@ -227,6 +228,29 @@ def _build_watchlist_frame(
     return df
 
 
+def _parse_probabilistic_metadata(path: Path) -> Dict[str, Optional[str]]:
+    stem_parts = path.stem.split("_")
+    symbol = stem_parts[0] if stem_parts else "UNKNOWN"
+    strategy = stem_parts[1] if len(stem_parts) > 1 else "unknown"
+    vendor = stem_parts[2] if len(stem_parts) > 2 else None
+    interval = "_".join(stem_parts[3:]) if len(stem_parts) > 3 else None
+    return {
+        "symbol": symbol,
+        "strategy": strategy,
+        "vendor": vendor,
+        "interval": interval,
+        "path": path,
+    }
+
+
+def _discover_probabilistic_frames(symbol: str) -> List[Dict[str, Optional[str]]]:
+    if not PROB_FRAME_ROOT.exists():
+        return []
+    pattern = f"{symbol.upper()}_*.parquet"
+    matches = sorted(PROB_FRAME_ROOT.glob(pattern))
+    return [_parse_probabilistic_metadata(path) for path in matches]
+
+
 def _render_watchlist_table(df: pd.DataFrame) -> None:
     if df.empty:
         st.info("Watchlist is empty. Adjust filters or verify the data source.")
@@ -304,6 +328,78 @@ def _render_symbol_detail(symbol: str, row: pd.Series, history: pd.DataFrame) ->
                 )
             )
             _render_altair(chart.interactive())
+
+        prob_assets = _discover_probabilistic_frames(symbol)
+        if prob_assets:
+            labels = [
+                f"{meta['strategy']} – {meta['vendor'] or 'vendor?'} {meta['interval'] or ''}"
+                for meta in prob_assets
+            ]
+            with st.expander("Probabilistic replay", expanded=False):
+                selection = st.selectbox(
+                    "Cached runs",
+                    options=labels,
+                    key=f"probsel_{symbol}",
+                )
+                meta = prob_assets[labels.index(selection)]
+                try:
+                    prob_df = pd.read_parquet(meta["path"]).tail(250)
+                except Exception as exc:
+                    st.warning(f"Failed to load cached frame: {exc}")
+                else:
+                    idx_name = prob_df.index.name or "index"
+                    prob_chart_df = prob_df.reset_index().rename(
+                        columns={idx_name: "timestamp"}
+                    )
+                    if "timestamp" not in prob_chart_df.columns:
+                        prob_chart_df = prob_chart_df.rename(
+                            columns={prob_chart_df.columns[0]: "timestamp"}
+                        )
+                    chart = (
+                        alt.Chart(prob_chart_df)
+                        .mark_line(color="#60a5fa", strokeWidth=1.5)
+                        .encode(x="timestamp:T", y="close:Q", tooltip=["timestamp:T", "close:Q"])
+                    )
+                    if "prob_filtered_price" in prob_chart_df:
+                        filtered = (
+                            alt.Chart(prob_chart_df)
+                            .mark_line(color="#f97316", strokeDash=[6, 3])
+                            .encode(x="timestamp:T", y="prob_filtered_price:Q")
+                        )
+                        chart = chart + filtered
+                    if "regime_label" in prob_chart_df:
+                        regimes = (
+                            alt.Chart(prob_chart_df)
+                            .mark_circle(size=45, opacity=0.5)
+                            .encode(
+                                x="timestamp:T",
+                                y="prob_filtered_price:Q",
+                                color=alt.Color("regime_label:N", title="Regime"),
+                                tooltip=["regime_label:N", "prob_uncertainty:Q"],
+                            )
+                        )
+                        chart = chart + regimes
+                    _render_altair(chart.interactive())
+                    cols_display = [
+                        col
+                        for col in [
+                            "close",
+                            "prob_filtered_price",
+                            "prob_velocity",
+                            "prob_uncertainty",
+                            "regime_label",
+                        ]
+                        if col in prob_df.columns
+                    ]
+                    if cols_display:
+                        st.caption(
+                            f"Cached frame: {meta['strategy']} ({meta['vendor'] or 'vendor?'} {meta['interval'] or ''})"
+                        )
+                        _render_dataframe(prob_df[cols_display].tail(25), height=260)
+        else:
+            st.caption(
+                "Probabilistic cache empty. Run the backtest CLI or sweeps to populate replay data."
+            )
     with cols[1]:
         st.markdown("###### Session Snapshot")
         change = row.get("Change", np.nan)
@@ -332,6 +428,9 @@ TIMEFRAME_CONFIG = {
     "15m": ("15Min", 200),
     "5m": ("5Min", 240),
 }
+
+STRATEGY_OPTIONS = ["breakout", "momentum", "mean_reversion"]
+RISK_AGENT_OPTIONS = ["none", "fractional_kelly"]
 
 
 @st.cache_data(show_spinner=False, ttl=300)
@@ -584,7 +683,7 @@ with stats_cols[2]:
 # ---------------------------------------------------------------------------
 # Main tabs
 # ---------------------------------------------------------------------------
-tabs = st.tabs(["Watchlist", "Detail View", "Orders • Roadmap"])
+tabs = st.tabs(["Watchlist", "Detail View", "Orders • Roadmap", "Strategies"])
 
 with tabs[0]:
     st.markdown("#### Current Symbols")
@@ -609,6 +708,58 @@ with tabs[2]:
     )
     st.caption(
         "Planned widgets: staged orders list, risk review, manual override toggles."
+    )
+
+with tabs[3]:
+    st.markdown("#### Strategy Playground")
+    st.caption(
+        "Preview CLI invocations for the backtest runner. Use the Streamlit UI to choose a strategy, "
+        "risk agent, and probabilistic options; copy the rendered command into your shell."
+    )
+    strategy_choice = st.selectbox(
+        "Strategy",
+        STRATEGY_OPTIONS,
+        help="Matches the --strategy flag in app.backtest.run_breakout",
+    )
+    risk_agent_choice = st.selectbox(
+        "Risk agent",
+        RISK_AGENT_OPTIONS,
+        help="Fractional Kelly requires probabilistic data",
+    )
+    risk_agent_fraction = 0.5
+    if risk_agent_choice == "fractional_kelly":
+        risk_agent_fraction = st.slider(
+            "Fractional Kelly fraction",
+            min_value=0.1,
+            max_value=1.0,
+            value=0.5,
+            step=0.05,
+            help="Scales the Kelly output (matches --risk-agent-fraction)",
+        )
+    use_prob = st.checkbox("Use probabilistic data (MarketDataDAL)", value=True)
+    dal_vendor = st.selectbox("DAL vendor", ["alpaca", "alphavantage", "finnhub"], index=1)
+    dal_interval = st.selectbox("DAL interval", ["1Day", "5Min", "15Min"], index=1)
+    symbol_input = st.text_input("Symbol", value="AAPL")
+    start_input = st.text_input("Start date", value="2021-01-01")
+
+    cmd = [
+        "python3 -m app.backtest.run_breakout",
+        f"--symbol {symbol_input}",
+        f"--start {start_input}",
+        f"--strategy {strategy_choice}",
+    ]
+    if use_prob:
+        cmd.extend(
+            ["--use-probabilistic", f"--dal-vendor {dal_vendor}", f"--dal-interval {dal_interval}"]
+        )
+    if risk_agent_choice != "none":
+        cmd.append(f"--risk-agent {risk_agent_choice}")
+        if risk_agent_choice == "fractional_kelly":
+            cmd.append(f"--risk-agent-fraction {risk_agent_fraction:.2f}")
+    cmd.append("--debug")
+    st.code(" \\\n+".join(cmd), language="bash")
+    st.caption(
+        "Hint: add --regime-aware-sizing for breakout or momentum runs when probabilistic data is enabled."
     )
 
 st.sidebar.markdown("---")
