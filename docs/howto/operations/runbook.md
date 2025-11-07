@@ -40,6 +40,36 @@
    ```
 3. Hit `/health/live` and `/health/ready` and confirm HTTP 200.
 
+## DAL smoke test (Alpha Vantage + Finnhub)
+
+Run this validation after migrations or vendor credential updates to ensure the probabilistic data layer feeds the Streamlit UI.
+
+1. **Set vendor API keys** (temporary shell export or use `.env.dev`):
+   ```bash
+   export ALPHAVANTAGE_API_KEY=... \
+          FINNHUB_API_KEY=...
+   ```
+2. **Execute the smoke script** (uses the live DAL):
+   ```bash
+   PYTHONPATH=. python - <<'PY'
+   from datetime import datetime, timedelta, timezone
+   from app.dal.manager import MarketDataDAL
+
+   now = datetime.now(timezone.utc)
+   dal = MarketDataDAL(enable_postgres_metadata=False)
+
+   av = dal.fetch_bars("AAPL", start=now - timedelta(days=5), end=now,
+                      interval="5Min", vendor="alphavantage")
+   print("Alpha Vantage bars", len(av.bars.data))
+
+   fh = dal.fetch_bars("AAPL", start=now - timedelta(days=30), end=now,
+                      interval="1Day", vendor="finnhub")
+   print("Finnhub bars", len(fh.bars.data))
+   PY
+   ```
+3. **Pass criteria:** Alpha Vantage returns thousands of intraday bars with matching signal/regime counts, and Finnhub returns the latest daily quote. Investigate vendor credentials or rate limits if either response is empty/errored.
+4. **Record results** in the sprint log / Confluence so ops knows the last verified timestamp.
+
 ## References
 
 - `docs/howto/operations/observability.md`
