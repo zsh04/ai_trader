@@ -18,13 +18,16 @@ This overview explains how the major subsystems fit together and why the platfor
 2. **Core services (FastAPI)** — surfaces watchlists, DAL helpers, health probes, and backtests; future cron-style jobs will orchestrate premarket refreshes.
 3. **Strategy & risk modules** — convert probabilistic features into orders (breakout live today; momentum/mean-reversion + fractional Kelly sizing in progress) while guarding against exposure breaches.
 4. **Observability & dashboards** — OTEL + Loguru telemetry flow into Azure Monitor; Streamlit dashboards provide human-friendly visibility.
-5. **Persistence layer** — PostgreSQL keeps orders/fills/backtests, and Azure Blob Storage/Parquet stores raw artefacts and vendor caches.
+5. **Eventing & edge** — Azure Event Hubs (`ai-trader-ehns`) handles bars/signals/regimes/backtest job streams; Azure Front Door terminates public traffic and routes `/` to Streamlit UI and `/health/*`, `/docs*` etc. to FastAPI before it hits the locked-down App Services.
+6. **Persistence layer** — PostgreSQL keeps orders/fills/backtests, and Azure Blob Storage/Parquet stores raw artefacts and vendor caches (including EH checkpoints).
 
 ```
 Vendors ─▶ MarketDataDAL ─▶ Probabilistic Pipeline ─▶ Strategy/Risk ─▶ Alpaca (paper/live)
                        │                         │
-                       │                         └─▶ Backtest Engine + Metrics
-                       └─▶ Parquet cache / Postgres metadata
+                       │                         └─▶ Backtest Engine + Metrics ─▶ Event Hubs (jobs)
+                       └─▶ Parquet cache / Postgres metadata ─▶ Event Hubs (bars/signals/regimes)
+
+Azure Front Door (fd-ai-trader) routes `/` and `/ui/*` to the Streamlit Web App and `/health/*`, `/docs*`, `/openapi.json`, etc. to FastAPI while App Services only allow the Front Door backend service tag.
 ```
 
 ## Related explanations

@@ -97,6 +97,9 @@
 │   │   │   ├── __init__.py
 │   │   │   ├── regime.py
 │   │   │   └── signal_filter.py
+│   │   ├── risk
+│   │   │   ├── __init__.py
+│   │   │   └── kelley.py
 │   │   ├── risk.py
 │   │   └── sizing.py
 │   ├── api
@@ -111,7 +114,8 @@
 │   │   ├── engine.py
 │   │   ├── metrics.py
 │   │   ├── model.py
-│   │   └── run_breakout.py
+│   │   ├── run_breakout.py
+│   │   └── sweeps.py
 │   ├── config.py
 │   ├── core
 │   │   ├── __init__.py
@@ -178,7 +182,8 @@
 │   │   └── __init__.py
 │   ├── probability
 │   │   ├── __init__.py
-│   │   └── pipeline.py
+│   │   ├── pipeline.py
+│   │   └── storage.py
 │   ├── repositories
 │   │   └── watchlist_index.py
 │   ├── scanners
@@ -205,6 +210,7 @@
 │   │   ├── __init__.py
 │   │   ├── breakout.py
 │   │   ├── common.py
+│   │   ├── mean_reversion.py
 │   │   ├── momentum.py
 │   │   └── params.py
 │   ├── utils
@@ -218,12 +224,16 @@
 │       └── __init__.py
 ├── artifacts
 │   ├── __init__.py
-│   └── marketdata
-│       └── cache
+│   └── probabilistic
+│       └── frames
+│           └── AAPL_breakout_hybrid_1day.parquet
 ├── config
 │   ├── __init__.py
 │   ├── config.yaml
 │   └── watchlist_source.yaml
+├── configs
+│   └── backtest
+│       └── momentum_sweep.yaml
 ├── docs
 │   ├── .DS_Store
 │   ├── _assets
@@ -257,6 +267,7 @@
 │   │   │   └── configure-bracket-orders.md
 │   │   ├── operations
 │   │   │   ├── azure-backup.md
+│   │   │   ├── backtest-sweeps.md
 │   │   │   ├── ci-cd.md
 │   │   │   ├── health-checklist.md
 │   │   │   ├── managed-identity.md
@@ -311,6 +322,7 @@
 │       ├── AI_Trader_Mind_Map.png
 │       ├── Autonomous Probabilistic Trading Agent (AI Trader) - Project Plan.pdf
 │       ├── Financial Data Source Comparison.pdf
+│       ├── code_summary.md
 │       ├── health-checklist.md
 │       ├── project_notes.md
 │       └── project_progress.md
@@ -348,14 +360,21 @@
 │   ├── check_secrets.py
 │   ├── dev.sh
 │   └── kv_sync_from_env.zsh
+├── signals_flat_debug_AAPL.csv
+├── signals_tail_AAPL.csv
 ├── tests
 │   ├── __init__.py
 │   ├── adapters
 │   │   └── test_azure_blob_adapter.py
+│   ├── agent
+│   │   └── test_fractional_kelly.py
 │   ├── api
 │   ├── backtest
 │   │   ├── test_metrics.py
-│   │   └── test_run_breakout_probabilistic.py
+│   │   ├── test_risk_agent.py
+│   │   ├── test_run_breakout_probabilistic.py
+│   │   ├── test_strategy_regressions.py
+│   │   └── test_sweeps.py
 │   ├── bootstrap
 │   │   └── __init__.py
 │   ├── conftest.py
@@ -394,6 +413,7 @@
 │   │   ├── conftest.py
 │   │   ├── test_breakout.py
 │   │   ├── test_common.py
+│   │   ├── test_mean_reversion.py
 │   │   └── test_momentum.py
 │   ├── support
 │   │   └── __init__.py
@@ -422,4 +442,4 @@
     │   └── Monitoring Dashboard.py
     └── streamlit_app.py
 
-98 directories, 325 files
+102 directories, 341 files
