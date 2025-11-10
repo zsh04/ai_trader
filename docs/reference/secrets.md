@@ -27,6 +27,16 @@ Authoritative mapping between Azure Key Vault secrets, App Service settings, and
 | `BLOB-CONN` | `AZURE_STORAGE_CONNECTION_STRING` | Artifacts + model cache |
 | `TELEMETRY-CONN` | `APPINSIGHTS_CONNECTION_STRING` | OTEL exporter |
 
+## CI / Managed identity mapping
+
+| Identity | Scope | Key Vault / resource access | Notes |
+|----------|-------|-----------------------------|-------|
+| `ai-trader-api-mi` (OID ending `…85df`) | API App Service | Key Vault (read secrets), Event Hubs Data Sender/Receiver, Storage Blob Data Contributor (`aitraderblobstore`) | Used by runtime + DAL smoke endpoint to publish telemetry. |
+| `ai-trader-ui-mi` (OID ending `…4bb7`) | Streamlit UI App Service | Same as above | Enables UI to read secrets + send Event Hub events. |
+| `gh-ai-trader-ci` (GitHub Actions) | CI pipelines (terraform/CLI) | Key Vault get/list + Storage (artifact uploads) via federated credential | Update when adding new pipelines; keep scope minimal. |
+
+When onboarding a new service or pipeline, grant the minimal role (`Key Vault Secrets User`, `Azure Event Hubs Data Sender`, etc.) and document it here.
+
 ## Usage guidelines
 
 1. Reference secrets in App Service using `@Microsoft.KeyVault(SecretUri=https://...)` syntax.

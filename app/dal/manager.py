@@ -36,6 +36,7 @@ from app.dal.vendors.market_data import (
     YahooVendor,
 )
 from app.db.repositories.market import MarketRepository
+from app.eventbus.publisher import publish_event
 
 
 class MarketDataDAL:
@@ -110,8 +111,12 @@ class MarketDataDAL:
         )
         with span_ctx:
             bars = _call_fetch()
+        self._publish_bar_snapshot(bars, vendor, request)
 
         signals, regimes = self._run_probabilistic_pipeline(bars)
+        self._publish_probabilistic_snapshots(
+            bars.symbol, bars.vendor, request.interval, signals, regimes
+        )
         cache_paths: Dict[str, Path] = {}
         if self.cache_dir:
             bars_path = store_bars_to_parquet(bars, self.cache_dir)
@@ -230,6 +235,50 @@ class MarketDataDAL:
             logger.warning("[dal] failed to persist price snapshots: {}", exc)
         finally:
             session.close()
+
+    def _publish_bar_snapshot(self, bars: Bars, vendor: str, request: FetchRequest) -> None:
+        try:
+            payload = {
+                "symbol": bars.symbol,
+                "vendor": vendor,
+                "interval": request.interval,
+                "count": len(bars.data),
+                "start": bars.data[0].timestamp if bars.data else None,
+                "end": bars.data[-1].timestamp if bars.data else None,
+            }
+            publish_event("EH_HUB_BARS", payload)
+        except Exception:  # pragma: no cover - telemetry only
+            logger.debug("[dal] failed to emit bars event for %s", bars.symbol)
+
+    def _publish_probabilistic_snapshots(
+        self,
+        symbol: str,
+        vendor: str,
+        interval: str | None,
+        signals: List[SignalFrame],
+        regimes: List[RegimeSnapshot],
+    ) -> None:
+        try:
+            publish_event(
+                "EH_HUB_SIGNALS",
+                {
+                    "symbol": symbol,
+                    "vendor": vendor,
+                    "interval": interval,
+                    "count": len(signals),
+                },
+            )
+            publish_event(
+                "EH_HUB_REGIMES",
+                {
+                    "symbol": symbol,
+                    "vendor": vendor,
+                    "interval": interval,
+                    "count": len(regimes),
+                },
+            )
+        except Exception:  # pragma: no cover
+            logger.debug("[dal] failed to emit probabilistic events for %s", symbol)
 
 
 __all__ = ["MarketDataDAL"]

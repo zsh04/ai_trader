@@ -1,26 +1,51 @@
-# scripts/quickrecv.py
-import os, asyncio
-from azure.identity.aio import AzureCliCredential
-from azure.eventhub.aio import EventHubConsumerClient
+#!/usr/bin/env python3
+import asyncio
+import datetime as dt
+import json
+import os
 
-EH_FQDN=os.environ["EH_FQDN"]              # ai-trader-ehns.servicebus.windows.net
-HUB=os.environ["EH_HUB_BARS"]              # bars.raw
-CG=os.environ.get("EH_CONSUMER_GROUP","orchestrator")
+from azure.eventhub import EventData
+from azure.eventhub.aio import EventHubProducerClient
+from azure.identity.aio import DefaultAzureCredential
 
-async def on_event(partition_context, event):
-    print(partition_context.partition_id, event.body_as_str())
-    await partition_context.update_checkpoint(event)  # noop without blob store
+FQDN = os.environ.get("EH_FQDN")  # e.g. ai-trader-ehns.servicebus.windows.net
+HUB  = os.environ.get("EH_HUB", "bars.raw")
+N    = int(os.environ.get("N", "5"))
+PK   = os.environ.get("PARTITION_KEY", "demo")
+
+def _now():
+    return dt.datetime.now(dt.timezone.utc).isoformat()
 
 async def main():
-    cred = AzureCliCredential()
-    client = EventHubConsumerClient(
-        fully_qualified_namespace=EH_FQDN,
+    if not FQDN:
+        raise SystemExit("Set EH_FQDN env var (e.g. ai-trader-ehns.servicebus.windows.net)")
+
+    cred = DefaultAzureCredential()
+    client = EventHubProducerClient(
+        fully_qualified_namespace=FQDN,
         eventhub_name=HUB,
-        consumer_group=CG,
         credential=cred,
+        logging_enable=True,
     )
-    async with cred, client:
-        await client.receive(on_event=on_event, starting_position="-1")  # from beginning
+
+    async with client, cred:
+        batch = await client.create_batch(partition_key=PK)
+        for i in range(N):
+            payload = {
+                "type": "quicksend",
+                "i": i,
+                "ts": _now(),
+                "symbol": os.environ.get("SYMBOL", "AAPL"),
+                "source": "scripts/check_quicksend_eventhubs.py",
+            }
+            try:
+                batch.add(EventData(json.dumps(payload)))
+            except ValueError:
+                await client.send_batch(batch)
+                batch = await client.create_batch(partition_key=PK)
+                batch.add(EventData(json.dumps(payload)))
+        await client.send_batch(batch)
+        print(f"Sent {N} event(s) to {HUB} (partition_key={PK}) via {FQDN}")
 
 if __name__ == "__main__":
     asyncio.run(main())

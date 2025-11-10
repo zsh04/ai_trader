@@ -33,6 +33,7 @@ from app.strats.breakout import generate_signals as breakout_signals
 from app.strats.mean_reversion import generate_signals as mean_reversion_signals
 from app.strats.momentum import generate_signals as momentum_signals
 from app.strats.params import MeanReversionParams, MomentumParams
+from app.telemetry.backtest import record_run, start_span
 
 # Backwards-compat alias for older tests that monkeypatch run_breakout.generate_signals
 generate_signals = breakout_signals
@@ -174,7 +175,16 @@ def run(
 
     risk_agent_label = risk_agent or "none"
 
-    return _run_backtest_core(
+    attributes = {
+        "strategy": strategy,
+        "risk_agent": risk_agent_label,
+        "dal_vendor": dal_vendor,
+        "dal_interval": dal_interval,
+        "use_probabilistic": str(bool(effective_prob_flag)).lower(),
+    }
+
+    with start_span(attributes):
+        result = _run_backtest_core(
         symbol,
         start,
         end,
@@ -195,6 +205,9 @@ def run(
         risk_agent=risk_agent_label,
         risk_agent_fraction=risk_agent_fraction,
     )
+
+    record_run(attributes)
+    return result
 
 
 def _run_backtest_core(
@@ -233,13 +246,22 @@ def _run_backtest_core(
         else None
     )
 
-    logger.info("Fetching daily history for {}: {} → {}", symbol, start_dt, end_dt)
+    bars_vendor = dal_vendor if use_probabilistic or dal_vendor != "alpaca" else "yahoo"
+    bars_interval = dal_interval if use_probabilistic else "1Day"
+
+    logger.info(
+        "Fetching history via DAL vendor=%s interval=%s %s → %s",
+        bars_vendor,
+        bars_interval,
+        start_dt,
+        end_dt,
+    )
     daily_batch = dal_instance.fetch_bars(
         symbol,
         start=start_ts,
         end=end_ts,
-        interval="1Day",
-        vendor="yahoo",
+        interval=bars_interval,
+        vendor=bars_vendor,
     )
     df = daily_batch.bars.to_dataframe().copy()
     if df.empty:

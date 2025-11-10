@@ -25,11 +25,18 @@
 
 3. **Enable code hooks**
    - `app/main.py` → call `configure_observability()` in the lifespan context.
-   - `ui/streamlit_app.py` → invokes `setup_logging()` + `configure_observability()` so `/ui` traffic shares OTEL exporters (`OTEL_SERVICE_NAME=ai-trader-ui`).
-   - `app/backtest/run_breakout.py` → wraps each CLI execution in a `backtest.run` span (attributes: `strategy`, `risk_agent`, `use_probabilistic`) and increments the `backtest_runs_total` counter.
+   - `ui/streamlit_app.py` → invokes `setup_logging()` + `configure_observability()` so `/ui` traffic shares OTEL exporters (`OTEL_SERVICE_NAME=ai-trader-ui`). The playground panels now replay cached probabilistic frames without hitting vendors, so traces should show `streamlit` spans alongside API calls.
+   - `app/backtest/run_breakout.py` and `app/backtest/sweeps.py` → wrap each run/job in a `backtest.run` span (attributes: `strategy`, `risk_agent`, `use_probabilistic`, `job_id`) and increment the `backtest_runs_total` counter.
    - `app/logging_utils.setup_logging()` to emit structured Loguru logs and bridge to OTEL.
    - Wrap background jobs/handlers with `logging_context(request_id=...)`.
    - For CLI/backtests, call `setup_logging()` and `configure_observability()` when OTLP env vars exist.
+
+## Streamlit parity checklist
+
+1. Confirm `OTEL_SERVICE_NAME=ai-trader-ui` and `OTEL_RESOURCE_ATTRIBUTES` mirror the API settings.
+2. Hit `https://<fd-host>/` and verify `AppTraces` show `service.name=ai-trader-ui` spans for Streamlit requests.
+3. Run a backtest via the UI or `/backtests/run`; ensure the resulting `backtest.run` span is linked to both API and Streamlit traces (trace ID available in logs).
+4. For CLI-only scenarios, set `configure_observability()` env vars before invoking the runner so spans are emitted even outside App Service.
 
 ## Verification
 

@@ -10,6 +10,7 @@ import pandas as pd
 import requests
 
 from app.adapters.market.alpaca_client import AlpacaAuthError, AlpacaMarketClient
+from app.eventbus.publisher import publish_event
 from app.utils import env as ENV
 
 try:  # optional dependency for redundancy
@@ -107,7 +108,10 @@ def _finnhub_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optiona
     if not api_key:
         return {}, None
     out: Dict[str, Snapshot] = {}
+    attempted = 0
+    failures = 0
     for sym in symbols:
+        attempted += 1
         try:
             resp = requests.get(
                 f"{FINNHUB_URL}/quote",
@@ -117,6 +121,7 @@ def _finnhub_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optiona
             data = resp.json() if resp.status_code == 200 else {}
             price = data.get("c")
             if price in (None, 0):
+                failures += 1
                 continue
             out[sym] = {
                 "latestTrade": {
@@ -137,9 +142,27 @@ def _finnhub_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optiona
                 },
             }
         except Exception as exc:
-            logger.debug("Finnhub quote fetch failed for %s: %s", sym, exc)
+            failures += 1
+            logger.warning("Finnhub quote fetch failed for %s: %s", sym, exc)
             continue
     note = "Finnhub" if out else None
+    if attempted:
+        telemetry = {
+            "type": "finnhub_quote",
+            "attempted": attempted,
+            "succeeded": len(out),
+            "failures": failures,
+            "symbols": list(symbols),
+            "timestamp": _now_iso(),
+        }
+        try:
+            publish_event("EH_HUB_SIGNALS", telemetry)
+        except Exception:
+            logger.debug("Telemetry publish failed for Finnhub quote telemetry")
+    if note:
+        logger.info(
+            "Finnhub fallback served %s symbol(s) (attempted=%s)", len(out), attempted
+        )
     return out, note
 
 

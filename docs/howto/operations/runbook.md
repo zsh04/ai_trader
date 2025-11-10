@@ -58,7 +58,8 @@
   az eventhubs eventhub list -g ai-trader-rg --namespace-name ai-trader-ehns \
     --query '[].{name:name,partitions:partitionCount,retentionH:retentionDescription.retentionTimeInHours}' -o table
   ```
-- **Open items:** grant RBAC to each managed identity, create the checkpoint container, and (later) wire Private Link/VNet integration.
+- **Status:** API + Streamlit managed identities now have `Azure Event Hubs Data Sender/Receiver` and `Storage Blob Data Contributor` (container `eh-checkpoints` exists). Future services must be granted the same roles when they adopt the bus.
+- **Open items:** wire Private Link/VNet integration once origins move behind private endpoints.
 
 ## Post-deployment steps
 

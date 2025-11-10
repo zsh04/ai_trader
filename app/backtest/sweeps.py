@@ -12,6 +12,8 @@ import yaml
 from loguru import logger
 
 from app.backtest.run_breakout import _run_backtest_core
+from app.eventbus.publisher import publish_event
+from app.telemetry.backtest import record_run, start_span
 
 
 def _load_config(path: Path) -> Dict[str, Any]:
@@ -72,7 +74,32 @@ def _execute_job(
             "no_save": False,
         }
     )
-    result = _run_backtest_core(**kwargs)
+    attributes = {
+        "strategy": base_kwargs.get("strategy", "breakout"),
+        "risk_agent": base_kwargs.get("risk_agent", "none"),
+        "dal_vendor": base_kwargs.get("dal_vendor"),
+        "dal_interval": base_kwargs.get("dal_interval"),
+        "use_probabilistic": str(bool(base_kwargs.get("use_probabilistic", True))).lower(),
+        "job_id": str(job_idx),
+    }
+    with start_span(attributes):
+        result = _run_backtest_core(**kwargs)
+    record_run(attributes)
+    try:
+        publish_event(
+            "EH_HUB_JOBS",
+            {
+                "job_id": job_idx,
+                "strategy": base_kwargs.get("strategy"),
+                "risk_agent": base_kwargs.get("risk_agent"),
+                "dal_vendor": base_kwargs.get("dal_vendor"),
+                "dal_interval": base_kwargs.get("dal_interval"),
+                "metrics": result.get("metrics", {}),
+                "params": params,
+            },
+        )
+    except Exception:
+        logger.debug("[sweep] failed to emit job event job_id=%s", job_idx)
     payload = {
         "job_id": job_idx,
         "params": params,
