@@ -5,12 +5,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence
 
 from loguru import logger
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from app.dal.manager import MarketDataDAL
 
