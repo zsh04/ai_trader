@@ -99,33 +99,23 @@
 
 ## DAL smoke test (Alpha Vantage + Finnhub)
 
-Run this validation after migrations or vendor credential updates to ensure the probabilistic data layer feeds the Streamlit UI.
+Use `scripts/dal_smoke.py` after migrations or credential updates to confirm the DAL pulls from every vendor we depend on. The script hits Alpaca, Alpha Vantage (intraday + daily), Yahoo, Twelve Data, and Finnhub by default and writes a JSON manifest for audit.
 
-1. **Set vendor API keys** (temporary shell export or use `.env.dev`):
+1. **Set vendor API keys** (shell export or `.env.dev`):
    ```bash
    export ALPHAVANTAGE_API_KEY=... \
           FINNHUB_API_KEY=...
    ```
-2. **Execute the smoke script** (uses the live DAL):
+2. **Run the harness** (installs nothing; uses the repo virtualenv):
    ```bash
-   PYTHONPATH=. python - <<'PY'
-   from datetime import datetime, timedelta, timezone
-   from app.dal.manager import MarketDataDAL
-
-   now = datetime.now(timezone.utc)
-   dal = MarketDataDAL(enable_postgres_metadata=False)
-
-   av = dal.fetch_bars("AAPL", start=now - timedelta(days=5), end=now,
-                      interval="5Min", vendor="alphavantage")
-   print("Alpha Vantage bars", len(av.bars.data))
-
-   fh = dal.fetch_bars("AAPL", start=now - timedelta(days=30), end=now,
-                      interval="1Day", vendor="finnhub")
-   print("Finnhub bars", len(fh.bars.data))
-   PY
+   source .venv/bin/activate
+   python scripts/dal_smoke.py \
+     --output-dir artifacts/ops/dal_smoke
    ```
-3. **Pass criteria:** Alpha Vantage returns thousands of intraday bars with matching signal/regime counts, and Finnhub returns the latest daily quote. Investigate vendor credentials or rate limits if either response is empty/errored.
-4. **Record results** in the sprint log / Confluence so ops knows the last verified timestamp.
+   - Optional: add `--check vendor:symbol:interval:lookbackDays` to probe custom routes.
+3. **Review the report** at `artifacts/ops/dal_smoke/dal_smoke_<timestamp>.json`. Each entry lists bar/signal/regime counts and cache paths. Failures (`status="error"`) bubble up via exit code 1 so CI can gate deployments.
+4. **Pass criteria:** Alpha Vantage returns several hundred intraday bars (with matching signal/regime counts) and Finnhub returns the most recent daily quote. Investigate API keys or plan limits if any vendor returns zero rows or errors.
+5. **Record results** in the sprint status doc so everyone knows the last verified timestamp (or review the `DAL Smoke` GitHub Action run, which stores the latest JSON report artifact).
 
 ## Probabilistic backtest validation
 
@@ -150,6 +140,15 @@ Use this CLI run after code changes to momentum/mean-reversion/risk management s
    - Fractional Kelly logs a capped risk fraction (`prob=... frac=...`).
    - A frame file appears under `artifacts/probabilistic/frames/AAPL_momentum_yahoo_1day.parquet`.
 4. Capture the command output in the sprint status doc so we have an auditable timestamp for the last smoke test.
+
+### Streamlit probabilistic frame viewer
+
+The Streamlit console now reads the persisted probabilistic frames (from both CLI and sweep runs) directly from the new manifest at `artifacts/probabilistic/frames/manifest.jsonl`.
+
+1. Trigger a backtest run (CLI or API) and confirm `prob_frame_path` is logged in the response.
+2. Open the Streamlit dashboard (`/ui` via Front Door) and expand **Backtest Sweeps → Probabilistic Frame Viewer**.
+3. Select the sweep/job entry (or paste a manual path) to render the merged probabilistic DataFrame, metadata (row counts, columns, time range), and recent rows.
+4. Use this view to debug DAL issues without re-fetching vendors; the underlying parquet file is shared between CLI, API, and Streamlit.
 
 ## References
 

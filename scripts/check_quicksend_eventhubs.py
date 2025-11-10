@@ -9,16 +9,20 @@ from azure.eventhub.aio import EventHubProducerClient
 from azure.identity.aio import DefaultAzureCredential
 
 FQDN = os.environ.get("EH_FQDN")  # e.g. ai-trader-ehns.servicebus.windows.net
-HUB  = os.environ.get("EH_HUB", "bars.raw")
-N    = int(os.environ.get("N", "5"))
-PK   = os.environ.get("PARTITION_KEY", "demo")
+HUB = os.environ.get("EH_HUB", "bars.raw")
+N = int(os.environ.get("N", "5"))
+PK = os.environ.get("PARTITION_KEY", "demo")
+
 
 def _now():
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
+
 async def main():
     if not FQDN:
-        raise SystemExit("Set EH_FQDN env var (e.g. ai-trader-ehns.servicebus.windows.net)")
+        raise SystemExit(
+            "Set EH_FQDN env var (e.g. ai-trader-ehns.servicebus.windows.net)"
+        )
 
     cred = DefaultAzureCredential()
     client = EventHubProducerClient(
@@ -46,6 +50,7 @@ async def main():
                 batch.add(EventData(json.dumps(payload)))
         await client.send_batch(batch)
         print(f"Sent {N} event(s) to {HUB} (partition_key={PK}) via {FQDN}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

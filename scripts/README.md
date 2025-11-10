@@ -12,6 +12,7 @@ working directory is the repo).
 | `scripts/check_secrets.py` | Validates that local environment variables (or `.env.dev`) include values for each documented Key Vault secret. Returns non-zero if required entries are missing. |
 | `scripts/kv_sync_from_env.zsh` | Pushes non-empty variables from an env file to Azure Key Vault secret names defined in the mapping (mirrors `docs/reference/secrets.md`). |
 | `scripts/check_alpaca_entitlement.py` | Probes Alpaca market data (IEX/SIP entitlements, snapshots, bars) to confirm credentials and entitlements are functioning. |
+| `scripts/dal_smoke.py` | Runs live MarketDataDAL fetches (Alpha Vantage, Finnhub, Yahoo, Twelve Data, etc.) and writes `artifacts/ops/dal_smoke/dal_smoke_<ts>.json` reports for the ops runbook. |
 
 > Tip: run `chmod +x` on shell scripts after cloning if the executable bit is
 > stripped. Use `./scripts/dev.sh -h` to list available dev commands.

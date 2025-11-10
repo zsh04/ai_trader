@@ -236,7 +236,9 @@ class MarketDataDAL:
         finally:
             session.close()
 
-    def _publish_bar_snapshot(self, bars: Bars, vendor: str, request: FetchRequest) -> None:
+    def _publish_bar_snapshot(
+        self, bars: Bars, vendor: str, request: FetchRequest
+    ) -> None:
         try:
             payload = {
                 "symbol": bars.symbol,

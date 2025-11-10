@@ -263,3 +263,26 @@ def test_mean_reversion_regression_probabilistic_join(
     expected_aligned = expected_events.reindex(actual.index).fillna(False).astype(bool)
     pd.testing.assert_series_equal(actual, expected_aligned)
     assert Path(result["prob_frame_path"]).exists()
+
+
+def test_probabilistic_frame_persisted_without_flag(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    closes = [10, 11, 12, 13]
+    batch = _build_prob_batch("TSLA", closes)
+    _setup_common(monkeypatch, batch, tmp_path)
+
+    params = {"lookback": 2, "atr_len": 2, "atr_mult": 1.2}
+    result = breakout_run(
+        symbol="TSLA",
+        start="2021-01-01",
+        end="2021-01-04",
+        params_kwargs=params,
+        strategy="breakout",
+        use_probabilistic=False,
+        dal_vendor="stub",
+        dal_interval="1Day",
+    )
+
+    assert result["prob_frame_path"], "probabilistic frame path should be recorded"
+    assert Path(result["prob_frame_path"]).exists()

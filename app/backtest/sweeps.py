@@ -79,7 +79,9 @@ def _execute_job(
         "risk_agent": base_kwargs.get("risk_agent", "none"),
         "dal_vendor": base_kwargs.get("dal_vendor"),
         "dal_interval": base_kwargs.get("dal_interval"),
-        "use_probabilistic": str(bool(base_kwargs.get("use_probabilistic", True))).lower(),
+        "use_probabilistic": str(
+            bool(base_kwargs.get("use_probabilistic", True))
+        ).lower(),
         "job_id": str(job_idx),
     }
     with start_span(attributes):

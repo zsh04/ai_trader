@@ -137,7 +137,9 @@ def get_prob_frame(
     try:
         df = pd.read_parquet(path)
     except Exception as exc:  # pragma: no cover - IO path
-        raise HTTPException(status_code=500, detail=f"Failed to load frame: {exc}") from exc
+        raise HTTPException(
+            status_code=500, detail=f"Failed to load frame: {exc}"
+        ) from exc
     preview_df = df.tail(limit)
     records = preview_df.reset_index().to_dict("records")
     return ProbFrameResponse(
