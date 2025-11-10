@@ -50,6 +50,7 @@ jobs:
       - name: Run DAL smoke harness
         env:
           CUSTOM_CHECK: ${{ inputs.vendor && format('{0}:{1}:{2}:{3}', inputs.vendor, inputs.symbol || 'AAPL', inputs.interval || '1Day', inputs.lookback_days || '60') || '' }}
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           mkdir -p artifacts/ops/dal_smoke
           if [ -n "$CUSTOM_CHECK" ]; then
