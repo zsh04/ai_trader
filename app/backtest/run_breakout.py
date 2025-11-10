@@ -9,7 +9,7 @@ import traceback
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -21,12 +21,9 @@ from app.backtest import metrics as bt_metrics
 from app.backtest.engine import Costs, backtest_long_only
 from app.backtest.model import BetaWinrate
 from app.dal.manager import MarketDataDAL as _LegacyMarketDataDAL
+from app.dal.results import ProbabilisticBatch
 from app.logging_utils import setup_logging
-from app.probability.pipeline import (
-    ProbabilisticConfig,
-    fetch_probabilistic_batch,
-    join_probabilistic_features,
-)
+from app.probability.pipeline import join_probabilistic_features
 from app.probability.storage import persist_probabilistic_frame
 from app.strats.breakout import BreakoutParams
 from app.strats.breakout import generate_signals as breakout_signals
@@ -61,6 +58,27 @@ def _roundish(x, ndigits=4):
     if isinstance(x, Timestamp):
         return x.isoformat()
     return str(x)
+
+
+_PROB_PREFIXES = ("prob_", "regime_")
+
+
+def _probabilistic_columns(df: Optional[pd.DataFrame]) -> list[str]:
+    if df is None or df.empty:
+        return []
+    return [col for col in df.columns if col.startswith(_PROB_PREFIXES)]
+
+
+def _ensure_prob_columns(
+    target: pd.DataFrame, source: Optional[pd.DataFrame]
+) -> pd.DataFrame:
+    cols = _probabilistic_columns(source)
+    if not cols:
+        return target
+    missing = [col for col in cols if col not in target.columns]
+    if not missing:
+        return target
+    return target.join(source[missing], how="left")
 
 
 def infer_probabilistic_success(sig: pd.DataFrame) -> float:
@@ -166,14 +184,22 @@ def run(
     strategy = strategy_key
 
     requires_probabilistic = strategy in {"momentum", "mean_reversion"}
-    effective_prob_flag = use_probabilistic or requires_probabilistic
-    if requires_probabilistic and not use_probabilistic:
-        logger.info(
-            "Strategy %s depends on probabilistic features; enabling use_probabilistic automatically.",
-            strategy,
-        )
-
     risk_agent_label = risk_agent or "none"
+
+    auto_prob_reasons: list[str] = []
+    if requires_probabilistic:
+        auto_prob_reasons.append("strategy")
+    if regime_aware_sizing:
+        auto_prob_reasons.append("regime-aware sizing")
+    if risk_agent_label == "fractional_kelly":
+        auto_prob_reasons.append("fractional kelly risk agent")
+
+    effective_prob_flag = use_probabilistic or bool(auto_prob_reasons)
+    if not use_probabilistic and auto_prob_reasons:
+        logger.info(
+            "Probabilistic features enabled automatically (%s).",
+            ", ".join(auto_prob_reasons),
+        )
 
     attributes = {
         "strategy": strategy,
@@ -185,26 +211,26 @@ def run(
 
     with start_span(attributes):
         result = _run_backtest_core(
-        symbol,
-        start,
-        end,
-        params_kwargs,
-        strategy=strategy,
-        slippage_bps=slippage_bps,
-        fee_per_share=fee_per_share,
-        risk_frac_override=risk_frac_override,
-        min_notional=min_notional,
-        debug=debug,
-        debug_signals=debug_signals,
-        debug_entries=debug_entries,
-        regime_aware_sizing=regime_aware_sizing,
-        use_probabilistic=effective_prob_flag,
-        dal_vendor=dal_vendor,
-        dal_interval=dal_interval,
-        export_csv=export_csv,
-        risk_agent=risk_agent_label,
-        risk_agent_fraction=risk_agent_fraction,
-    )
+            symbol,
+            start,
+            end,
+            params_kwargs,
+            strategy=strategy,
+            slippage_bps=slippage_bps,
+            fee_per_share=fee_per_share,
+            risk_frac_override=risk_frac_override,
+            min_notional=min_notional,
+            debug=debug,
+            debug_signals=debug_signals,
+            debug_entries=debug_entries,
+            regime_aware_sizing=regime_aware_sizing,
+            use_probabilistic=effective_prob_flag,
+            dal_vendor=dal_vendor,
+            dal_interval=dal_interval,
+            export_csv=export_csv,
+            risk_agent=risk_agent_label,
+            risk_agent_fraction=risk_agent_fraction,
+        )
 
     record_run(attributes)
     return result
@@ -286,47 +312,60 @@ def _run_backtest_core(
     if strategy == "breakout":
         signal_fn = globals().get("generate_signals", signal_fn)
 
-    signal_input = df.copy()
-    prob_batch = None
-    if use_probabilistic:
-        try:
-            prob_batch = fetch_probabilistic_batch(
-                symbol,
-                start=start_ts,
-                end=end_ts,
-                config=ProbabilisticConfig(
-                    vendor=dal_vendor,
-                    interval=dal_interval,
-                    enable_metadata_persist=False,
-                ),
-                dal=dal_instance,
-            )
+    prob_batch: Optional[ProbabilisticBatch] = None
+    prob_frame: Optional[pd.DataFrame] = None
+    prob_cols: list[str] = []
+    try:
+        prob_frame = join_probabilistic_features(
+            df, signals=daily_batch.signals, regimes=daily_batch.regimes
+        )
+        prob_cols = _probabilistic_columns(prob_frame)
+        if prob_cols:
+            prob_batch = daily_batch
             logger.info(
-                "Probabilistic DAL fetch ok vendor={} interval={} bars={} signals={} regimes={}",
+                "Probabilistic pipeline ok vendor={} interval={} bars={} signals={} regimes={}",
                 dal_vendor,
                 dal_interval,
-                len(prob_batch.bars.data),
-                len(prob_batch.signals),
-                len(prob_batch.regimes),
+                len(daily_batch.bars.data),
+                len(daily_batch.signals),
+                len(daily_batch.regimes),
             )
-            if prob_batch.cache_paths:
+            if daily_batch.cache_paths:
                 logger.debug(
-                    "Probabilistic cache artifacts: {}", prob_batch.cache_paths
+                    "Probabilistic cache artifacts: {}", daily_batch.cache_paths
                 )
-            signal_input = join_probabilistic_features(
-                signal_input, signals=prob_batch.signals, regimes=prob_batch.regimes
-            )
-        except Exception as err:
-            logger.warning(
-                "Probabilistic DAL fetch failed (vendor={}, interval={}): {}",
+        else:
+            logger.debug(
+                "Probabilistic pipeline returned no enriched columns vendor={} interval={}",
                 dal_vendor,
                 dal_interval,
-                err,
             )
-            prob_batch = None
-    elif regime_aware_sizing:
+    except Exception as err:
         logger.warning(
-            "Regime-aware sizing requested but --use-probabilistic disabled; ignoring regime sizing toggle."
+            "Probabilistic pipeline join failed (vendor={}, interval={}): {}",
+            dal_vendor,
+            dal_interval,
+            err,
+        )
+        prob_frame = None
+        prob_cols = []
+
+    if use_probabilistic and not prob_cols:
+        logger.warning(
+            "Probabilistic features requested but none were returned (vendor={} interval={}).",
+            dal_vendor,
+            dal_interval,
+        )
+
+    signal_input = (
+        prob_frame
+        if (use_probabilistic and prob_frame is not None and prob_cols)
+        else df.copy()
+    )
+
+    if regime_aware_sizing and not prob_cols:
+        logger.warning(
+            "Regime-aware sizing enabled but probabilistic features are unavailable; ignoring regime sizing toggle."
         )
 
     if strategy == "momentum" and not use_probabilistic:
@@ -337,29 +376,20 @@ def _run_backtest_core(
     sig = signal_fn(signal_input, asdict(params))
 
     persisted_path: Optional[str] = None
-    if prob_batch:
-        joined_cols = [
-            col
-            for col in (
-                "prob_filtered_price",
-                "prob_velocity",
-                "prob_uncertainty",
-                "regime_label",
-            )
-            if col in sig.columns
-        ]
-        if joined_cols:
-            nonnull = sig[joined_cols].count()
-            logger.debug(
-                "Probabilistic features joined: {}",
-                {col: int(nonnull.get(col, 0)) for col in joined_cols},
-            )
+    if prob_cols:
+        sig = _ensure_prob_columns(sig, prob_frame)
+        nonnull = sig[prob_cols].count()
+        logger.debug(
+            "Probabilistic features joined: {}",
+            {col: int(nonnull.get(col, 0)) for col in prob_cols},
+        )
         persisted_path = persist_probabilistic_frame(
             symbol,
             strategy,
             sig,
             vendor=dal_vendor,
-            interval=dal_interval,
+            interval=dal_interval if use_probabilistic else bars_interval,
+            source="backtest_cli",
         )
         if persisted_path:
             logger.debug("Persisted probabilistic signal frame -> {}", persisted_path)

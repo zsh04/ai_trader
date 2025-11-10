@@ -122,6 +122,9 @@ DB_URL = DB_URL_RAW.strip().strip("'\"")
 TZ_LOCAL = os.getenv("DASHBOARD_TZ", "America/New_York")
 DEFAULT_SYMBOLS = os.getenv("DASHBOARD_SYMBOLS", "AAPL,MSFT,NVDA,SPY,QQQ")
 SWEEP_BASE_DIR = Path(os.getenv("BACKTEST_SWEEP_DIR", "artifacts/backtests"))
+PROB_FRAME_MANIFEST = Path(
+    os.getenv("PROB_FRAME_MANIFEST", "artifacts/probabilistic/frames/manifest.jsonl")
+)
 ALTAIR_ACCEPTS_WIDTH = "width" in inspect.signature(st.altair_chart).parameters
 DATAFRAME_ACCEPTS_WIDTH = "width" in inspect.signature(st.dataframe).parameters
 
@@ -203,6 +206,51 @@ def _load_sweep_records(limit: int = 5) -> Optional[pd.DataFrame]:
         return None
     df = pd.DataFrame(rows)
     df["_timestamp"] = pd.to_datetime(df["sweep_timestamp"], errors="coerce")
+    return df
+
+
+@st.cache_data(show_spinner=False, ttl=60)
+def _load_prob_frame_manifest(limit: int = 50) -> Optional[pd.DataFrame]:
+    if not PROB_FRAME_MANIFEST.exists():
+        return None
+    rows: List[Dict[str, object]] = []
+    try:
+        with PROB_FRAME_MANIFEST.open() as handle:
+            for line in handle:
+                data = line.strip()
+                if not data:
+                    continue
+                try:
+                    record = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                rows.append(record)
+                if len(rows) >= limit:
+                    break
+    except FileNotFoundError:
+        return None
+    if not rows:
+        return None
+    df = pd.DataFrame(rows)
+    if "path" in df.columns and "prob_frame_path" not in df.columns:
+        df["prob_frame_path"] = df["path"]
+    df["saved_at"] = pd.to_datetime(df.get("saved_at"), errors="coerce")
+    return df.sort_values("saved_at", ascending=False)
+
+
+@st.cache_data(show_spinner=False, ttl=60)
+def _load_prob_frame_preview(path: str) -> Optional[pd.DataFrame]:
+    try:
+        df = pd.read_parquet(path)
+    except FileNotFoundError:
+        return None
+    except Exception as exc:  # pragma: no cover - IO failures should not crash UI
+        st.warning(f"Failed to read probabilistic frame {path}: {exc}")
+        return None
+    if df.empty:
+        return None
+    if isinstance(df.index, pd.PeriodIndex):
+        df.index = df.index.to_timestamp()
     return df
 
 
@@ -357,6 +405,30 @@ def _render_stat_card(
         """,
         unsafe_allow_html=True,
     )
+
+
+def _frame_metadata(
+    frame: pd.DataFrame, context: Optional[Dict[str, object]] = None
+) -> Dict[str, object]:
+    meta: Dict[str, object] = {
+        "rows": int(frame.shape[0]),
+        "cols": int(frame.shape[1]),
+        "columns": list(frame.columns),
+    }
+    if not frame.index.empty:
+        try:
+            meta["start_index"] = str(frame.index[0])
+            meta["end_index"] = str(frame.index[-1])
+        except Exception:
+            pass
+    if context:
+        meta["context"] = {
+            "strategy": context.get("strategy"),
+            "job_id": context.get("job_id"),
+            "sweep_timestamp": context.get("sweep_timestamp"),
+            "source": context.get("source"),
+        }
+    return meta
 
 
 def _render_equity_chart(df: pd.DataFrame, tz_display: str) -> None:
@@ -590,6 +662,46 @@ with st.expander("Backtest Sweeps", expanded=False):
             "params_text",
         ]
         _render_dataframe(latest[display_cols].head(10), height=260)
+        st.markdown("###### Probabilistic Frame Viewer")
+        manifest_df = _load_prob_frame_manifest(limit=50)
+        viewer_source = manifest_df if manifest_df is not None else latest
+        if viewer_source is None or viewer_source.empty:
+            st.info("No probabilistic frame manifests found yet.")
+        else:
+            viewer = viewer_source.dropna(subset=["prob_frame_path"]).copy()
+            if viewer.empty:
+                st.info("No probabilistic frame paths recorded in recent runs.")
+            else:
+                viewer["label"] = viewer.apply(
+                    lambda row: f"{row.get('sweep_timestamp', row.get('saved_at')) or 'manual'} • "
+                    f"{row.get('strategy', 'unknown')} • job {row.get('job_id', '—')}",
+                    axis=1,
+                )
+                selection = st.selectbox(
+                    "Select a run to inspect", viewer["label"].tolist(), index=0
+                )
+                selected = viewer.loc[viewer["label"] == selection].iloc[0]
+                frame_path = selected["prob_frame_path"]
+                st.caption(f"Frame path: `{frame_path}`")
+                frame_df = _load_prob_frame_preview(frame_path)
+                if frame_df is None:
+                    st.warning(
+                        "Frame not found or empty. Ensure the CLI run persisted successfully."
+                    )
+                else:
+                    st.json(_frame_metadata(frame_df, selected.to_dict()))
+                    _render_dataframe(frame_df.tail(50), height=320)
+        manual_path = st.text_input(
+            "Manual frame path (optional)",
+            placeholder="artifacts/probabilistic/frames/<symbol>_<strategy>_*.parquet",
+        )
+        if manual_path.strip():
+            manual_df = _load_prob_frame_preview(manual_path.strip())
+            if manual_df is None:
+                st.warning("Unable to load the specified path.")
+            else:
+                st.json(_frame_metadata(manual_df))
+                _render_dataframe(manual_df.tail(50), height=240)
 
 # -----------------------------------------------------------------------------
 # Trades & Positions

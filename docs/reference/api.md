@@ -3,7 +3,7 @@ title: "API Reference"
 doc_type: reference
 audience: intermediate
 product_area: ops
-last_verified: 2025-11-06
+last_verified: 2025-11-10
 toc: true
 ---
 
@@ -27,7 +27,11 @@ Link/path to `openapi.yaml`.
 - `POST /ops/eventhub-test` – Publish arbitrary payload to a configured Event Hub (diagnostic only).
 
 ### Backtests
-- `POST /backtests/run` – Run single backtest (`symbol`, `start`, `strategy`, `params`). Returns metrics + equity paths.
+- `POST /backtests/run` – Run single backtest. Body supports:
+  - `symbol`, `start`, `end`, `strategy`, `params`.
+  - Probabilistic controls: `use_probabilistic`, `dal_vendor`, `dal_interval`, `regime_aware_sizing`.
+  - Risk knobs: `risk_agent`, `risk_agent_fraction`, `slippage_bps`, `fee_per_share`, `risk_frac`, `min_notional`.
+  Response bundles metrics, equity CSV path, and `prob_frame_path` so Streamlit/UI can replay the persisted probabilistic frame without re-fetching vendors.
 - `POST /backtests/sweeps` – Kick off parameter sweep (YAML config path or inline grid). Returns job ID; results streamed via Event Hubs + `/backtests/sweeps/{job_id}`.
 - `GET /backtests/sweeps/{job_id}` – Inspect sweep status/results.
 

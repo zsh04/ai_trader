@@ -78,6 +78,16 @@ class BacktestRequest(BaseModel):
     end: Optional[str] = None
     strategy: str = "breakout"
     params: Dict[str, Any] = Field(default_factory=dict)
+    use_probabilistic: bool = False
+    dal_vendor: str = "alpaca"
+    dal_interval: str = "1Day"
+    regime_aware_sizing: bool = False
+    risk_agent: str = "none"
+    risk_agent_fraction: float = 0.5
+    slippage_bps: Optional[float] = None
+    fee_per_share: Optional[float] = None
+    risk_frac: Optional[float] = None
+    min_notional: float = 100.0
 
 
 @router.post("/run")
@@ -88,5 +98,15 @@ def run_backtest_endpoint(req: BacktestRequest) -> Dict[str, Any]:
         end=req.end,
         params_kwargs=req.params,
         strategy=req.strategy,
+        use_probabilistic=req.use_probabilistic,
+        dal_vendor=req.dal_vendor,
+        dal_interval=req.dal_interval,
+        regime_aware_sizing=req.regime_aware_sizing,
+        risk_agent=req.risk_agent,
+        risk_agent_fraction=req.risk_agent_fraction,
+        slippage_bps=req.slippage_bps,
+        fee_per_share=req.fee_per_share,
+        risk_frac_override=req.risk_frac,
+        min_notional=req.min_notional,
     )
     return result

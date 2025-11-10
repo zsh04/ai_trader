@@ -19,7 +19,9 @@ EH_FQDN = os.getenv("EH_FQDN")
 
 
 def _is_enabled() -> bool:
-    return bool(EH_FQDN and EventHubProducerClient and EventData and DefaultAzureCredential)
+    return bool(
+        EH_FQDN and EventHubProducerClient and EventData and DefaultAzureCredential
+    )
 
 
 def publish_event(hub_env_key: str, payload: Dict[str, Any]) -> None:

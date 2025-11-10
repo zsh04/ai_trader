@@ -11,15 +11,15 @@ from azure.eventhub.extensions.checkpointstoreblobaio import BlobCheckpointStore
 from azure.identity.aio import AzureCliCredential, DefaultAzureCredential
 from azure.storage.blob.aio import BlobServiceClient
 
-FQDN   = os.getenv("EH_FQDN", "ai-trader-ehns.servicebus.windows.net")
-HUB    = os.getenv("EH_HUB", "bars.raw")
-GROUP  = os.getenv("EH_CONSUMER_GROUP", "orchestrator")
-STG    = os.getenv("STORAGE_ACCOUNT", "aitraderblobstore")
-CONT   = os.getenv("CHECKPOINT_CONTAINER", "eh-checkpoints")
-START  = os.getenv("EH_START", "@latest")          # "@latest" or "-1"
-TIMEOUT_S = int(os.getenv("RECV_TIMEOUT_S", "120")) # <-- longer
-LOCAL   = os.getenv("LOCAL_DEV") == "1"
-NOCKPT  = os.getenv("DISABLE_CHECKPOINT") == "1"    # set to 1 to skip blob checkpoints
+FQDN = os.getenv("EH_FQDN", "ai-trader-ehns.servicebus.windows.net")
+HUB = os.getenv("EH_HUB", "bars.raw")
+GROUP = os.getenv("EH_CONSUMER_GROUP", "orchestrator")
+STG = os.getenv("STORAGE_ACCOUNT", "aitraderblobstore")
+CONT = os.getenv("CHECKPOINT_CONTAINER", "eh-checkpoints")
+START = os.getenv("EH_START", "@latest")  # "@latest" or "-1"
+TIMEOUT_S = int(os.getenv("RECV_TIMEOUT_S", "120"))  # <-- longer
+LOCAL = os.getenv("LOCAL_DEV") == "1"
+NOCKPT = os.getenv("DISABLE_CHECKPOINT") == "1"  # set to 1 to skip blob checkpoints
 
 logging.basicConfig(level=logging.INFO)
 # Quieter by default; flip AZURE_DEBUG=1 to see wire logs
@@ -29,6 +29,7 @@ if os.getenv("AZURE_DEBUG") == "1":
 else:
     logging.getLogger("azure.eventhub").setLevel(logging.WARNING)
     logging.getLogger("azure.identity").setLevel(logging.WARNING)
+
 
 def now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat()
@@ -44,6 +45,7 @@ def _handle_stop(*_: object) -> None:
 def make_cred():
     return AzureCliCredential() if LOCAL else DefaultAzureCredential()
 
+
 async def preflight(blob: BlobServiceClient):
     if NOCKPT:
         return
@@ -57,9 +59,12 @@ async def preflight(blob: BlobServiceClient):
     async for _ in cn.walk_blobs(name_starts_with="sanity/"):
         break
 
+
 async def main():
     print(f"AUTH_MODE={'AzureCliCredential' if LOCAL else 'DefaultAzureCredential'}")
-    print(f"CHECKPOINTS={'DISABLED' if NOCKPT else 'ENABLED'}  start={START}  group={GROUP}")
+    print(
+        f"CHECKPOINTS={'DISABLED' if NOCKPT else 'ENABLED'}  start={START}  group={GROUP}"
+    )
     if not NOCKPT:
         print(f"BLOB_URL=https://{STG}.blob.core.windows.net/{CONT}")
 
@@ -75,8 +80,14 @@ async def main():
     if blob:
         await preflight(blob)
 
-    store = None if NOCKPT else BlobCheckpointStore(
-        blob_account_url=f"https://{STG}.blob.core.windows.net", container_name=CONT, credential=cred
+    store = (
+        None
+        if NOCKPT
+        else BlobCheckpointStore(
+            blob_account_url=f"https://{STG}.blob.core.windows.net",
+            container_name=CONT,
+            credential=cred,
+        )
     )
     client = EventHubConsumerClient(
         fully_qualified_namespace=FQDN,
@@ -93,7 +104,9 @@ async def main():
         enq = getattr(ev, "enqueued_time", None)
         off = getattr(ev, "offset", None)
         key = getattr(ev, "partition_key", None)
-        print(f"[{pc.partition_id}] seq={seq} enq={enq} off={off} pkey={key} body={ev.body_as_str()[:120]}")
+        print(
+            f"[{pc.partition_id}] seq={seq} enq={enq} off={off} pkey={key} body={ev.body_as_str()[:120]}"
+        )
         if store:  # only checkpoint when enabled
             await pc.update_checkpoint(ev)
 
@@ -102,7 +115,9 @@ async def main():
             # optional: print partitions for visibility
             pids = await client.get_partition_ids()
             print("Partitions:", ",".join(pids))
-            task = asyncio.create_task(client.receive(on_event=on_event, starting_position=START))
+            task = asyncio.create_task(
+                client.receive(on_event=on_event, starting_position=START)
+            )
             try:
                 await asyncio.wait_for(stop_event.wait(), timeout=TIMEOUT_S)
             except asyncio.TimeoutError:
@@ -118,6 +133,7 @@ async def main():
                 await blob.close()
         with contextlib.suppress(Exception):
             await cred.close()
+
 
 if __name__ == "__main__":
     for sig in (signal.SIGINT, signal.SIGTERM):
