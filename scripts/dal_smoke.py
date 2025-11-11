@@ -13,11 +13,11 @@ from typing import Dict, Iterable, List, Optional, Sequence
 
 from loguru import logger
 
+from app.dal.manager import MarketDataDAL
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-
-from app.dal.manager import MarketDataDAL
 
 DEFAULT_CHECKS: Sequence[tuple[str, str, str, int]] = (
     ("alpaca", "AAPL", "1Day", 120),

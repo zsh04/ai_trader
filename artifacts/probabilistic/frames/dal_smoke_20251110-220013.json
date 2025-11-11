@@ -1,0 +1,101 @@
+{
+  "generated_at": "2025-11-10T22:00:13.062497+00:00",
+  "results": [
+    {
+      "vendor": "alpaca",
+      "symbol": "AAPL",
+      "interval": "1Day",
+      "lookback_days": 120,
+      "status": "ok",
+      "bars": 85,
+      "signals": 85,
+      "regimes": 85,
+      "cache_paths": {
+        "bars": "artifacts/marketdata/cache/AAPL_alpaca.parquet",
+        "signals": "artifacts/marketdata/cache/AAPL_alpaca_signals.parquet",
+        "regimes": "artifacts/marketdata/cache/AAPL_regimes.parquet"
+      },
+      "error": null
+    },
+    {
+      "vendor": "alphavantage",
+      "symbol": "MSFT",
+      "interval": "15Min",
+      "lookback_days": 5,
+      "status": "ok",
+      "bars": 1408,
+      "signals": 1408,
+      "regimes": 1408,
+      "cache_paths": {
+        "bars": "artifacts/marketdata/cache/MSFT_alphavantage.parquet",
+        "signals": "artifacts/marketdata/cache/MSFT_alphavantage_signals.parquet",
+        "regimes": "artifacts/marketdata/cache/MSFT_regimes.parquet"
+      },
+      "error": null
+    },
+    {
+      "vendor": "alphavantage_eod",
+      "symbol": "SPY",
+      "interval": "1Day",
+      "lookback_days": 400,
+      "status": "ok",
+      "bars": 275,
+      "signals": 275,
+      "regimes": 275,
+      "cache_paths": {
+        "bars": "artifacts/marketdata/cache/SPY_yahoo.parquet",
+        "signals": "artifacts/marketdata/cache/SPY_yahoo_signals.parquet",
+        "regimes": "artifacts/marketdata/cache/SPY_regimes.parquet"
+      },
+      "error": null
+    },
+    {
+      "vendor": "yahoo",
+      "symbol": "QQQ",
+      "interval": "1Day",
+      "lookback_days": 400,
+      "status": "ok",
+      "bars": 275,
+      "signals": 275,
+      "regimes": 275,
+      "cache_paths": {
+        "bars": "artifacts/marketdata/cache/QQQ_yahoo.parquet",
+        "signals": "artifacts/marketdata/cache/QQQ_yahoo_signals.parquet",
+        "regimes": "artifacts/marketdata/cache/QQQ_regimes.parquet"
+      },
+      "error": null
+    },
+    {
+      "vendor": "twelvedata",
+      "symbol": "NVDA",
+      "interval": "1Day",
+      "lookback_days": 120,
+      "status": "ok",
+      "bars": 85,
+      "signals": 85,
+      "regimes": 85,
+      "cache_paths": {
+        "bars": "artifacts/marketdata/cache/NVDA_twelvedata.parquet",
+        "signals": "artifacts/marketdata/cache/NVDA_twelvedata_signals.parquet",
+        "regimes": "artifacts/marketdata/cache/NVDA_regimes.parquet"
+      },
+      "error": null
+    },
+    {
+      "vendor": "finnhub",
+      "symbol": "AAPL",
+      "interval": "1Day",
+      "lookback_days": 60,
+      "status": "ok",
+      "bars": 1,
+      "signals": 1,
+      "regimes": 1,
+      "cache_paths": {
+        "bars": "artifacts/marketdata/cache/AAPL_finnhub.parquet",
+        "signals": "artifacts/marketdata/cache/AAPL_finnhub_signals.parquet",
+        "regimes": "artifacts/marketdata/cache/AAPL_regimes.parquet"
+      },
+      "error": null
+    }
+  ]
+}
