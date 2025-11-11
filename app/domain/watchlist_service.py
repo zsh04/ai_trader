@@ -8,8 +8,7 @@ from typing import List, Tuple
 from loguru import logger
 
 from app.domain.watchlist_utils import normalize_symbols
-from app.services.watchlist_service import build_watchlist
-from app.services.watchlist_sources import (
+from .watchlist_sources import (
     fetch_alpha_vantage_symbols,
     fetch_finnhub_symbols,
     fetch_twelvedata_symbols,
@@ -20,6 +19,68 @@ _DEFAULT_SOURCE = "textlist"
 
 _COUNTERS: dict[str, dict[str, int]] = {}
 _WARNED_KEYS: set[str] = set()
+
+
+def _dedupe(seq: List[str]) -> List[str]:
+    seen = set()
+    out: List[str] = []
+    for s in seq:
+        k = s.strip().upper()
+        if not k or k in seen:
+            continue
+        seen.add(k)
+        out.append(k)
+    return out
+
+
+def build_watchlist(
+    source: str = "auto",
+    *,
+    scanner: Optional[str] = None,
+    limit: Optional[int] = None,
+    sort: Optional[str] = None,
+) -> List[str]:
+    source = (source or "auto").strip().lower()
+    scanner = (scanner or "").strip() or None
+    sort = (sort or "").strip().lower() or None
+
+    def _with_guard(fn):
+        try:
+            return list(fn())
+        except Exception:
+            return []
+
+    symbols: List[str] = []
+    if source == "alpha":
+        symbols = _with_guard(lambda: fetch_alpha_vantage_symbols(scanner=scanner))
+    elif source == "finnhub":
+        symbols = _with_guard(lambda: fetch_finnhub_symbols(scanner=scanner))
+    elif source == "twelvedata":
+        symbols = _with_guard(lambda: fetch_twelvedata_symbols(scanner=scanner))
+    elif source == "textlist":
+        from app.sources.textlist_source import get_symbols as textlist_symbols
+
+        symbols = _with_guard(lambda: textlist_symbols(scanner=scanner))
+    elif source == "manual":
+        # handled by resolve_watchlist; keep placeholder
+        symbols = []
+    else:
+        symbols = _with_guard(lambda: fetch_alpha_vantage_symbols(scanner=scanner))
+        if not symbols:
+            symbols = _with_guard(lambda: fetch_finnhub_symbols(scanner=scanner))
+        if not symbols:
+            from app.sources.textlist_source import get_symbols as textlist_symbols
+
+            symbols = _with_guard(lambda: textlist_symbols(scanner=scanner))
+        if not symbols:
+            symbols = _with_guard(lambda: fetch_twelvedata_symbols(scanner=scanner))
+
+    symbols = _dedupe(symbols)
+    if sort == "alpha":
+        symbols = sorted(symbols)
+    if limit is not None and limit > 0:
+        symbols = symbols[:limit]
+    return symbols
 
 
 def _counter(name: str) -> dict[str, int]:

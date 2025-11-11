@@ -2,7 +2,7 @@
 title: Phase 1 — core runtime
 summary: Explains how the DAL turns vendor data into probabilistic signals for live trading.
 status: current
-last_updated: 2025-11-06
+last_updated: 2025-11-11
 type: explanation
 ---
 
@@ -15,7 +15,7 @@ Phase 1 explains how we turn raw market data into the probabilistic signals use
 ## Runtime flow
 
 1. **Symbol Universe**
-   - `app/services/watchlist_service.py` builds watchlists using DAL-backed vendors (`auto`, `alpha`, `finnhub`, `textlist`, `twelvedata`).
+   - `app/domain/watchlist_service.py` builds watchlists using DAL-backed vendors (`auto`, `alpha`, `finnhub`, `textlist`, `twelvedata`) and exposes `/tasks/watchlist` plus the Streamlit “Watchlist” pane.
    - The fallback sequence is Alpha Vantage → Finnhub → Textlist → Twelve Data so that the feature layer always has a non-empty symbol set.
 
 2. **Market Data DAL**
@@ -23,8 +23,8 @@ Phase 1 explains how we turn raw market data into the probabilistic signals use
    - `SignalFilteringAgent` runs Kalman/EMA/Butterworth filters to produce `SignalFrame` snapshots; `RegimeAnalysisAgent` tags each point with probabilistic regimes.
    - Results are cached to Parquet (`artifacts/marketdata/cache/…`) and optionally indexed in PostgreSQL for reproducibility.
 
-3. **Strategy Input**
-   - Strategies consume the DAL output directly. Breakout signalling is operational; momentum/mean-reversion consumers will reuse the same probabilistic features once complete.
+3. **Strategy & Orchestration**
+   - Strategies consume the DAL output directly. Breakout, momentum, and mean-reversion now share the LangGraph router (`app/orchestration/router.py`) which joins probabilistic features, computes priors, applies Fractional Kelly sizing, and publishes AEH order intents (or Alpaca paper orders when enabled).
    - A lightweight multi-timeframe aggregator remains available (`app/features/mtf_aggregate.py`) for scenarios that require raw OHLCV alignment instead of filtered series.
 
 4. **Risk & Execution Interfaces**
@@ -42,6 +42,6 @@ watchlist → MarketDataDAL → SignalFilteringAgent → Strategy → (future) R
 
 ## Open items
 
-- Wire momentum/mean-reversion strategies to the probabilistic feature set (Phase 3 dependency).
-- Finalise `RiskManagementAgent` to translate strategy signals into executable orders.
-- Expand test coverage so watchdog alerts flag when DAL fallbacks are triggered or parquet caches grow stale.
+- Replace stub priors with ACA services (`svc-priors`, `svc-nlp`) and feed their outputs into the LangGraph router.
+- Expand LangGraph regression tests (DAL ingest failures, risk/kill-switch paths) and surface metrics in the observability pipeline.
+- Continue hardening watchlist ingestion once Marketstack/Tiingo vendors land.

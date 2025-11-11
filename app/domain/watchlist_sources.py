@@ -13,9 +13,9 @@ TWELVEDATA_ENDPOINT = "https://api.twelvedata.com"
 
 
 def _normalize(symbols: Iterable[str]) -> List[str]:
-    uniq = []
-    seen = set()
-    for raw in symbols:
+    uniq: List[str] = []
+    seen: set[str] = set()
+    for raw in symbols or []:
         sym = (raw or "").strip().upper()
         if not sym or sym in seen:
             continue

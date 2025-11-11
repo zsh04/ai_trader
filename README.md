@@ -179,7 +179,7 @@ Unit/regression tests covering the DAL live under `tests/dal/`. Running `pytest 
 
 ### Watchlist Sources
 
-`app/services/watchlist_service.py` orchestrates symbol intake. Current options:
+`app/domain/watchlist_service.py` orchestrates symbol intake. Current options:
 
 - `auto` → Alpha Vantage listings, then Finnhub, then textlist, then Twelve Data.
 - `alpha` → direct pull from Alpha Vantage listings endpoint.

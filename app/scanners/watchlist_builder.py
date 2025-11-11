@@ -7,7 +7,7 @@ from loguru import logger
 
 from app.core.timeutils import now_utc, session_for
 from app.data.data_client import batch_latest_ohlcv, get_universe
-from app.services.watchlist_sources import (
+from app.domain.watchlist_sources import (
     fetch_alpha_vantage_symbols,
     fetch_finnhub_symbols,
     fetch_twelvedata_symbols,

@@ -22,6 +22,7 @@ from .backtest import router as backtest_router
 from .health import router as health_router
 from .ops import router as ops_router
 from .orchestration import router as orchestration_router
+from .tasks import public_router, tasks_router
 from .watchlists import router as watchlists_router
 
 router = APIRouter()
@@ -30,6 +31,8 @@ router.include_router(backtest_router)
 router.include_router(watchlists_router, prefix="/watchlists", tags=["watchlists"])
 router.include_router(ops_router)
 router.include_router(orchestration_router)
+router.include_router(tasks_router)
+router.include_router(public_router)
 
 
 def _include_optional(module_path: str, attr: str = "router") -> None:

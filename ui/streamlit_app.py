@@ -31,7 +31,7 @@ if load_dotenv:
 from app.logging_utils import setup_logging
 from app.observability import configure_observability
 from app.services.market_data import get_intraday_bars, get_market_snapshots
-from app.services.watchlist_service import build_watchlist
+from app.domain.watchlist_service import build_watchlist
 from app.utils import env as ENV
 
 FALLBACK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "SPY", "QQQ"]
