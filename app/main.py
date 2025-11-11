@@ -11,6 +11,7 @@ from loguru import logger
 
 import app as app_package  # noqa: F401  # ensure package __init__ (Sentry) runs
 from app.api.routes.health import router as health_router
+from app.api.routes.orchestration import router as orchestration_router
 from app.api.routes.tasks import public_router, tasks_router
 from app.config import settings
 from app.logging_utils import logging_context, setup_logging
@@ -52,6 +53,7 @@ app = FastAPI(title="AI Trader", version=settings.VERSION, lifespan=lifespan)
 app.include_router(health_router, prefix="/health", tags=["health"])
 app.include_router(tasks_router)
 app.include_router(public_router)
+app.include_router(orchestration_router)
 
 
 @app.middleware("http")

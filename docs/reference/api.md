@@ -35,6 +35,9 @@ Link/path to `openapi.yaml`.
 - `POST /backtests/sweeps` – Kick off parameter sweep (YAML config path or inline grid). Returns job ID; results streamed via Event Hubs + `/backtests/sweeps/{job_id}`.
 - `GET /backtests/sweeps/{job_id}` – Inspect sweep status/results.
 
+### Router / orchestration
+- `POST /router/run` – Execute the LangGraph router (ingest → priors → strategy → Fractional Kelly → enqueue). Body mirrors `RouterRequest` plus toggles `offline_mode`, `publish_orders`, `execute_orders`. Response includes run metadata, priors, and the generated `order_intent` (qty/notional/price hints). Requires Alpaca keys if `execute_orders=true`.
+
 ### Watchlists
 - `POST /tasks/watchlist` – Build watchlist (manual symbols or scanner).
 - `GET /tasks/watchlist` / `GET /watchlist` – Retrieve current watchlist snapshot.
