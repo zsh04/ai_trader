@@ -429,14 +429,12 @@
 │   ├── kv_sync_from_env.zsh
 │   ├── models
 │   │   └── populate_blob_from_hf.zsh
-│   ├── nat_egress_setup.zsh
 │   ├── order_consumer.py
 │   ├── smoke
 │   │   ├── curl_forecast.sh
 │   │   └── curl_nlp.sh
 │   ├── sweep_job_consumer.py
 │   ├── sweep_job_entry.py
-│   └── vent_setup.zsh
 ├── tests
 │   ├── __init__.py
 │   ├── adapters

@@ -1,3 +1,5 @@
+"""Legacy market data helpers for Streamlit dashboards."""
+
 from __future__ import annotations
 
 import logging
@@ -9,8 +11,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-from app.adapters.market.alpaca_client import AlpacaAuthError, AlpacaMarketClient
-from app.eventbus.publisher import publish_event
+from app.adapters.market.alpaca_client import AlpacaAuthError
 from app.utils import env as ENV
 
 try:  # optional dependency for redundancy
@@ -20,10 +21,9 @@ except ImportError:  # pragma: no cover
 
 ALPHAVANTAGE_URL = "https://www.alphavantage.co/query"
 FINNHUB_URL = "https://finnhub.io/api/v1"
-
-logger = logging.getLogger(__name__)
 TWELVEDATA_URL = "https://api.twelvedata.com"
 
+logger = logging.getLogger(__name__)
 
 Snapshot = Dict[str, Dict[str, Optional[float]]]
 
@@ -75,9 +75,7 @@ def _alpha_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optional[
             "apikey": api_key,
         }
         try:
-            resp = requests.get(
-                ALPHAVANTAGE_URL, params=params, timeout=ENV.HTTP_TIMEOUT
-            )
+            resp = requests.get(ALPHAVANTAGE_URL, params=params, timeout=ENV.HTTP_TIMEOUT)
             payload = (
                 resp.json().get("Global Quote", {}) if resp.status_code == 200 else {}
             )
@@ -86,7 +84,7 @@ def _alpha_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optional[
                 continue
             out[sym] = {
                 "latestTrade": {
-                    "price": price,
+                    "price": float(price),
                     "timestamp": payload.get("07. latest trading day") or _now_iso(),
                 },
                 "dailyBar": {
@@ -127,9 +125,7 @@ def _finnhub_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optiona
                 "latestTrade": {
                     "price": float(price),
                     "timestamp": (
-                        datetime.fromtimestamp(
-                            data.get("t", 0), tz=timezone.utc
-                        ).isoformat()
+                        datetime.fromtimestamp(data.get("t", 0), tz=timezone.utc).isoformat()
                         if data.get("t")
                         else _now_iso()
                     ),
@@ -146,29 +142,12 @@ def _finnhub_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optiona
             logger.warning("Finnhub quote fetch failed for %s: %s", sym, exc)
             continue
     note = "Finnhub" if out else None
-    if attempted:
-        telemetry = {
-            "type": "finnhub_quote",
-            "attempted": attempted,
-            "succeeded": len(out),
-            "failures": failures,
-            "symbols": list(symbols),
-            "timestamp": _now_iso(),
-        }
-        try:
-            publish_event("EH_HUB_SIGNALS", telemetry)
-        except Exception:
-            logger.debug("Telemetry publish failed for Finnhub quote telemetry")
     if note:
-        logger.info(
-            "Finnhub fallback served %s symbol(s) (attempted=%s)", len(out), attempted
-        )
+        logger.info("Finnhub fallback served %s symbol(s) (attempted=%s)", len(out), attempted)
     return out, note
 
 
-def _twelvedata_quote(
-    symbols: Sequence[str],
-) -> Tuple[Dict[str, Snapshot], Optional[str]]:
+def _twelvedata_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optional[str]]:
     api_key = os.getenv("TWELVEDATA_API_KEY") or getattr(ENV, "TWELVEDATA_API_KEY", "")
     if not api_key:
         return {}, None
@@ -212,42 +191,55 @@ def _yahoo_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optional[
     for sym in symbols:
         try:
             ticker = yf.Ticker(sym)
-            info = ticker.fast_info
-            price = info.get("lastPrice") or info.get("last_price")
-            if price in (None, 0):
+            info = ticker.info
+            price = info.get("regularMarketPrice")
+            if price is None:
                 continue
             out[sym] = {
-                "latestTrade": {"price": float(price), "timestamp": _now_iso()},
+                "latestTrade": {
+                    "price": float(price),
+                    "timestamp": info.get("regularMarketTime") or _now_iso(),
+                },
                 "dailyBar": {
-                    "o": float(info.get("open", 0.0)),
+                    "o": float(info.get("regularMarketOpen", 0.0)),
                     "c": float(price),
-                    "h": float(info.get("dayHigh", 0.0)),
-                    "l": float(info.get("dayLow", 0.0)),
+                    "h": float(info.get("regularMarketDayHigh", 0.0)),
+                    "l": float(info.get("regularMarketDayLow", 0.0)),
                 },
             }
         except Exception as exc:
-            logger.debug("Yahoo fast_info fetch failed for %s: %s", sym, exc)
+            logger.debug("Yahoo quote fetch failed for %s: %s", sym, exc)
             continue
     note = "Yahoo Finance" if out else None
     return out, note
 
 
+def _alpaca_headers() -> Optional[Dict[str, str]]:
+    key = ENV.ALPACA_API_KEY
+    secret = ENV.ALPACA_API_SECRET
+    if not key or not secret:
+        return None
+    return {"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret}
+
+
 def _alpaca_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optional[str]]:
-    try:
-        client = AlpacaMarketClient()
-    except Exception:
+    headers = _alpaca_headers()
+    if not headers:
         return {}, None
+    base_url = ENV.ALPACA_DATA_BASE_URL.rstrip("/")
     out: Dict[str, Snapshot] = {}
     for sym in symbols:
         try:
-            status, payload = client.snapshots([sym])
-            if status != 200:
+            resp = requests.get(
+                f"{base_url}/v2/stocks/{sym}/snapshot",
+                headers=headers,
+                timeout=ENV.HTTP_TIMEOUT,
+            )
+            if resp.status_code != 200:
                 continue
-            snap = (payload or {}).get(sym)
-            if not snap:
-                continue
-            trade = snap.get("latestTrade") or {}
-            bar = snap.get("dailyBar") or {}
+            payload = resp.json() or {}
+            trade = payload.get("latestTrade") or {}
+            bar = payload.get("dailyBar") or {}
             price = trade.get("price") or bar.get("c")
             if price is None:
                 continue
@@ -372,9 +364,7 @@ def _finnhub_bars(symbol: str, resolution: str, count: int) -> Optional[pd.DataF
         return None
 
 
-def _twelvedata_bars(
-    symbol: str, interval: str, outputsize: int
-) -> Optional[pd.DataFrame]:
+def _twelvedata_bars(symbol: str, interval: str, outputsize: int) -> Optional[pd.DataFrame]:
     api_key = os.getenv("TWELVEDATA_API_KEY") or getattr(ENV, "TWELVEDATA_API_KEY", "")
     if not api_key:
         return None
@@ -443,14 +433,6 @@ def _alpaca_bars(symbol: str, timeframe: str, limit: int) -> Optional[pd.DataFra
         return pd.DataFrame({"close": [v for _, v in rows]}, index=[t for t, _ in rows])
     except Exception:
         return None
-
-
-def _alpaca_headers() -> Optional[Dict[str, str]]:
-    key = ENV.ALPACA_API_KEY
-    secret = ENV.ALPACA_API_SECRET
-    if not key or not secret:
-        return None
-    return {"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret}
 
 
 def get_intraday_bars(symbol: str, *, timeframe: str = "1H") -> pd.DataFrame:

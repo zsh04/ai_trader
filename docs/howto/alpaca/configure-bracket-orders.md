@@ -34,23 +34,7 @@
 
 ## 3. Enable bracket orders in code
 
-`app/execution/alpaca_client.py` already supports bracket payloads. Ensure the `make_bracket_order` helper is configured before invoking the router.
-
-```python
-from app.execution.alpaca_client import AlpacaTradingClient
-
-client = AlpacaTradingClient()
-
-order = client.make_bracket_order(
-    symbol="AAPL",
-    qty=10,
-    side="buy",
-    limit_price=190.25,
-    take_profit_price=194.00,
-    stop_loss_price=188.50,
-)
-client.submit_order(order)
-```
+`app.execution.alpaca_client.AlpacaTradingClient` exposes bracket helpers; configure and submit through that class when routing via Alpaca.
 
 Key parameters:
 
@@ -71,9 +55,9 @@ Key parameters:
 
 ## 5. Integrate with AI Trader strategies
 
-- In `app/agent/policy.py`, ensure the strategy emits structured signals containing `entry`, `take_profit`, and `stop_loss` fields.
-- The in-progress `RiskManagementAgent` translates those signals into bracket orders using the helper described earlier.
-- For the breakout command-line runs/backtests, feature flags (`--risk-frac-override`, upcoming `--use-brackets`) route through the same helper for parity.
+- In `app/agent/policy.py`, ensure strategies emit `entry`/`take_profit`/`stop_loss` fields so `AlpacaTradingClient` can assemble brackets.
+- The `RiskManagementAgent` translates router results into bracket orders via the Alpaca adapter.
+- Backtests and CLI runs use the same adapter path (feature flags route into `AlpacaTradingClient`).
 
 ## 6. Monitor and troubleshoot
 
