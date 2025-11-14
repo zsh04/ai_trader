@@ -9,6 +9,8 @@ from typing import Any, Dict, Iterable, Optional
 from langgraph.graph import END, StateGraph
 from loguru import logger
 
+from app.telemetry import router as router_telemetry
+
 from . import nodes
 from .types import RouterContext, RouterRequest, RouterResult
 
@@ -50,7 +52,14 @@ def run_router(
 ) -> RouterResult:
     ctx = context or RouterContext()
     state = _initial_state(request, ctx)
-    final_state = _ROUTER.invoke(state)
+    attributes = {
+        "symbol": request.symbol,
+        "strategy": request.strategy,
+        "run_id": ctx.run_id,
+    }
+    with router_telemetry.start_router_span(attributes):
+        final_state = _ROUTER.invoke(state)
+        router_telemetry.record_run(attributes)
     nodes.annotate_latency(final_state, state["started_ns"])
     return RouterResult(
         run_id=ctx.run_id,

@@ -14,6 +14,7 @@ from app.agent.risk import FractionalKellyAgent
 from app.dal.manager import MarketDataDAL
 from app.eventbus.publisher import publish_event
 from app.execution.alpaca_client import AlpacaClient, ExecutionError
+from app.telemetry import router as router_telemetry
 from app.probability.pipeline import join_probabilistic_features
 from app.probability.storage import (
     load_probabilistic_frame,
@@ -42,84 +43,85 @@ def _ensure_dates(req: RouterRequest, ctx: RouterContext) -> tuple[datetime, dat
 
 
 def ingest_frame(state: RouterState) -> RouterState:
-    if state.get("halt"):
-        return state
-    req: RouterRequest = state["request"]
-    ctx: RouterContext = state["context"]
-    start, end = _ensure_dates(req, ctx)
-    path = Path(ctx.manifest_root)
-    path.mkdir(parents=True, exist_ok=True)
+    with router_telemetry.start_node_span("ingest_frame"):
+        if state.get("halt"):
+            return state
+        req: RouterRequest = state["request"]
+        ctx: RouterContext = state["context"]
+        start, end = _ensure_dates(req, ctx)
+        path = Path(ctx.manifest_root)
+        path.mkdir(parents=True, exist_ok=True)
 
-    if ctx.offline_mode:
-        synthetic = _synthetic_frame(req.symbol, start, end)
-        if synthetic is None:
-            state["errors"].append("ingest:synthetic-empty")
-            state["halt"] = True
-            state["fallback_reason"] = "synthetic_failed"
-        else:
-            state["frame"] = synthetic
-            state["events"].append("ingest:synthetic")
-        return state
+        if ctx.offline_mode:
+            synthetic = _synthetic_frame(req.symbol, start, end)
+            if synthetic is None:
+                state["errors"].append("ingest:synthetic-empty")
+                state["halt"] = True
+                state["fallback_reason"] = "synthetic_failed"
+            else:
+                state["frame"] = synthetic
+                state["events"].append("ingest:synthetic")
+            return state
 
-    cached = load_probabilistic_frame(
-        req.symbol,
-        req.strategy,
-        vendor=req.dal_vendor,
-        interval=req.dal_interval.lower(),
-        root=path,
-    )
-    if cached is not None and not cached.empty and not req.use_probabilistic:
-        state["frame"] = cached
-        state["prob_frame_path"] = str(
-            path
-            / f"{req.symbol.upper()}_{req.strategy.lower()}_{req.dal_vendor.lower()}_{req.dal_interval.lower()}.parquet"
-        )
-        state["events"].append("ingest:manifest-hit")
-        return state
-
-    dal = state.get("dal_instance")
-    if dal is None:
-        dal = MarketDataDAL(enable_postgres_metadata=False)
-        state["dal_instance"] = dal
-
-    try:
-        batch = dal.fetch_bars(
-            req.symbol,
-            start=start,
-            end=end,
-            interval=req.dal_interval,
-            vendor=req.dal_vendor,
-        )
-        df = batch.bars.to_dataframe().copy()
-        if df.empty:
-            raise RuntimeError("empty bar set")
-        prob = join_probabilistic_features(
-            df, signals=batch.signals, regimes=batch.regimes
-        )
-        state["frame"] = prob
-        path_str = persist_probabilistic_frame(
+        cached = load_probabilistic_frame(
             req.symbol,
             req.strategy,
-            prob,
             vendor=req.dal_vendor,
-            interval=req.dal_interval,
+            interval=req.dal_interval.lower(),
             root=path,
-            source="router",
         )
-        if path_str:
-            state["prob_frame_path"] = str(path_str)
-        state["events"].append("ingest:dal")
-    except Exception as exc:  # pragma: no cover - network/runtime
-        logger.warning("Router ingest failed: {}", exc)
-        synthetic = _synthetic_frame(req.symbol, start, end)
-        if synthetic is not None:
-            state["frame"] = synthetic
-            state["events"].append("ingest:synthetic")
-        else:
-            state["errors"].append(f"ingest:{exc}")
-            state["halt"] = True
-            state["fallback_reason"] = "dal_ingest_failed"
-    return state
+        if cached is not None and not cached.empty and not req.use_probabilistic:
+            state["frame"] = cached
+            state["prob_frame_path"] = str(
+                path
+                / f"{req.symbol.upper()}_{req.strategy.lower()}_{req.dal_vendor.lower()}_{req.dal_interval.lower()}.parquet"
+            )
+            state["events"].append("ingest:manifest-hit")
+            return state
+
+        dal = state.get("dal_instance")
+        if dal is None:
+            dal = MarketDataDAL(enable_postgres_metadata=False)
+            state["dal_instance"] = dal
+
+        try:
+            batch = dal.fetch_bars(
+                req.symbol,
+                start=start,
+                end=end,
+                interval=req.dal_interval,
+                vendor=req.dal_vendor,
+            )
+            df = batch.bars.to_dataframe().copy()
+            if df.empty:
+                raise RuntimeError("empty bar set")
+            prob = join_probabilistic_features(
+                df, signals=batch.signals, regimes=batch.regimes
+            )
+            state["frame"] = prob
+            path_str = persist_probabilistic_frame(
+                req.symbol,
+                req.strategy,
+                prob,
+                vendor=req.dal_vendor,
+                interval=req.dal_interval,
+                root=path,
+                source="router",
+            )
+            if path_str:
+                state["prob_frame_path"] = str(path_str)
+            state["events"].append("ingest:dal")
+        except Exception as exc:  # pragma: no cover - network/runtime
+            logger.warning("Router ingest failed: {}", exc)
+            synthetic = _synthetic_frame(req.symbol, start, end)
+            if synthetic is not None:
+                state["frame"] = synthetic
+                state["events"].append("ingest:synthetic")
+            else:
+                state["errors"].append(f"ingest:{exc}")
+                state["halt"] = True
+                state["fallback_reason"] = "dal_ingest_failed"
+        return state
 
 
 def infer_priors(state: RouterState) -> RouterState:
@@ -131,35 +133,36 @@ def infer_priors(state: RouterState) -> RouterState:
         state["halt"] = True
         state["fallback_reason"] = "no_frame"
         return state
-    try:
-        tail = frame.tail(60)
-        returns = (
-            tail["close"].pct_change().dropna()
-            if "close" in tail.columns
-            else pd.Series(dtype=float)
-        )
-        win_prob = float((returns > 0).mean()) if not returns.empty else 0.55
-        vol_hint = float(returns.std()) if not returns.empty else 0.02
-        avg_return = float(returns.mean()) if not returns.empty else 0.0
-        payoff = max(1.1, 1.0 + abs(avg_return) * 50)
-        priors = {
-            "win_prob": max(0.05, min(0.95, win_prob)),
-            "payoff": payoff,
-            "vol_hint": vol_hint,
-            "avg_return": avg_return,
-            "regime": (
-                tail.get("regime_label").iloc[-1]
-                if "regime_label" in tail.columns
-                else "unknown"
-            ),
-        }
-        state["priors"] = priors
-        state["events"].append("priors:computed")
-    except Exception as exc:  # pragma: no cover - defensive
-        state["errors"].append(f"priors:{exc}")
-        state["halt"] = True
-        state["fallback_reason"] = "priors_failed"
-    return state
+    with router_telemetry.start_node_span("infer_priors"):
+        try:
+            tail = frame.tail(60)
+            returns = (
+                tail["close"].pct_change().dropna()
+                if "close" in tail.columns
+                else pd.Series(dtype=float)
+            )
+            win_prob = float((returns > 0).mean()) if not returns.empty else 0.55
+            vol_hint = float(returns.std()) if not returns.empty else 0.02
+            avg_return = float(returns.mean()) if not returns.empty else 0.0
+            payoff = max(1.1, 1.0 + abs(avg_return) * 50)
+            priors = {
+                "win_prob": max(0.05, min(0.95, win_prob)),
+                "payoff": payoff,
+                "vol_hint": vol_hint,
+                "avg_return": avg_return,
+                "regime": (
+                    tail.get("regime_label").iloc[-1]
+                    if "regime_label" in tail.columns
+                    else "unknown"
+                ),
+            }
+            state["priors"] = priors
+            state["events"].append("priors:computed")
+        except Exception as exc:  # pragma: no cover - defensive
+            state["errors"].append(f"priors:{exc}")
+            state["halt"] = True
+            state["fallback_reason"] = "priors_failed"
+        return state
 
 
 def pick_strategy(state: RouterState) -> RouterState:
@@ -193,21 +196,32 @@ def risk_size(state: RouterState) -> RouterState:
     ctx: RouterContext = state["context"]
     req: RouterRequest = state["request"]
     priors = state.get("priors") or {"win_prob": 0.55, "payoff": 1.5}
-    agent = FractionalKellyAgent(fraction=ctx.risk_agent_fraction)
-    prob = float(priors.get("win_prob", 0.55))
-    payoff = float(priors.get("payoff", 1.5))
-    frac = agent(probability=prob, payoff=payoff)
-    notional = max(
-        req.min_notional, min(frac * ctx.kill_switch_notional, req.max_notional)
-    )
-    state["risk"] = {
-        "kelly_fraction": frac,
-        "target_notional": notional,
-        "probability": prob,
-        "payoff": payoff,
-    }
-    state["events"].append("risk:fractional_kelly")
-    return state
+    with router_telemetry.start_node_span("risk_size"):
+        if ctx.kill_switch_active:
+            state["events"].append("risk:kill_switch")
+            state["halt"] = True
+            state["fallback_reason"] = ctx.kill_switch_reason or "kill_switch"
+            return state
+        agent = FractionalKellyAgent(fraction=ctx.risk_agent_fraction)
+        prob = float(priors.get("win_prob", 0.55))
+        payoff = float(priors.get("payoff", 1.5))
+        frac = agent(probability=prob, payoff=payoff)
+        notional = max(
+            req.min_notional, min(frac * ctx.kill_switch_notional, req.max_notional)
+        )
+        if notional >= ctx.kill_switch_notional:
+            state["events"].append("risk:kill_switch")
+            state["halt"] = True
+            state["fallback_reason"] = "kill_switch_notional"
+            return state
+        state["risk"] = {
+            "kelly_fraction": frac,
+            "target_notional": notional,
+            "probability": prob,
+            "payoff": payoff,
+        }
+        state["events"].append("risk:fractional_kelly")
+        return state
 
 
 def enqueue_order(state: RouterState) -> RouterState:
@@ -238,12 +252,13 @@ def enqueue_order(state: RouterState) -> RouterState:
     }
     state["order_intent"] = intent
     if ctx.publish_orders:
-        try:
-            publish_event("EH_HUB_ORDERS", intent)
-            state["events"].append("order:published")
-        except Exception as exc:  # pragma: no cover - fire and forget
-            logger.warning("Failed to publish order intent: {}", exc)
-            state["errors"].append(f"enqueue:{exc}")
+        with router_telemetry.start_node_span("publish_order"):
+            try:
+                publish_event("EH_HUB_ORDERS", intent)
+                state["events"].append("order:published")
+            except Exception as exc:  # pragma: no cover - fire and forget
+                logger.warning("Failed to publish order intent: {}", exc)
+                state["errors"].append(f"enqueue:{exc}")
     else:
         state["events"].append("order:simulated")
 
@@ -257,13 +272,14 @@ def enqueue_order(state: RouterState) -> RouterState:
             )
             state["_alpaca_client"] = client
         try:
-            order_id = client.place_bracket_order(
-                symbol=req.symbol,
-                side=req.side,
-                qty=qty,
-                tp_pct=ctx.tp_pct,
-                sl_pct=ctx.sl_pct,
-            )
+            with router_telemetry.start_node_span("execute_order"):
+                order_id = client.place_bracket_order(
+                    symbol=req.symbol,
+                    side=req.side,
+                    qty=qty,
+                    tp_pct=ctx.tp_pct,
+                    sl_pct=ctx.sl_pct,
+                )
             intent["broker_order_id"] = order_id
             state["events"].append("order:executed")
         except ExecutionError as exc:  # pragma: no cover - depends on broker

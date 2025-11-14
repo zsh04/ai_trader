@@ -2,7 +2,7 @@
 title: AI Trader architecture — system snapshot
 summary: High-level view of how the DAL, FastAPI services, strategies, and observability pieces fit together.
 status: current
-last_updated: 2025-11-06
+last_updated: 2025-11-11
 type: explanation
 ---
 
@@ -32,10 +32,10 @@ AI Trader is intentionally modular: the probabilistic Market Data Data Abstract
          │ feeds strategies                │ OTEL/JSON logs
          ▼                                 ▼
 ┌────────────────────────────┐  ┌──────────────────────┐
-│ Strategy & Risk Modules    │  │ Observability Stack  │
-│ • Breakout (active)        │  │ • OTEL → App Insights│
-│ • Momentum/MeanRev (WIP)   │  │ • Structured logging │
-│ • RiskManagementAgent (WIP)│  │ • Azure Monitor      │
+│ LangGraph Router & Risk    │  │ Observability Stack  │
+│ • Breakout/Momentum/MeanRev│  │ • OTEL → App Insights│
+│ • Fractional Kelly sizing  │  │ • Structured logging │
+│ • AEH exec.orders flows    │  │ • Azure Monitor      │
 └────────────────────────────┘  └──────────────────────┘
 ```
 
@@ -51,10 +51,10 @@ AI Trader is intentionally modular: the probabilistic Market Data Data Abstract
 - **How:** FastAPI routes wrap the DAL and share fallback rules. Background tasks (pending) will drive scheduled premarket scans and refresh windows.
 - **Status:** Health/watchlist/backtest endpoints are live; jobs will land alongside Phase 2 completion.
 
-### Strategy & risk (`app/agent`, `app/strats`)
-- **Why:** Probabilistic features must be consumed consistently by breakout/momentum/mean-reversion strategies before any orders leave the system.
-- **How:** `SignalFilteringAgent` and `RegimeAnalysisAgent` deliver filtered price, velocity, and uncertainty. The forthcoming `RiskManagementAgent` will apply fractional Kelly sizing and guardrails.
-- **Status:** Breakout strategy runs today; momentum/mean-reversion scaffolding is staged. Risk management will be completed in Phase 4.
+### LangGraph router, strategy & risk (`app/orchestration`, `app/agent`, `app/strats`)
+- **Why:** Probabilistic features must be consumed consistently and routed through deterministic guardrails (Fractional Kelly, kill-switch) before orders leave the system.
+- **How:** `app/orchestration/router.py` uses LangGraph to chain ingest → priors → strategy selection → risk sizing → AEH publish/optional Alpaca execution, with per-node OTEL spans plus Event Hub telemetry.
+- **Status:** Breakout, momentum, and mean-reversion all flow through the router; AEH `exec.orders` consumer persists intents to Postgres; kill-switches are live. Priors/NLP ACA services are the next enhancement.
 
 ### Execution & persistence (`app/execution`, `app/db`, `app/adapters/market`)
 - **Why:** Order routing and storage must remain insulated from strategy experiments.
@@ -63,8 +63,8 @@ AI Trader is intentionally modular: the probabilistic Market Data Data Abstract
 
 ### Observability & UI (`app/observability`, `app/monitoring`, `app/logging_utils`)
 - **Why:** Without consistent telemetry we cannot trust autonomous execution.
-- **How:** OTEL instrumentation tags every request with trace IDs, env, and version. Streamlit dashboards visualise probabilistic metrics, watchlists, and operations alongside the API.
-- **Status:** Instrumentation is active; Streamlit runs in a dedicated container awaiting final polish.
+- **How:** OTEL instrumentation tags API/router spans (`router.run`, `router.node.*`) with strategy/run metadata, and Grafana dashboards track SLOs (router p95, Event Hub lag). Streamlit dashboards surface watchlists, sweeps, and router orders from the new manifest/log feeds.
+- **Status:** Instrumentation is active end-to-end; remaining work is Grafana automation + alert hooks (described in the observability runbook).
 
 ### Tooling & automation (`scripts/`, GitHub Actions, Azure resources)
 - **Why:** Reproducible environments and deployments keep agents trustworthy.

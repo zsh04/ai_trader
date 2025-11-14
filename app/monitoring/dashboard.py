@@ -23,6 +23,7 @@ from typing import Dict, List, Optional, Tuple
 import altair as alt
 import numpy as np
 import pandas as pd
+import requests
 import streamlit as st
 
 from app.adapters.db.postgres import get_session
@@ -118,6 +119,8 @@ st.markdown(
 # Configuration & Caching
 # -----------------------------------------------------------------------------
 DB_URL_RAW = os.getenv("DATABASE_URL", "")
+API_BASE_URL = os.getenv("API_BASE_URL", "").rstrip("/")
+API_BEARER_TOKEN = os.getenv("API_BEARER_TOKEN")
 DB_URL = DB_URL_RAW.strip().strip("'\"")
 TZ_LOCAL = os.getenv("DASHBOARD_TZ", "America/New_York")
 DEFAULT_SYMBOLS = os.getenv("DASHBOARD_SYMBOLS", "AAPL,MSFT,NVDA,SPY,QQQ")
@@ -168,6 +171,25 @@ def _session_scope():
         session.close()
 
 
+def _call_api(path: str, params: Optional[dict] = None) -> Optional[List[dict]]:
+    if not API_BASE_URL:
+        return None
+    url = f"{API_BASE_URL}{path}" if path.startswith("/") else f"{API_BASE_URL}/{path}"
+    headers = {"User-Agent": "ai-trader-ui"}
+    if API_BEARER_TOKEN:
+        headers["Authorization"] = f"Bearer {API_BEARER_TOKEN}"
+    try:
+        resp = requests.get(url, params=params, headers=headers, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        if isinstance(data, list):
+            return data
+        return None
+    except Exception as exc:  # pragma: no cover - network optional
+        st.warning(f"API request failed ({path}): {exc}")
+        return None
+
+
 @st.cache_data(show_spinner=False, ttl=60)
 def _load_sweep_records(limit: int = 5) -> Optional[pd.DataFrame]:
     if not SWEEP_BASE_DIR.exists():
@@ -207,6 +229,60 @@ def _load_sweep_records(limit: int = 5) -> Optional[pd.DataFrame]:
     df = pd.DataFrame(rows)
     df["_timestamp"] = pd.to_datetime(df["sweep_timestamp"], errors="coerce")
     return df
+
+
+@st.cache_data(show_spinner=False, ttl=60)
+def _load_sweep_jobs(limit: int = 20) -> Optional[pd.DataFrame]:
+    data = _call_api("/backtests/sweeps/jobs", params={"limit": limit})
+    if not data:
+        return None
+    df = pd.DataFrame(data)
+    if df.empty:
+        return None
+    if "ts" in df.columns:
+        df["ts"] = pd.to_datetime(df["ts"], errors="coerce")
+        df = df.sort_values("ts", ascending=False)
+    return df
+
+
+def _render_sweep_kpis(df: pd.DataFrame) -> None:
+    completed = df[df.get("status") == "completed"].copy()
+    running = df[df.get("status") == "running"].copy()
+    queued = df[df.get("status") == "queued"].copy()
+    col_a, col_b, col_c, col_d = st.columns(4)
+    col_a.metric("Completed", len(completed))
+    col_b.metric("Running", len(running))
+    col_c.metric("Queued", len(queued))
+    eta_minutes = "–"
+    if not completed.empty and len(running) > 0:
+        avg_duration = completed.get("duration_ms").dropna().mean()
+        if avg_duration:
+            eta_minutes = f"{(avg_duration / 60000.0) * len(running):.1f}"
+    col_d.metric("ETA (min)", eta_minutes)
+
+
+def _render_sweep_throughput(df: pd.DataFrame) -> None:
+    completed = df[df.get("status") == "completed"].copy()
+    if completed.empty or "ts" not in completed.columns:
+        return
+    completed["ts"] = pd.to_datetime(completed["ts"], errors="coerce")
+    completed = completed.dropna(subset=["ts"])
+    if completed.empty:
+        return
+    hourly = (
+        completed.set_index("ts").resample("1H").size().reset_index(name="jobs")
+    )
+    chart = (
+        alt.Chart(hourly)
+        .mark_bar(color="#38bdf8")
+        .encode(
+            x=alt.X("ts:T", title="Hour"),
+            y=alt.Y("jobs:Q", title="Jobs completed"),
+            tooltip=[alt.Tooltip("ts:T"), alt.Tooltip("jobs:Q")],
+        )
+        .properties(height=220)
+    )
+    st.altair_chart(chart, use_container_width=True)
 
 
 @st.cache_data(show_spinner=False, ttl=60)
@@ -313,8 +389,7 @@ def _fetch_equity_from_db(since: datetime) -> Optional[pd.DataFrame]:
         return None
 
 
-@st.cache_data(show_spinner=False, ttl=30)
-def _fetch_trades_from_db(
+def _get_trades_from_db(
     since: datetime, symbols: List[str] | None
 ) -> Optional[pd.DataFrame]:
     if not DB_URL:
@@ -348,6 +423,108 @@ def _fetch_trades_from_db(
     except Exception as exc:  # pragma: no cover
         st.warning(f"Trade query failed: {exc}")
         return None
+
+
+def _get_trades_from_api(
+    since: datetime, symbols: List[str] | None
+) -> Optional[pd.DataFrame]:
+    params = {"limit": 150}
+    if symbols and len(symbols) == 1:
+        params["symbol"] = symbols[0]
+    data = _call_api("/fills/", params)
+    if not data:
+        return None
+    df = pd.DataFrame(data)
+    if df.empty:
+        return None
+    df.rename(
+        columns={
+            "symbol": "Symbol",
+            "side": "Side",
+            "qty": "Qty",
+            "price": "Entry Price",
+            "pnl": "PnL",
+            "filled_at": "Timestamp",
+        },
+        inplace=True,
+    )
+    df["Side"] = df["Side"].str.upper()
+    df["Qty"] = df["Qty"].astype(float)
+    df["Entry Price"] = df["Entry Price"].astype(float)
+    df["Timestamp"] = pd.to_datetime(df["Timestamp"], utc=True, errors="coerce")
+    return df
+
+
+@st.cache_data(show_spinner=False, ttl=30)
+def _fetch_trades(
+    since: datetime, symbols: List[str] | None
+) -> Optional[pd.DataFrame]:
+    return _get_trades_from_db(since, symbols) or _get_trades_from_api(since, symbols)
+
+
+def _get_orders_from_db(limit: int = 50) -> Optional[pd.DataFrame]:
+    if not DB_URL:
+        return None
+    try:
+        with _session_scope() as session:
+            if session is None:
+                return None
+            repo = TradingRepository(session)
+            orders = repo.recent_orders(limit=limit)
+        if not orders:
+            return None
+        rows = []
+        for order in orders:
+            raw = (order.raw_payload or {}) if hasattr(order, "raw_payload") else {}
+            rows.append(
+                {
+                    "Symbol": getattr(order, "symbol", ""),
+                    "Side": getattr(order, "side", "").upper(),
+                    "Qty": float(getattr(order, "qty", 0) or 0),
+                    "Status": getattr(order, "status", ""),
+                    "Strategy": raw.get("strategy"),
+                    "Run": raw.get("run_id"),
+                    "Submitted": getattr(order, "submitted_at", None),
+                }
+            )
+        df = pd.DataFrame.from_records(rows)
+        if df.empty:
+            return None
+        if df["Submitted"].dtype.tz is None:
+            df["Submitted"] = pd.to_datetime(df["Submitted"], utc=True)
+        return df
+    except Exception as exc:  # pragma: no cover
+        st.warning(f"Order query failed: {exc}")
+        return None
+
+
+def _get_orders_from_api(limit: int = 50) -> Optional[pd.DataFrame]:
+    data = _call_api("/orders/", {"limit": limit})
+    if not data:
+        return None
+    df = pd.DataFrame(data)
+    if df.empty:
+        return None
+    df.rename(
+        columns={
+            "symbol": "Symbol",
+            "side": "Side",
+            "qty": "Qty",
+            "status": "Status",
+            "strategy": "Strategy",
+            "run_id": "Run",
+            "submitted_at": "Submitted",
+        },
+        inplace=True,
+    )
+    df["Side"] = df["Side"].str.upper()
+    df["Submitted"] = pd.to_datetime(df["Submitted"], utc=True, errors="coerce")
+    return df
+
+
+@st.cache_data(show_spinner=False, ttl=30)
+def _fetch_orders(limit: int = 50) -> Optional[pd.DataFrame]:
+    return _get_orders_from_db(limit) or _get_orders_from_api(limit)
 
 
 # -----------------------------------------------------------------------------
@@ -703,14 +880,39 @@ with st.expander("Backtest Sweeps", expanded=False):
                 st.json(_frame_metadata(manual_df))
                 _render_dataframe(manual_df.tail(50), height=240)
 
+        st.markdown("###### Sweep Job Queue")
+        jobs_df = _load_sweep_jobs(limit=200)
+        if jobs_df is None or jobs_df.empty:
+            st.info("No sweep job records yet. Use /backtests/sweeps to queue jobs.")
+        else:
+            _render_sweep_kpis(jobs_df)
+            jobs_df = jobs_df.rename(
+                columns={
+                    "job_id": "Job",
+                    "status": "Status",
+                    "strategy": "Strategy",
+                    "symbol": "Symbol",
+                    "ts": "Timestamp",
+                    "results_count": "Results",
+                    "duration_ms": "Duration (ms)",
+                }
+            )
+            if "Timestamp" in jobs_df.columns:
+                jobs_df["Timestamp"] = pd.to_datetime(
+                    jobs_df["Timestamp"], errors="coerce"
+                )
+            _render_dataframe(jobs_df.head(20), height=280)
+            st.caption("Hourly throughput (completed jobs)")
+            _render_sweep_throughput(jobs_df.rename(columns={"Timestamp": "ts"}))
+
 # -----------------------------------------------------------------------------
 # Trades & Positions
 # -----------------------------------------------------------------------------
-lower_tabs = st.tabs(["Recent Trades", "Positions", "Operational Notes"])
+lower_tabs = st.tabs(["Recent Trades", "Positions", "Orders", "Operational Notes"])
 
 with lower_tabs[0]:
     st.markdown("##### Blotter (latest 150 fills)")
-    trades_df = _fetch_trades_from_db(since, symbols) or pd.DataFrame()
+    trades_df = _fetch_trades(since, symbols) or pd.DataFrame()
     if trades_df.empty:
         demo_trades = pd.DataFrame(
             {
@@ -749,6 +951,18 @@ with lower_tabs[1]:
     )
 
 with lower_tabs[2]:
+    st.markdown("##### Router Orders (latest)")
+    orders_df = _fetch_orders(limit=50)
+    if orders_df is None or orders_df.empty:
+        st.info(
+            "No orders captured yet. Trigger `/router/run` with `publish_orders=true`."
+        )
+    else:
+        df = orders_df.copy()
+        df["Qty"] = df["Qty"].round(4)
+        _render_dataframe(df, height=320)
+
+with lower_tabs[3]:
     st.markdown("##### Operational Alerts & Notes")
     st.write(
         """

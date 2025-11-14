@@ -45,6 +45,12 @@
 - Metrics: check `customMetrics` (or standard runtime metrics) and inspect collector logs for export success.
 - Alerts/dashboards: verify Log Analytics workbooks and Azure Monitor alerts (latency/5xx) are in place.
 
+### Router spans & Event Hub lag
+
+- `router.run` spans include attributes `symbol`, `strategy`, `run_id`, and link to child spans `router.node.ingest_frame`, `router.node.infer_priors`, `router.node.risk_size`, `router.node.publish_order`, `router.node.execute_order` when the corresponding toggles fire. Filter traces by `service.name=ai-trader-api` and span name prefix `router.` to validate orchestration observability.
+- Grafana panels should chart `router_runs_total` (success rate) and the OTEL latency histogram (p95 budget 1.2s). Add SLO alerts mirroring Phase 3 acceptance: warn at p95 > 1.2s for 5 min, page at > 2.0s for 5 min.
+- Event Hub lag: emit Azure Monitor metrics for `ai-trader-ehns/exec.orders` and alert if consumer lag > 60 s sustained over 5 min (warn) or 3 min (page). The new order consumer logs `partition_id`, `sequence_number`, and `lag_ms` (via Log Analytics query) so you can correlate router output with downstream processing.
+
 ## Troubleshooting
 
 - **No data appears** → validate `OTEL_*` settings resolved (Key Vault refs healthy) and App Service has outbound access.

@@ -5,6 +5,7 @@ import itertools
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+from time import perf_counter
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
@@ -12,8 +13,10 @@ import yaml
 from loguru import logger
 
 from app.backtest.run_breakout import _run_backtest_core
+from app.backtest import sweep_registry
 from app.eventbus.publisher import publish_event
 from app.telemetry.backtest import record_run, start_span
+from app.backtest import sweep_registry
 
 
 def _load_config(path: Path) -> Dict[str, Any]:
@@ -121,7 +124,12 @@ def _execute_job(
     return payload
 
 
-def run_sweep(config_path: Path) -> Dict[str, Any]:
+def run_sweep(
+    config_path: Path,
+    *,
+    job_id: str | None = None,
+    mode: str = "local",
+) -> Dict[str, Any]:
     cfg = _load_config(config_path)
     base_kwargs = _prepare_base_kwargs(cfg)
     param_grid = cfg.get("params", {}) or {}
@@ -132,31 +140,65 @@ def run_sweep(config_path: Path) -> Dict[str, Any]:
     )
     sweep_dir = base_output / timestamp
     sweep_dir.mkdir(parents=True, exist_ok=True)
-    logger.info("[sweep] starting run dir=%s jobs=%s", sweep_dir, len(combos))
+    job_ref = job_id or timestamp
+    sweep_registry.record_job_event(
+        job_ref,
+        "running",
+        strategy=base_kwargs.get("strategy"),
+        symbol=base_kwargs.get("symbol"),
+        config_path=str(config_path),
+        mode=mode,
+        started_at=datetime.now(timezone.utc).isoformat(),
+    )
+    logger.info(
+        "[sweep] starting job=%s dir=%s jobs=%s", job_ref, sweep_dir, len(combos)
+    )
+    started = perf_counter()
     results: List[Dict[str, Any]] = []
     max_workers = int(cfg.get("max_workers", min(4, len(combos) or 1))) or 1
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_map = {
-            executor.submit(_execute_job, idx, base_kwargs, params, sweep_dir): (
-                idx,
-                params,
-            )
-            for idx, params in enumerate(combos, start=1)
-        }
-        for future in as_completed(future_map):
-            job_idx, params = future_map[future]
-            try:
-                payload = future.result()
-            except Exception as exc:
-                logger.exception("[sweep] job=%s failed: %s", job_idx, exc)
-                continue
-            results.append(payload)
+    try:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_map = {
+                executor.submit(_execute_job, idx, base_kwargs, params, sweep_dir): (
+                    idx,
+                    params,
+                )
+                for idx, params in enumerate(combos, start=1)
+            }
+            for future in as_completed(future_map):
+                job_idx, params = future_map[future]
+                try:
+                    payload = future.result()
+                except Exception as exc:
+                    logger.exception("[sweep] job=%s failed: %s", job_idx, exc)
+                    continue
+                results.append(payload)
+    except Exception:
+        sweep_registry.record_job_event(
+            job_ref,
+            "failed",
+            finished_at=datetime.now(timezone.utc).isoformat(),
+        )
+        raise
     summary_path = sweep_dir / "summary.jsonl"
     with summary_path.open("w") as handle:
         for record in results:
             handle.write(json.dumps(record, default=str) + "\n")
-    logger.info("[sweep] completed dir=%s succeeded=%s", sweep_dir, len(results))
+    duration_ms = (perf_counter() - started) * 1000.0
+    sweep_registry.record_job_event(
+        job_ref,
+        "completed",
+        sweep_dir=str(sweep_dir),
+        summary_path=str(summary_path),
+        results_count=len(results),
+        finished_at=datetime.now(timezone.utc).isoformat(),
+        duration_ms=duration_ms,
+    )
+    logger.info(
+        "[sweep] completed job=%s dir=%s succeeded=%s", job_ref, sweep_dir, len(results)
+    )
     return {
+        "job_id": job_ref,
         "sweep_dir": str(sweep_dir),
         "summary_path": str(summary_path),
         "results": results,

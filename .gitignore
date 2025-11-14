@@ -35,6 +35,7 @@ data/
 # Runtime artefacts
 ai-trader-logs/
 *.log
+/models-cache/
 
 # Local ops artifacts
 ops/delta/

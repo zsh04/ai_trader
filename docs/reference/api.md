@@ -3,7 +3,7 @@ title: "API Reference"
 doc_type: reference
 audience: intermediate
 product_area: ops
-last_verified: 2025-11-10
+last_verified: 2025-11-11
 toc: true
 ---
 
@@ -34,15 +34,22 @@ Link/path to `openapi.yaml`.
   Response bundles metrics, equity CSV path, and `prob_frame_path` so Streamlit/UI can replay the persisted probabilistic frame without re-fetching vendors.
 - `POST /backtests/sweeps` – Kick off parameter sweep (YAML config path or inline grid). Returns job ID; results streamed via Event Hubs + `/backtests/sweeps/{job_id}`.
 - `GET /backtests/sweeps/{job_id}` – Inspect sweep status/results.
+- `GET /backtests/sweeps/jobs` – List sweep job manifest entries (queued/running/completed) with duration/strategy metadata.
+- `GET /backtests/sweeps/jobs/{job_id}` – Filter manifest entries for a specific job ID.
+- `POST /backtests/sweeps/jobs` – Enqueue a sweep job by emitting an `EH_HUB_JOBS` message (consumed by the ACA job or orchestrator). Body accepts `config_path`, `strategy`, `symbol`, and optional metadata; response returns the queued job id/status.
 
 ### Router / orchestration
 - `POST /router/run` – Execute the LangGraph router (ingest → priors → strategy → Fractional Kelly → enqueue). Body mirrors `RouterRequest` plus toggles `offline_mode`, `publish_orders`, `execute_orders`. Response includes run metadata, priors, and the generated `order_intent` (qty/notional/price hints). Requires Alpaca keys if `execute_orders=true`.
 
+### Orders
+- `GET /orders` – Returns the latest persisted orders (up to `limit`), populated by the Event Hubs consumer. Each record includes symbol, side, qty, status, `submitted_at`, strategy/run metadata, and `broker_order_id` if execution succeeded.
+
+### Fills / trades
+- `GET /fills` – Lists recent fills (optionally filtered by `symbol`). Provides `order_id`, qty, price, fees, and PnL so Streamlit or downstream tools can render realized trades without direct DB access.
+
 ### Watchlists
 - `POST /tasks/watchlist` – Build watchlist (manual symbols or scanner).
 - `GET /tasks/watchlist` / `GET /watchlist` – Retrieve current watchlist snapshot.
-
-*(Order endpoints are deferred to Phase 3 once execution wiring lands.)*
 
 ## Rate limits & retries
 State limits; backoff guidance for 429.

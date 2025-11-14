@@ -96,3 +96,9 @@ class TradingRepository:
             if sym_list:
                 stmt = stmt.where(models.Fill.symbol.in_(sym_list))
         return list(self.session.scalars(stmt))
+
+    def recent_orders(self, *, limit: int = 50) -> list[models.Order]:
+        stmt = (
+            select(models.Order).order_by(models.Order.created_at.desc()).limit(limit)
+        )
+        return list(self.session.scalars(stmt))

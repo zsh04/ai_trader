@@ -2,11 +2,8 @@
 ├── .DS_Store
 ├── .codex
 ├── .dockerignore
-├── .docs-policy.json
 ├── .env.dev
 ├── .env.example
-├── .gemini
-│   └── settings.json
 ├── .github
 │   ├── vale-styles
 │   │   └── Google
@@ -47,6 +44,7 @@
 │       ├── ci-api.yml
 │       ├── ci-smoke.yml
 │       ├── ci-ui.yml
+│       ├── dal-smoke.yml
 │       ├── docs.yml
 │       └── lint.yml
 ├── .gitignore
@@ -106,7 +104,12 @@
 │   │   ├── __init__.py
 │   │   └── routes
 │   │       ├── __init__.py
+│   │       ├── backtest.py
+│   │       ├── fills.py
 │   │       ├── health.py
+│   │       ├── ops.py
+│   │       ├── orchestration.py
+│   │       ├── orders.py
 │   │       ├── tasks.py
 │   │       └── watchlists.py
 │   ├── backtest
@@ -115,6 +118,7 @@
 │   │   ├── metrics.py
 │   │   ├── model.py
 │   │   ├── run_breakout.py
+│   │   ├── sweep_registry.py
 │   │   └── sweeps.py
 │   ├── config.py
 │   ├── core
@@ -160,7 +164,12 @@
 │   │   ├── watchlist_models.py
 │   │   ├── watchlist_repo.py
 │   │   ├── watchlist_service.py
+│   │   ├── watchlist_sources.py
 │   │   └── watchlist_utils.py
+│   ├── eventbus
+│   │   ├── order_consumer.py
+│   │   ├── publisher.py
+│   │   └── sweep_job_consumer.py
 │   ├── execution
 │   │   ├── __init__.py
 │   │   ├── alpaca_client.py
@@ -180,6 +189,11 @@
 │   │   └── dashboard.py
 │   ├── observability
 │   │   └── __init__.py
+│   ├── orchestration
+│   │   ├── __init__.py
+│   │   ├── nodes.py
+│   │   ├── router.py
+│   │   └── types.py
 │   ├── probability
 │   │   ├── __init__.py
 │   │   ├── pipeline.py
@@ -192,9 +206,7 @@
 │   │   └── watchlist_builder.py
 │   ├── services
 │   │   ├── __init__.py
-│   │   ├── market_data.py
-│   │   ├── watchlist_service.py
-│   │   └── watchlist_sources.py
+│   │   └── market_data.py
 │   ├── sessions
 │   │   ├── __init__.py
 │   │   ├── session_clock.py
@@ -213,6 +225,10 @@
 │   │   ├── mean_reversion.py
 │   │   ├── momentum.py
 │   │   └── params.py
+│   ├── telemetry
+│   │   ├── __init__.py
+│   │   ├── backtest.py
+│   │   └── router.py
 │   ├── utils
 │   │   ├── __init__.py
 │   │   ├── datetime_utils.py
@@ -223,10 +239,20 @@
 │   └── wiring
 │       └── __init__.py
 ├── artifacts
+│   ├── .DS_Store
 │   ├── __init__.py
+│   ├── backtests
+│   │   └── sweeps
+│   │       └── jobs_manifest.jsonl
+│   ├── marketdata
+│   │   └── cache
+│   │       └── NVDA_alpaca.parquet
 │   └── probabilistic
+│       ├── .DS_Store
 │       └── frames
-│           └── AAPL_breakout_hybrid_1day.parquet
+│           ├── AAPL_breakout_hybrid_1day.parquet
+│           ├── dal_smoke_20251110-220013.json
+│           └── manifest.jsonl
 ├── config
 │   ├── __init__.py
 │   ├── config.yaml
@@ -234,6 +260,16 @@
 ├── configs
 │   └── backtest
 │       └── momentum_sweep.yaml
+├── deploy
+│   └── aca
+│       ├── README.md
+│       ├── env.forecast.example
+│       ├── env.nlp.example
+│       ├── forecast.containerapp.yaml
+│       ├── jobs
+│       │   ├── env.sweep.example
+│       │   └── sweep-job.containerapp.yaml
+│       └── nlp.containerapp.yaml
 ├── docs
 │   ├── .DS_Store
 │   ├── _assets
@@ -272,20 +308,24 @@
 │   │   │   ├── health-checklist.md
 │   │   │   ├── managed-identity.md
 │   │   │   ├── observability.md
+│   │   │   ├── observability_dashboards.md
 │   │   │   └── runbook.md
 │   │   ├── runbooks.md
 │   │   └── testing.md
+│   ├── ops
+│   │   └── model-artifacts.md
 │   ├── reference
+│   │   ├── CONTRIBUTING.md
+│   │   ├── GLOSSARY.md
 │   │   ├── LICENSE
 │   │   ├── api.md
 │   │   ├── config.md
-│   │   ├── contributing.md
 │   │   ├── data-models.md
 │   │   ├── data-schema.md
 │   │   ├── database-architecture.md
 │   │   ├── database.md
 │   │   ├── doc-guidelines.md
-│   │   ├── glossary.md
+│   │   ├── metrics.md
 │   │   ├── risk-policy.md
 │   │   ├── secrets.md
 │   │   ├── session-model.md
@@ -296,7 +336,6 @@
 ├── infra
 │   ├── README.md
 │   ├── __init__.py
-│   ├── azure
 │   ├── docker
 │   │   ├── Dockerfile
 │   │   ├── Dockerfile.ui
@@ -317,15 +356,11 @@
 │   │   ├── sprint-plan.md
 │   │   └── sprint-status.md
 │   └── research-docs
-│       ├── AI Agents for Probabilistic Trading.pdf
-│       ├── AI_Trader_Handover.pdf
-│       ├── AI_Trader_Mind_Map.png
-│       ├── Autonomous Probabilistic Trading Agent (AI Trader) - Project Plan.pdf
-│       ├── Financial Data Source Comparison.pdf
-│       ├── code_summary.md
 │       ├── health-checklist.md
-│       ├── project_notes.md
-│       └── project_progress.md
+│       └── project_notes.md
+├── jobs
+│   └── sweep
+│       └── Dockerfile
 ├── migrations
 │   ├── README
 │   ├── __init__.py
@@ -333,6 +368,30 @@
 │   ├── script.py.mako
 │   └── versions
 │       └── 337e81e1d35c_initial_schema.py
+├── models
+│   ├── chronos2
+│   │   ├── Dockerfile
+│   │   ├── README.md
+│   │   ├── app
+│   │   │   ├── __init__.py
+│   │   │   ├── health.py
+│   │   │   ├── runtime.py
+│   │   │   └── server.py
+│   │   └── entrypoint.sh
+│   ├── common
+│   │   ├── __init__.py
+│   │   ├── adapters.py
+│   │   ├── blob_client.py
+│   │   └── logging.py
+│   └── finbert
+│       ├── Dockerfile
+│       ├── README.md
+│       ├── app
+│       │   ├── __init__.py
+│       │   ├── health.py
+│       │   ├── runtime.py
+│       │   └── server.py
+│       └── entrypoint.sh
 ├── ops
 │   └── delta
 │       ├── CHANGELOG-draft.md
@@ -353,15 +412,31 @@
 ├── scripts
 │   ├── README.md
 │   ├── __init__.py
+│   ├── adapters
+│   │   └── publish_adapters.zsh
 │   ├── build_api.sh
 │   ├── build_ui.sh
 │   ├── check_alpaca_entitlement.py
 │   ├── check_no_env.py
+│   ├── check_quickreceive_eventhubs.py
+│   ├── check_quicksend_eventhubs.py
 │   ├── check_secrets.py
+│   ├── dal_smoke.py
 │   ├── dev.sh
-│   └── kv_sync_from_env.zsh
-├── signals_flat_debug_AAPL.csv
-├── signals_tail_AAPL.csv
+│   ├── images
+│   │   └── build_and_push.zsh
+│   ├── junk.zsh
+│   ├── kv_sync_from_env.zsh
+│   ├── models
+│   │   └── populate_blob_from_hf.zsh
+│   ├── nat_egress_setup.zsh
+│   ├── order_consumer.py
+│   ├── smoke
+│   │   ├── curl_forecast.sh
+│   │   └── curl_nlp.sh
+│   ├── sweep_job_consumer.py
+│   ├── sweep_job_entry.py
+│   └── vent_setup.zsh
 ├── tests
 │   ├── __init__.py
 │   ├── adapters
@@ -369,11 +444,15 @@
 │   ├── agent
 │   │   └── test_fractional_kelly.py
 │   ├── api
+│   │   ├── test_backtest_sweep_jobs.py
+│   │   ├── test_fills_endpoint.py
+│   │   └── test_orders_route.py
 │   ├── backtest
 │   │   ├── test_metrics.py
 │   │   ├── test_risk_agent.py
 │   │   ├── test_run_breakout_probabilistic.py
 │   │   ├── test_strategy_regressions.py
+│   │   ├── test_sweep_registry.py
 │   │   └── test_sweeps.py
 │   ├── bootstrap
 │   │   └── __init__.py
@@ -393,20 +472,22 @@
 │   ├── db
 │   │   ├── test_market_repository.py
 │   │   └── test_trading_repository.py
+│   ├── eventbus
+│   │   └── test_order_consumer.py
 │   ├── execution
 │   │   └── test_alpaca_client_http.py
 │   ├── filters
 │   │   ├── __init__.py
 │   │   └── test_volatility_filter.py
-│   ├── integration
 │   ├── observability
 │   │   └── test_observability.py
+│   ├── orchestration
+│   │   └── test_router.py
 │   ├── probability
 │   │   ├── __init__.py
 │   │   ├── test_pipeline.py
 │   │   ├── test_regime_analysis_agent.py
 │   │   └── test_signal_filter_agent.py
-│   ├── providers
 │   ├── sources
 │   │   └── test_sources_init.py
 │   ├── strats
@@ -442,4 +523,4 @@
     │   └── Monitoring Dashboard.py
     └── streamlit_app.py
 
-102 directories, 341 files
+123 directories, 401 files

@@ -34,6 +34,8 @@ class RouterContext:
     max_latency_ms: int = 1_200
     fallback_to_breakout: bool = True
     kill_switch_notional: float = 10_000.0
+    kill_switch_active: bool = False
+    kill_switch_reason: Optional[str] = None
     risk_agent_fraction: float = 0.5
     dal_backfill_days: int = 60
     alpaca_key: Optional[str] = None

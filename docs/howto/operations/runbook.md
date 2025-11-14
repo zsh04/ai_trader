@@ -150,6 +150,92 @@ The Streamlit console now reads the persisted probabilistic frames (from both CL
 3. Select the sweep/job entry (or paste a manual path) to render the merged probabilistic DataFrame, metadata (row counts, columns, time range), and recent rows.
 4. Use this view to debug DAL issues without re-fetching vendors; the underlying parquet file is shared between CLI, API, and Streamlit.
 
+## LangGraph router smoke
+
+Use the router endpoint to verify ingest → priors → risk sizing → AEH publish flow (offline mode avoids vendor usage and exercises the kill-switch path).
+
+```bash
+curl -sS -X POST https://$FD_HOST/router/run \
+  -H "Content-Type: application/json" \
+  -d '{
+        "symbol": "AAPL",
+        "start": "2025-01-02T00:00:00Z",
+        "strategy": "breakout",
+        "offline_mode": true,
+        "publish_orders": true,
+        "execute_orders": false
+      }'
+```
+
+Pass criteria:
+
+- Response contains `events` including `ingest:synthetic`, `priors:computed`, `risk:fractional_kelly`, and `order:published`.
+- Event Hub `exec.orders` receives the intent (visible via `scripts/check_quicksend_eventhubs.py` / Log Analytics).
+- Setting `kill_switch_active=true` (or lowering `kill_switch_notional` via payload) returns `fallback_reason` `kill_switch_*` and no order is published, confirming the kill-switch guard is healthy.
+
+Notes:
+
+- `publish_orders=true` requires `EH_HUB_ORDERS`/`EH_FQDN` env + RBAC; use `publish_orders=false` when Event Hubs is unavailable.
+- `execute_orders=true` requires Alpaca keys (`ALPACA_API_KEY/SECRET`) and should only be used in paper/live environments after verifying kill-switch metrics.
+
+## Order consumer service
+
+Use `scripts/order_consumer.py` (or the ACA job equivalent) to persist router intents from `exec.orders` into the `trading.orders`/`trading.fills` tables so the API/UI can surface them without bespoke database access.
+
+```bash
+python scripts/order_consumer.py \
+  EH_FQDN=ai-trader-ehns.servicebus.windows.net \
+  EH_HUB_ORDERS=exec.orders \
+  EH_CONSUMER_GROUP=orchestrator \
+  STORAGE_ACCOUNT=aitraderblobstore \
+  CHECKPOINT_CONTAINER=eh-checkpoints
+```
+
+- The consumer upserts each order into Postgres, creates fill rows when payloads contain `fills[]`, and checkpoints to Blob Storage (unless the storage env vars are omitted). When running locally, set `LOCAL_DEV=1` to authenticate via `az login`.
+- Confirm rows via `/orders?limit=20` or the Streamlit “Router Orders” tab.
+- If lag grows beyond 60 s, recycle the consumer job or inspect Event Hub metrics.
+
+### Surfacing orders/fills via API + UI
+
+Production Streamlit deployments no longer open direct database connections. Instead, set:
+
+```text
+API_BASE_URL=https://<fd-host>
+API_BEARER_TOKEN=<ops token or managed identity header>
+```
+
+The dashboard now falls back to `GET /orders` and `GET /fills` when `DATABASE_URL` is absent, so ACA-hosted or restricted environments still visualize router outputs in near-real time.
+
+## Sweep orchestrator job
+
+Container Apps job `ai-trader-sweep` (see `deploy/aca/jobs/sweep-job.containerapp.yaml`) executes `scripts/sweep_job_entry.py`. Provide the sweep config path via `SWEEP_CONFIG_PATH` or set `SWEEP_CONFIG_BLOB=blob://configs/<file>` so the job downloads the YAML from `aitraderblobstore`. Optional `SWEEP_OUTPUT_DIR` writes results to a mounted share.
+
+```bash
+SWEEP_CONFIG_PATH=configs/backtest/momentum_sweep.yaml \
+OUTPUT_DIR=artifacts/backtests/momentum \
+python scripts/sweep_job_entry.py
+```
+
+Use `POST /backtests/sweeps/jobs` to enqueue an ACA execution (payload contains `config_path`, `strategy`, `symbol`); the endpoint publishes to `EH_HUB_JOBS` and records state in the manifest so `/backtests/sweeps/jobs` and Streamlit can display queue/running/completed counts.
+
+The script still invokes `app.backtest.sweeps.run_sweep`, writes artifacts/summary JSONL files (consumed by Streamlit), and logs run metadata. The dashboard now reads job status from the API instead of the local manifest, so ACA + Web App stay in sync.
+
+### Sweep job consumer
+
+Run `scripts/sweep_job_consumer.py` (or deploy it as a Container Apps job) to process `EH_HUB_JOBS` messages and start the ACA sweep job automatically. Required env vars:
+
+```
+EH_FQDN=ai-trader-ehns.servicebus.windows.net
+EH_HUB_JOBS=backtest.jobs
+EH_CONSUMER_GROUP_SWEEP=sweeper
+SWEEP_JOB_RESOURCE_ID=/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.App/jobs/ai-trader-sweep
+SWEEP_JOB_CONTAINER=sweep-job
+STORAGE_ACCOUNT=aitraderblobstore
+CHECKPOINT_CONTAINER=eh-checkpoints
+```
+
+The consumer authenticates with Managed Identity (or Azure CLI when `LOCAL_DEV=1`) and calls the Container Apps `start` API with job-specific env overrides (`SWEEP_CONFIG_BLOB`, `SWEEP_JOB_ID`, etc.). Successful dispatches log a `dispatched` status in `sweep_registry`, so Streamlit and the API can show live state.
+
 ## References
 
 - `docs/howto/operations/observability.md`

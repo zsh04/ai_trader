@@ -1,0 +1,52 @@
+type: Microsoft.App/jobs
+name: ai-trader-sweep
+location: __LOCATION__
+identity:
+  type: SystemAssigned
+properties:
+  environmentId: /subscriptions/__SUBSCRIPTION_ID__/resourceGroups/__RG__/providers/Microsoft.App/managedEnvironments/__ENV__
+  configuration:
+    triggerType: Event
+    replicaRetryLimit: 1
+    replicaTimeout: 3600
+    manualTriggerConfig:
+      parallelism: 1
+      replicaCompletionCount: 1
+    registries:
+      - server: __ACR_NAME__.azurecr.io
+        identity: system
+  template:
+    containers:
+      - name: sweep-job
+        image: __ACR_NAME__.azurecr.io/ai-trader-sweep:__IMAGE_TAG__
+        resources:
+          cpu: 1
+          memory: 2Gi
+        env:
+          - name: SWEEP_CONFIG_PATH
+            value: /workspace/configs/__CONFIG_NAME__
+          - name: SWEEP_CONFIG_BLOB
+            value: __SWEEP_CONFIG_BLOB__
+          - name: SWEEP_OUTPUT_DIR
+            value: /outputs
+          - name: SWEEP_JOB_ID
+            value: __JOB_ID__
+          - name: SWEEP_JOB_MODE
+            value: aca
+          - name: STORAGE_ACCOUNT
+            value: __STG_ACCOUNT__
+          - name: BLOB_MODELS_URL
+            value: blob://models
+          - name: BLOB_ADAPTERS_URL
+            value: blob://adapters
+          - name: MODEL_CACHE_DIR
+            value: /models-cache
+          - name: OTEL_EXPORTER_OTLP_ENDPOINT
+            value: __OTEL_ENDPOINT__
+          - name: OTEL_EXPORTER_OTLP_HEADERS
+            value: __OTEL_HEADERS__
+          - name: HF_COMMIT_SHA
+            value: __HF_COMMIT_SHA__
+    scale:
+      minExecutions: 0
+      maxExecutions: 5

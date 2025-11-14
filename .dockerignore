@@ -21,6 +21,7 @@ infra/
 research-docs/
 dump_json/
 ai-trader-logs/
+/models-cache/
 ops/delta/
 .DS_Store
 .idea/
