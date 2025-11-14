@@ -15,6 +15,11 @@ from loguru import logger
 
 from app.config import settings as app_settings
 
+try:  # optional OTEL for trace/span enrichment
+    from opentelemetry import trace as otel_trace
+except Exception:  # pragma: no cover
+    otel_trace = None
+
 # Global record factory to provide defaults for missing OTEL fields.
 _old_factory = logging.getLogRecordFactory()
 
@@ -40,7 +45,13 @@ _LOG_FORMAT = (
     "ver={extra[service_version]} | sha={extra[git_sha]} | {message}"
 )
 
-OTEL_MISSING = {"otelTraceID": "-", "otelSpanID": "-", "otelTraceFlags": "-"}
+OTEL_SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", "ai-trader")
+OTEL_MISSING = {
+    "otelTraceID": "-",
+    "otelSpanID": "-",
+    "otelTraceFlags": "-",
+    "otelServiceName": OTEL_SERVICE_NAME,
+}
 
 _ctx_request_id: ContextVar[str] = ContextVar("log_request_id", default="-")
 _ctx_environment: ContextVar[str] = ContextVar("log_environment", default="local")
@@ -61,7 +72,35 @@ def _inject_context(record: Dict[str, Any]) -> Dict[str, Any]:
     extra = record["extra"]
     for key, ctx in _CONTEXT_VARS.items():
         extra.setdefault(key, ctx.get())
+    extra.setdefault("otelServiceName", OTEL_SERVICE_NAME)
+    for field, value in _current_otel_fields().items():
+        extra[field] = value
+    for missing_field, default in OTEL_MISSING.items():
+        extra.setdefault(missing_field, default)
     return record
+
+
+def _current_otel_fields() -> Dict[str, str]:
+    if otel_trace is None:
+        return {}
+    try:
+        span = otel_trace.get_current_span()
+    except Exception:  # pragma: no cover - defensive
+        return {}
+    if span is None:
+        return {}
+    ctx = span.get_span_context()
+    if ctx is None or not ctx.is_valid:
+        return {}
+    trace_id = f"{ctx.trace_id:032x}"
+    span_id = f"{ctx.span_id:016x}"
+    flags = f"{ctx.trace_flags:02x}"
+    return {
+        "otelTraceID": trace_id,
+        "otelSpanID": span_id,
+        "otelTraceFlags": flags,
+        "otelServiceName": OTEL_SERVICE_NAME,
+    }
 
 
 def _std_logging_sink(message) -> None:

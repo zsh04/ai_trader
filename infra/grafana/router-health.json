@@ -1,0 +1,248 @@
+{
+  "uid": "router-health",
+  "title": "AI Trader – Router & Event Hub Health",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "1m",
+  "editable": true,
+  "timezone": "",
+  "style": "dark",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "router.run latency (p95)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "tempo", "uid": "${TEMPO_DS}" },
+      "targets": [
+        {
+          "expr": "{ service.name = 'ai-trader-api', deployment.environment = '$env' } | span.name = 'router.run'",
+          "queryType": "traceql",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "lineInterpolation": "smooth",
+            "thresholdsStyle": { "mode": "line+area" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1.2 },
+              { "color": "red", "value": 2.0 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "router_runs_total (per strategy)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${PROM_DS}" },
+      "targets": [
+        {
+          "expr": "sum(rate(router_runs_total{deployment_environment='$env'}[5m])) by (strategy)",
+          "legendFormat": "{{strategy}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "stacking": { "mode": "normal" } }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "table",
+      "title": "router.node duration heatmap",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "tempo", "uid": "${TEMPO_DS}" },
+      "targets": [
+        {
+          "expr": "{ service.name = 'ai-trader-api', deployment.environment = '$env' } | span.name =~ 'router.node.*'",
+          "queryType": "traceql",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [ { "desc": true, "displayName": "avg" } ]
+      }
+    },
+    {
+      "id": 4,
+      "type": "bargauge",
+      "title": "Fallback reasons (last 1h)",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "insights", "uid": "${LOGANALYTICS_DS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "workspace": "${LOG_WORKSPACE}",
+          "query": "AppTraces | where customDimensions.fallback_reason != '' | where TimeGenerated > ago(1h) | summarize count() by fallback_reason = tostring(customDimensions.fallback_reason)"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Event Hub consumer lag (ms)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "datasource": { "type": "insights", "uid": "${LOGANALYTICS_DS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "workspace": "${LOG_WORKSPACE}",
+          "query": "AppTraces | where logger_name == 'order_consumer' | extend lag_ms = todouble(customDimensions.lag_ms) | summarize avg(lag_ms), max(lag_ms) by bin(TimeGenerated, 1m)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 60000 },
+              { "color": "red", "value": 180000 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "EventHubsIncomingMessages vs router_runs_total",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${AZMON_DS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Monitor",
+          "resource": "${EVENT_HUB_RESOURCE_ID}",
+          "metricName": "IncomingMessages",
+          "aggregation": "Total",
+          "alias": "EH Incoming"
+        },
+        {
+          "refId": "B",
+          "datasource": { "type": "prometheus", "uid": "${PROM_DS}" },
+          "expr": "sum(rate(router_runs_total{deployment_environment='$env'}[5m]))",
+          "legendFormat": "router runs"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Sweep queue depth",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 23 },
+      "datasource": { "type": "insights", "uid": "${LOGANALYTICS_DS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "workspace": "${LOG_WORKSPACE}",
+          "query": "sweep_jobs | where TimeGenerated > ago(6h) | summarize queued = sum(toint(status == 'queued')), running = sum(toint(status == 'running')) by bin(TimeGenerated, 1m)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "stacking": { "mode": "normal" } }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Sweep throughput (jobs/hour)",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 23 },
+      "datasource": { "type": "insights", "uid": "${LOGANALYTICS_DS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "workspace": "${LOG_WORKSPACE}",
+          "query": "sweep_jobs | where status == 'completed' | summarize jobs = count() by bin(TimeGenerated, 1h)"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "stat",
+      "title": "Sweep ETA (mins)",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 23 },
+      "datasource": { "type": "prometheus", "uid": "${PROM_DS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(avg_over_time(sweep_job_duration_seconds_sum{deployment_environment='$env'}[15m]) / avg_over_time(sweep_job_duration_seconds_count{deployment_environment='$env'}[15m])) * sweep_running_jobs{deployment_environment='$env'} / 60",
+          "legendFormat": "ETA"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "m" } }
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "Last order timestamp",
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 31 },
+      "datasource": { "type": "insights", "uid": "${LOGANALYTICS_DS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "workspace": "${LOG_WORKSPACE}",
+          "query": "AppLogs | where Source == 'orders_api' | summarize last_ts = max(TimeGenerated)"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Recent fills",
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 31 },
+      "datasource": { "type": "insights", "uid": "${LOGANALYTICS_DS}" },
+      "targets": [
+        {
+          "refId": "A",
+          "workspace": "${LOG_WORKSPACE}",
+          "query": "trading.fills | top 20 by filled_at desc"
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "env",
+        "type": "interval",
+        "query": "prod,dev,int",
+        "current": { "selected": true, "text": "prod", "value": "prod" }
+      }
+    ]
+  },
+  "annotations": {
+    "list": [
+      {
+        "type": "dashboard",
+        "name": "Annotations & Alerts",
+        "enable": true
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "Docs",
+      "url": "https://github.com/zsh04/ai_trader/blob/main/docs/howto/operations/observability_dashboards.md"
+    }
+  ]
+}
