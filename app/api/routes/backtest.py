@@ -10,7 +10,7 @@ from uuid import uuid4
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
 
-from app.backtest import sweeps, sweep_registry
+from app.backtest import sweep_registry, sweeps
 from app.backtest.run_breakout import run as run_backtest
 from app.eventbus.publisher import publish_event
 
@@ -161,7 +161,9 @@ def trigger_sweep_job(req: SweepJobTriggerRequest) -> SweepJobRecord:
     try:
         publish_event("EH_HUB_JOBS", event_payload)
     except Exception as exc:  # pragma: no cover - Event Hub optional
-        raise HTTPException(status_code=500, detail=f"failed to enqueue job: {exc}")
+        raise HTTPException(
+            status_code=500, detail=f"failed to enqueue job: {exc}"
+        ) from exc
     sweep_registry.record_job_event(
         job_id,
         "queued",
@@ -171,7 +173,9 @@ def trigger_sweep_job(req: SweepJobTriggerRequest) -> SweepJobRecord:
         mode=req.mode,
         metadata=req.metadata,
     )
-    return SweepJobRecord(job_id=job_id, status="queued", strategy=req.strategy, symbol=req.symbol)
+    return SweepJobRecord(
+        job_id=job_id, status="queued", strategy=req.strategy, symbol=req.symbol
+    )
 
 
 @router.get("/sweeps/{job_id}", response_model=SweepStatus)

@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Dict, Optional
 
 try:
-    from azure.eventhub import EventHubConsumerClient, EventData
+    from azure.eventhub import EventData, EventHubConsumerClient
     from azure.eventhub.extensions.checkpointstoreblob import BlobCheckpointStore
 except Exception:  # pragma: no cover
     EventHubConsumerClient = None  # type: ignore
@@ -16,8 +16,8 @@ except Exception:  # pragma: no cover
     BlobCheckpointStore = None  # type: ignore
 
 try:
-    from azure.identity import DefaultAzureCredential, AzureCliCredential
     import requests
+    from azure.identity import AzureCliCredential, DefaultAzureCredential
 except Exception:  # pragma: no cover
     DefaultAzureCredential = AzureCliCredential = None  # type: ignore
     requests = None  # type: ignore
@@ -26,7 +26,6 @@ from loguru import logger
 
 from app.backtest import sweep_registry
 
-
 MANAGEMENT_SCOPE = "https://management.azure.com/.default"
 API_VERSION = os.getenv("AZURE_JOBS_API_VERSION", "2024-03-01")
 
@@ -34,8 +33,10 @@ API_VERSION = os.getenv("AZURE_JOBS_API_VERSION", "2024-03-01")
 def _make_credential(use_cli: bool = False):
     if DefaultAzureCredential is None or AzureCliCredential is None:
         raise RuntimeError("azure.identity is required for sweep job consumer")
-    return AzureCliCredential() if use_cli else DefaultAzureCredential(
-        exclude_shared_token_cache_credential=True
+    return (
+        AzureCliCredential()
+        if use_cli
+        else DefaultAzureCredential(exclude_shared_token_cache_credential=True)
     )
 
 
@@ -58,7 +59,10 @@ def _build_env(payload: Dict[str, object]) -> list[Dict[str, str]]:
     for extra_key in ("strategy", "symbol", "mode"):
         if payload.get(extra_key):
             env_vars.append(
-                {"name": f"SWEEP_META_{extra_key.upper()}", "value": str(payload[extra_key])}
+                {
+                    "name": f"SWEEP_META_{extra_key.upper()}",
+                    "value": str(payload[extra_key]),
+                }
             )
     return env_vars
 
@@ -144,7 +148,10 @@ class SweepJobEventConsumer:
             logger.warning("[sweep-consumer] invalid payload: %s", event.body_as_str())
             return
         env_vars = _build_env(payload)
-        job_id = next((env["value"] for env in env_vars if env["name"] == "SWEEP_JOB_ID"), "unknown")
+        job_id = next(
+            (env["value"] for env in env_vars if env["name"] == "SWEEP_JOB_ID"),
+            "unknown",
+        )
         try:
             self.job_client.start(env_vars)
             logger.info("[sweep-consumer] started job=%s", job_id)

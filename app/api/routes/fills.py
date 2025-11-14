@@ -25,7 +25,9 @@ class FillRecord(BaseModel):
 
 
 @router.get("/", response_model=List[FillRecord])
-def list_fills(limit: int = Query(100, ge=1, le=500), symbol: Optional[str] = None) -> List[FillRecord]:
+def list_fills(
+    limit: int = Query(100, ge=1, le=500), symbol: Optional[str] = None
+) -> List[FillRecord]:
     with get_session() as session:
         repo = TradingRepository(session)
         symbols = [symbol] if symbol else None

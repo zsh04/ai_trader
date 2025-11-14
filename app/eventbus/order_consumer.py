@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import json
-import os
 import signal
-from contextlib import contextmanager, suppress
+from contextlib import suppress
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import uuid4
@@ -66,7 +65,9 @@ def intent_to_order_record(intent: Dict[str, object]) -> Dict[str, object]:
     }
 
 
-def intent_to_fill_records(order_id: str, intent: Dict[str, object]) -> List[Dict[str, object]]:
+def intent_to_fill_records(
+    order_id: str, intent: Dict[str, object]
+) -> List[Dict[str, object]]:
     fills = intent.get("fills") or intent.get("simulated_fills")
     if not isinstance(fills, list):
         return []
@@ -78,7 +79,9 @@ def intent_to_fill_records(order_id: str, intent: Dict[str, object]) -> List[Dic
         price = float(entry.get("price") or entry.get("fill_price") or 0)
         if qty <= 0 or price <= 0:
             continue
-        filled_at = _parse_timestamp(entry.get("filled_at")) or datetime.now(timezone.utc)
+        filled_at = _parse_timestamp(entry.get("filled_at")) or datetime.now(
+            timezone.utc
+        )
         record = {
             "order_id": order_id,
             "symbol": str(entry.get("symbol") or intent.get("symbol", "UNKNOWN")),

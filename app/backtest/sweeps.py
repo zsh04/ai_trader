@@ -5,18 +5,17 @@ import itertools
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from time import perf_counter
 from pathlib import Path
+from time import perf_counter
 from typing import Any, Dict, Iterable, List
 
 import yaml
 from loguru import logger
 
-from app.backtest.run_breakout import _run_backtest_core
 from app.backtest import sweep_registry
+from app.backtest.run_breakout import _run_backtest_core
 from app.eventbus.publisher import publish_event
 from app.telemetry.backtest import record_run, start_span
-from app.backtest import sweep_registry
 
 
 def _load_config(path: Path) -> Dict[str, Any]:

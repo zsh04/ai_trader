@@ -76,14 +76,15 @@ def run_router(
 
 
 def _random_request() -> RouterRequest:
-    symbol = random.choice(["AAPL", "MSFT", "NVDA", "QQQ", "SPY"])
+    # nosec B311: pseudo-randomness is acceptable for the harness
+    symbol = random.choice(["AAPL", "MSFT", "NVDA", "QQQ", "SPY"])  # nosec B311
     now = datetime.now(tz=UTC)
-    start = now - timedelta(days=random.randint(30, 90))
-    strategy = random.choice(["breakout", "momentum", "mean_reversion"])
+    start = now - timedelta(days=random.randint(30, 90))  # nosec B311
+    strategy = random.choice(["breakout", "momentum", "mean_reversion"])  # nosec B311
     params: Dict[str, Any] = {
-        "lookback": random.randint(10, 30),
-        "atr_len": random.randint(5, 20),
-        "atr_mult": round(random.uniform(1.0, 3.0), 2),
+        "lookback": random.randint(10, 30),  # nosec B311
+        "atr_len": random.randint(5, 20),  # nosec B311
+        "atr_mult": round(random.uniform(1.0, 3.0), 2),  # nosec B311
     }
     return RouterRequest(
         symbol=symbol,
@@ -91,9 +92,11 @@ def _random_request() -> RouterRequest:
         end=now,
         strategy=strategy,
         params=params,
-        dal_vendor=random.choice(["alpaca", "yahoo", "alphavantage"]),
-        dal_interval=random.choice(["1Day", "5Min"]),
-        side=random.choice(["buy", "buy"]),  # bias to long until short logic lands
+        dal_vendor=random.choice(["alpaca", "yahoo", "alphavantage"]),  # nosec B311
+        dal_interval=random.choice(["1Day", "5Min"]),  # nosec B311
+        side=random.choice(
+            ["buy", "buy"]
+        ),  # nosec B311 bias to long until short logic lands
     )
 
 

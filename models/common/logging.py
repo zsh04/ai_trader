@@ -9,11 +9,11 @@ from loguru import logger
 
 try:  # optional instrumentation
     from opentelemetry import trace
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
     from opentelemetry.sdk.resources import Resource
     from opentelemetry.sdk.trace import TracerProvider
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
-    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 except Exception:  # pragma: no cover - OTEL optional
     trace = None  # type: ignore
     FastAPIInstrumentor = None  # type: ignore

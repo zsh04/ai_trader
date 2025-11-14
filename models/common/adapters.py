@@ -50,7 +50,6 @@ def maybe_apply_adapter(
 ) -> AdapterResult:
     """Download + apply adapter if desired tag differs from baked."""
 
-    effective = baked_tag
     metadata: dict = {"source": "baked"}
     ensure_cache_dir(cache_dir)
 
@@ -59,7 +58,9 @@ def maybe_apply_adapter(
         return AdapterResult(effective_tag=baked_tag, source="baked", metadata=metadata)
 
     if not storage_account:
-        logger.warning("[adapter] storage account missing; falling back to baked adapter")
+        logger.warning(
+            "[adapter] storage account missing; falling back to baked adapter"
+        )
         return AdapterResult(effective_tag=baked_tag, source="baked", metadata=metadata)
 
     container, prefix = _parse_blob_url(adapters_url, "adapters")

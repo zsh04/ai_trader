@@ -4,7 +4,6 @@ from fastapi.testclient import TestClient
 
 import app.main as main_module
 from app.api.routes import backtest as backtest_module
-from app.eventbus import publisher as publisher_module
 
 client = TestClient(main_module.app)
 

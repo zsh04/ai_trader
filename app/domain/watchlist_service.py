@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import os
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from loguru import logger
 
 from app.domain.watchlist_utils import normalize_symbols
+
 from .watchlist_sources import (
     fetch_alpha_vantage_symbols,
     fetch_finnhub_symbols,

@@ -269,9 +269,7 @@ def _render_sweep_throughput(df: pd.DataFrame) -> None:
     completed = completed.dropna(subset=["ts"])
     if completed.empty:
         return
-    hourly = (
-        completed.set_index("ts").resample("1H").size().reset_index(name="jobs")
-    )
+    hourly = completed.set_index("ts").resample("1H").size().reset_index(name="jobs")
     chart = (
         alt.Chart(hourly)
         .mark_bar(color="#38bdf8")
@@ -456,9 +454,7 @@ def _get_trades_from_api(
 
 
 @st.cache_data(show_spinner=False, ttl=30)
-def _fetch_trades(
-    since: datetime, symbols: List[str] | None
-) -> Optional[pd.DataFrame]:
+def _fetch_trades(since: datetime, symbols: List[str] | None) -> Optional[pd.DataFrame]:
     return _get_trades_from_db(since, symbols) or _get_trades_from_api(since, symbols)
 
 
@@ -596,8 +592,8 @@ def _frame_metadata(
         try:
             meta["start_index"] = str(frame.index[0])
             meta["end_index"] = str(frame.index[-1])
-        except Exception:
-            pass
+        except Exception as exc:  # pragma: no cover - defensive
+            meta["index_error"] = str(exc)
     if context:
         meta["context"] = {
             "strategy": context.get("strategy"),

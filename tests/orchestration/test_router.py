@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-import pytest
-
 from app.orchestration import nodes
 from app.orchestration.router import run_router
 from app.orchestration.types import RouterContext, RouterRequest

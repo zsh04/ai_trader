@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
-
 
 MANIFEST_ROOT = Path("artifacts/backtests/sweeps")
 MANIFEST_PATH = MANIFEST_ROOT / "jobs_manifest.jsonl"

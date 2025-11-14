@@ -59,7 +59,7 @@ case "$cmd" in
     log "running ruff"
     ruff check .
     log "running bandit"
-    bandit -q -r app scripts tests
+    bandit -q -r app scripts tests -s B101
     ;;
   test)
     ensure_venv

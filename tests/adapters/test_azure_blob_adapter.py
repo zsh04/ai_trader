@@ -155,8 +155,8 @@ def test_roundtrip_save_and_load_text(tmp_path):
     blob_save_json(container, key, payload)
     # Load text and verify JSON
     s = blob_load_text(container, key)
-    assert isinstance(s, str)
-    assert json.loads(s) == payload
+    assert isinstance(s, str)  # nosec
+    assert json.loads(s) == payload  # nosec
 
 
 def test_list_blobs_with_prefix():
@@ -167,7 +167,7 @@ def test_list_blobs_with_prefix():
     blob_save_json(container, "pfx/2025/11/01/c.json", {"x": 3})
 
     names = blob_list(container, prefix="pfx/2025/10/30")
-    assert names == ["pfx/2025/10/30/a.json", "pfx/2025/10/30/b.json"]
+    assert names == ["pfx/2025/10/30/a.json", "pfx/2025/10/30/b.json"]  # nosec
 
 
 def test_overwrite_true_by_default():
@@ -177,7 +177,7 @@ def test_overwrite_true_by_default():
     blob_save_json(container, key, {"v": 1})
     blob_save_json(container, key, {"v": 2})  # should not raise; should overwrite
     s = blob_load_text(container, key)
-    assert json.loads(s) == {"v": 2}
+    assert json.loads(s) == {"v": 2}  # nosec
 
 
 def test_today_key_shape():
@@ -185,7 +185,7 @@ def test_today_key_shape():
     _, _, _, today_key = _import_exports()
     k = today_key(prefix="ingest", name="AAPL", suffix="json")
     # must include a yyyy/mm/dd path component, be string, end with suffix
-    assert isinstance(k, str)
-    assert re.search(r"\d{4}/\d{2}/\d{2}/", k), k
-    assert k.endswith(".json")
-    assert "AAPL".lower() in k.lower()
+    assert isinstance(k, str)  # nosec
+    assert re.search(r"\d{4}/\d{2}/\d{2}/", k), k  # nosec
+    assert k.endswith(".json")  # nosec
+    assert "AAPL".lower() in k.lower()  # nosec

@@ -14,11 +14,15 @@ logger = logging.getLogger(__name__)
 class AdapterBlobClient:
     """Helper to fetch adapter artifacts from Azure Blob Storage via Managed Identity."""
 
-    def __init__(self, *, storage_account: str, container: str, prefix: str | None = None) -> None:
+    def __init__(
+        self, *, storage_account: str, container: str, prefix: str | None = None
+    ) -> None:
         self.storage_account = storage_account
         self.container = container
         self.prefix = (prefix or "").strip("/")
-        self.credential = DefaultAzureCredential(exclude_shared_token_cache_credential=True)
+        self.credential = DefaultAzureCredential(
+            exclude_shared_token_cache_credential=True
+        )
         self._endpoint = f"https://{storage_account}.blob.core.windows.net"
 
     def _resolve_path(self, blob_path: str) -> str:

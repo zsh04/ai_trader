@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 import app.main as main_module
 from app.api.routes import orders as orders_module
 
-
 client = TestClient(main_module.app)
 
 

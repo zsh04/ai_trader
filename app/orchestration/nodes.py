@@ -14,7 +14,6 @@ from app.agent.risk import FractionalKellyAgent
 from app.dal.manager import MarketDataDAL
 from app.eventbus.publisher import publish_event
 from app.execution.alpaca_client import AlpacaClient, ExecutionError
-from app.telemetry import router as router_telemetry
 from app.probability.pipeline import join_probabilistic_features
 from app.probability.storage import (
     load_probabilistic_frame,
@@ -22,6 +21,7 @@ from app.probability.storage import (
 )
 from app.strats.breakout import BreakoutParams
 from app.strats.params import MeanReversionParams, MomentumParams
+from app.telemetry import router as router_telemetry
 
 from .types import RouterContext, RouterRequest
 

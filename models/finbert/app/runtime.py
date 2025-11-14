@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import os
 import tarfile
 import uuid
@@ -11,7 +10,11 @@ from typing import Any, Dict, Optional
 import torch
 from loguru import logger
 from peft import PeftModel
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, TextClassificationPipeline
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    TextClassificationPipeline,
+)
 
 from models.common.adapters import (
     AdapterResult,
@@ -49,7 +52,9 @@ class FinbertRuntime:
         logger.info(
             "[finbert] loading model=%s revision=%s", self.model_id, self.hf_commit
         )
-        self._tokenizer = AutoTokenizer.from_pretrained(self.model_id, **self._model_kwargs())
+        self._tokenizer = AutoTokenizer.from_pretrained(
+            self.model_id, **self._model_kwargs()
+        )
         self._model = AutoModelForSequenceClassification.from_pretrained(
             self.model_id,
             **self._model_kwargs(),

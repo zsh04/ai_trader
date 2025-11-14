@@ -28,10 +28,10 @@ if load_dotenv:
         if candidate.exists():
             load_dotenv(candidate, override=False)
 
+from app.domain.watchlist_service import build_watchlist
 from app.logging_utils import setup_logging
 from app.observability import configure_observability
 from app.services.market_data import get_intraday_bars, get_market_snapshots
-from app.domain.watchlist_service import build_watchlist
 from app.utils import env as ENV
 
 FALLBACK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "SPY", "QQQ"]

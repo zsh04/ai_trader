@@ -15,7 +15,7 @@ def test_headers_include_auth_and_json(monkeypatch):
 
     client = AlpacaMarketClient(
         api_key="KEY",
-        api_secret="SECRET",
+        api_secret="SECRET",  # nosec
         timeout=3,
         retries=0,
         backoff=0.1,
@@ -43,7 +43,7 @@ def test_snapshots_feed_mapping(monkeypatch):
 
     client = AlpacaMarketClient(
         api_key="KEY",
-        api_secret="SECRET",
+        api_secret="SECRET",  # nosec
         default_feed="iex",
         timeout=3,
         retries=0,
@@ -69,7 +69,7 @@ def test_auth_error_retry_and_flag(monkeypatch):
 
     client = AlpacaMarketClient(
         api_key="KEY",
-        api_secret="SECRET",
+        api_secret="SECRET",  # nosec
         timeout=1,
         retries=0,
         backoff=0.1,
