@@ -75,7 +75,9 @@ def _alpha_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optional[
             "apikey": api_key,
         }
         try:
-            resp = requests.get(ALPHAVANTAGE_URL, params=params, timeout=ENV.HTTP_TIMEOUT)
+            resp = requests.get(
+                ALPHAVANTAGE_URL, params=params, timeout=ENV.HTTP_TIMEOUT
+            )
             payload = (
                 resp.json().get("Global Quote", {}) if resp.status_code == 200 else {}
             )
@@ -125,7 +127,9 @@ def _finnhub_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optiona
                 "latestTrade": {
                     "price": float(price),
                     "timestamp": (
-                        datetime.fromtimestamp(data.get("t", 0), tz=timezone.utc).isoformat()
+                        datetime.fromtimestamp(
+                            data.get("t", 0), tz=timezone.utc
+                        ).isoformat()
                         if data.get("t")
                         else _now_iso()
                     ),
@@ -143,11 +147,15 @@ def _finnhub_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optiona
             continue
     note = "Finnhub" if out else None
     if note:
-        logger.info("Finnhub fallback served %s symbol(s) (attempted=%s)", len(out), attempted)
+        logger.info(
+            "Finnhub fallback served %s symbol(s) (attempted=%s)", len(out), attempted
+        )
     return out, note
 
 
-def _twelvedata_quote(symbols: Sequence[str]) -> Tuple[Dict[str, Snapshot], Optional[str]]:
+def _twelvedata_quote(
+    symbols: Sequence[str],
+) -> Tuple[Dict[str, Snapshot], Optional[str]]:
     api_key = os.getenv("TWELVEDATA_API_KEY") or getattr(ENV, "TWELVEDATA_API_KEY", "")
     if not api_key:
         return {}, None
@@ -364,7 +372,9 @@ def _finnhub_bars(symbol: str, resolution: str, count: int) -> Optional[pd.DataF
         return None
 
 
-def _twelvedata_bars(symbol: str, interval: str, outputsize: int) -> Optional[pd.DataFrame]:
+def _twelvedata_bars(
+    symbol: str, interval: str, outputsize: int
+) -> Optional[pd.DataFrame]:
     api_key = os.getenv("TWELVEDATA_API_KEY") or getattr(ENV, "TWELVEDATA_API_KEY", "")
     if not api_key:
         return None
