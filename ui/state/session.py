@@ -5,8 +5,8 @@ from typing import Dict, List, Optional
 
 import streamlit as st
 
-from ui.settings.config import AppSettings
 from ui.services.registry import ServicesRegistry
+from ui.settings.config import AppSettings
 from ui.utils.request_id import generate_request_id
 
 
@@ -34,7 +34,9 @@ class SessionState:
 
     def record_action(self, name: str, status: str, ts: float) -> None:
         self.last_actions.append(
-            LastAction(name=name, status=status, timestamp=ts, request_id=self.last_request_id)
+            LastAction(
+                name=name, status=status, timestamp=ts, request_id=self.last_request_id
+            )
         )
         self.last_actions = self.last_actions[-20:]
 

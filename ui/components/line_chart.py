@@ -6,7 +6,9 @@ import pandas as pd
 import streamlit as st
 
 
-def render_line_chart(title: str, rows: Iterable[Mapping[str, object]], x: str, y: str) -> None:
+def render_line_chart(
+    title: str, rows: Iterable[Mapping[str, object]], x: str, y: str
+) -> None:
     st.subheader(title)
     df = pd.DataFrame(rows)
     if not df.empty:

@@ -11,9 +11,13 @@ class BacktestService:
         self.client = client
 
     def list_jobs(self, params: Dict[str, str] | None = None) -> Any:
-        return self.client.request("GET", ROUTES.sweeps_jobs, params=params, ui_action="backtests.list")
+        return self.client.request(
+            "GET", ROUTES.sweeps_jobs, params=params, ui_action="backtests.list"
+        )
 
-    def submit_job(self, payload: Dict[str, Any], *, request_id: str | None = None) -> Any:
+    def submit_job(
+        self, payload: Dict[str, Any], *, request_id: str | None = None
+    ) -> Any:
         return self.client.request(
             "POST",
             ROUTES.sweeps_jobs,

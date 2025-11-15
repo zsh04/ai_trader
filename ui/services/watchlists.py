@@ -11,9 +11,13 @@ class WatchlistService:
         self.client = client
 
     def list_watchlists(self) -> Any:
-        return self.client.request("GET", ROUTES.watchlists, ui_action="watchlists.list")
+        return self.client.request(
+            "GET", ROUTES.watchlists, ui_action="watchlists.list"
+        )
 
-    def save_watchlist(self, payload: Dict[str, Any], *, request_id: str | None = None) -> Any:
+    def save_watchlist(
+        self, payload: Dict[str, Any], *, request_id: str | None = None
+    ) -> Any:
         return self.client.request(
             "POST",
             ROUTES.watchlists,

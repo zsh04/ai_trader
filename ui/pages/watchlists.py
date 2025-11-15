@@ -7,7 +7,8 @@ import streamlit as st
 
 from ui.components.error_banner import render_error
 from ui.components.table_with_toolbar import render_table
-from ui.components.toast import error as toast_error, success as toast_success
+from ui.components.toast import error as toast_error
+from ui.components.toast import success as toast_success
 from ui.services.http_client import ServiceError
 from ui.state.session import get_services, get_session_state
 from ui.utils.telemetry import ui_action_span

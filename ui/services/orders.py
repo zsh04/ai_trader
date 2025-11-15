@@ -11,7 +11,11 @@ class OrdersService:
         self.client = client
 
     def list_orders(self, params: Dict[str, str] | None = None) -> Any:
-        return self.client.request("GET", ROUTES.orders, params=params, ui_action="orders.list")
+        return self.client.request(
+            "GET", ROUTES.orders, params=params, ui_action="orders.list"
+        )
 
     def list_fills(self, params: Dict[str, str] | None = None) -> Any:
-        return self.client.request("GET", ROUTES.fills, params=params, ui_action="fills.list")
+        return self.client.request(
+            "GET", ROUTES.fills, params=params, ui_action="fills.list"
+        )

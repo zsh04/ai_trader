@@ -30,8 +30,10 @@ class ModelResponse(BaseModel):
 def _ensure(service: str) -> None:
     try:
         registry.get(service)
-    except KeyError:
-        raise HTTPException(status_code=404, detail=f"model {service} not found")
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404, detail=f"model {service} not found"
+        ) from exc
 
 
 @router.get("/", response_model=List[ModelResponse])

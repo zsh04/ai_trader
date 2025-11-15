@@ -102,7 +102,7 @@ def render() -> None:
 
     breadth = 0
     selected_symbols: List[str] = []
-    for entry, name in zip(watchlists, names):
+    for entry, name in zip(watchlists, names, strict=False):
         if name == selected:
             symbols = entry.get("symbols") or entry.get("tickers") or []
             if isinstance(symbols, list):
