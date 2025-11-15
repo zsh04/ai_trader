@@ -52,13 +52,11 @@ def init_telemetry(settings: AppSettings) -> None:
     attributes.update(_parse_kv(settings.otel_resource_attributes))
     resource = Resource.create(attributes)
     provider = TracerProvider(resource=resource)
-    processor = BatchSpanProcessor(
-        OTLPSpanExporter(
-            endpoint=settings.otel_endpoint,
-            protocol=settings.otel_protocol or "http/protobuf",
-            headers=_parse_kv(settings.otel_headers),
-        )
+    exporter = OTLPSpanExporter(
+        endpoint=settings.otel_endpoint,
+        headers=_parse_kv(settings.otel_headers),
     )
+    processor = BatchSpanProcessor(exporter)
     provider.add_span_processor(processor)
     trace.set_tracer_provider(provider)
     _tracer = provider.get_tracer(__name__)
