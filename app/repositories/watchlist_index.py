@@ -86,3 +86,37 @@ def latest_for_bucket(bucket: str) -> Optional[Dict[str, object]]:
     except Exception as e:
         logger.warning("watchlist_index latest query failed: %s", e)
         return None
+
+
+def list_latest(limit: int = 50) -> List[Dict[str, object]]:
+    """
+    Returns the most recent entry per bucket (up to limit buckets).
+
+    Args:
+        limit (int): Maximum number of unique buckets to return.
+    """
+    sql = text(
+        "SELECT DISTINCT ON (bucket) bucket, asof_utc, source, count, tags, blob_path "
+        "FROM watchlist_index ORDER BY bucket, asof_utc DESC LIMIT :limit"
+    )
+    results: List[Dict[str, object]] = []
+    try:
+        with get_db() as db:
+            rows = db.execute(sql, {"limit": limit}).fetchall()
+        for row in rows:
+            mapping = row._mapping
+            results.append(
+                {
+                    "bucket": mapping["bucket"],
+                    "asof_utc": mapping["asof_utc"]
+                    .astimezone(timezone.utc)
+                    .isoformat(),
+                    "source": mapping["source"],
+                    "count": mapping["count"],
+                    "tags": mapping["tags"],
+                    "blob_path": mapping["blob_path"],
+                }
+            )
+    except Exception as e:
+        logger.warning("watchlist_index list_latest query failed: %s", e)
+    return results

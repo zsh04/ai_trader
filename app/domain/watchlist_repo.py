@@ -64,3 +64,17 @@ class WatchlistRepo:
         b = self._sanitize_bucket(bucket) or "default"
         data = self.store.read_nearest_date(b, yyyymmdd)
         return WatchlistDoc.from_json(data) if data else None
+
+    def list_latest(self, limit: int = 20) -> List[WatchlistDoc]:
+        """
+        Returns the latest watchlist snapshot per bucket (up to limit buckets).
+        """
+        docs: List[WatchlistDoc] = []
+        for row in idx.list_latest(limit):
+            bucket = row.get("bucket")
+            if not bucket:
+                continue
+            doc = self.latest(bucket)
+            if doc:
+                docs.append(doc)
+        return docs

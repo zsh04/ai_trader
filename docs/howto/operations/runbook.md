@@ -97,6 +97,21 @@
    - Optional office allow rule @ 110 when needed.
    - Default deny for all others (SCM inherits rules unless explicitly overridden).
 
+## Operator console (Streamlit UI)
+
+- URL: `https://<fd-host>/ui/` (Front Door). The legacy single-file console has been removed; all operators should use the new multi-page app.
+- Pages & purpose:
+  - **Home** — watchlist selector, KPIs, intraday previews.
+  - **Models** — FinBERT + Chronos2 controls (warm, adapter sync, shadow traffic).
+  - **Backtests** — sweep queue, submission form, job detail drawer + polling.
+  - **Orders & Fills** — filtered tables with order↔fill linking.
+  - **Trades & Positions** — equity curve, open positions, trade timeline.
+  - **Watchlists** — builder + signal preview (writes through `/watchlists` API).
+  - **Health** — `/health/live` + `/health/ready` payloads and OTEL status.
+  - **Settings** — runtime env summary (API base, version, feature flags, OTEL/Faro vars).
+- Telemetry: every UI action emits OTEL spans (`ui.action.<page>.<action>`) and Faro session IDs are propagated via baggage for backend correlation.
+- If the UI fails to load, confirm `API_BASE_URL`/`OTEL_*` env vars on the Web App and run the smoke tests in `ui/tests/README.md` using the provided mocks.
+
 ## DAL smoke test (Alpha Vantage + Finnhub)
 
 Use `scripts/dal_smoke.py` after migrations or credential updates to confirm the DAL pulls from every vendor we depend on. The script hits Alpaca, Alpha Vantage (intraday + daily), Yahoo, Twelve Data, and Finnhub by default and writes a JSON manifest for audit.

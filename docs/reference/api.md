@@ -3,7 +3,7 @@ title: "API Reference"
 doc_type: reference
 audience: intermediate
 product_area: ops
-last_verified: 2025-11-11
+last_verified: 2025-11-14
 toc: true
 ---
 
@@ -48,8 +48,17 @@ Link/path to `openapi.yaml`.
 - `GET /fills` – Lists recent fills (optionally filtered by `symbol`). Provides `order_id`, qty, price, fees, and PnL so Streamlit or downstream tools can render realized trades without direct DB access.
 
 ### Watchlists
-- `POST /tasks/watchlist` – Build watchlist (manual symbols or scanner).
-- `GET /tasks/watchlist` / `GET /watchlist` – Retrieve current watchlist snapshot.
+- `GET /watchlists` – List the latest snapshot per bucket (name, tags, symbol list, counts). Used by the Streamlit Watchlists page.
+- `POST /watchlists` – Save symbols/tags to a bucket. Body: `{ "bucket": "core", "symbols": [...], "tags": ["daily"], "source": "streamlit-ui" }`.
+- `POST /watchlists/{bucket}` – Same as above but with bucket in the path (legacy).
+- `GET /watchlists/{bucket}/latest` – Raw snapshot for the named bucket.
+- Legacy tasks endpoint `/tasks/watchlist` still exists for automation but the UI should call `/watchlists`.
+
+### Models
+- `GET /models` – Return FinBERT + Chronos-2 deployment metadata (adapter tag, warm status, shadow toggle, last sync times).
+- `POST /models/{service}/warm` – Trigger cache warm-up for the model microservice (paper/live).
+- `POST /models/{service}/adapters/sync` – Force an adapter refresh from Blob Storage; optional body `{ "adapter_tag": "20251114-lora-a" }`.
+- `POST /models/{service}/shadow` – Toggle the shadow traffic flag so operators can run canaries before routing production flow.
 
 ## Rate limits & retries
 State limits; backoff guidance for 429.
