@@ -53,6 +53,7 @@ narwhals==2.9.0
 numba==0.61.2
 numpy==2.2.6
 openai>=1.0.0
+opentelemetry-distro>=0.46b0
 opentelemetry-exporter-otlp-proto-http
 opentelemetry-instrumentation-fastapi
 opentelemetry-instrumentation-httpx
