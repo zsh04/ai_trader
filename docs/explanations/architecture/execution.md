@@ -41,7 +41,7 @@ Strategy signal → RiskManagementAgent → Order Router → Alpaca (paper)
 | Strategy Integration | Connect probabilistic signal outputs to the risk agent; validate breakout/momentum behaviour under paper fills. |
 | OMS Persistence | Harden order/fill upserts, add regression tests for reconciliation, surface results in Streamlit dashboard. |
 | Operational Runbooks | Finalise playbooks for Alpaca auth failures, stale data, and safe-mode transitions. |
-| Automation | Enable GitHub Action to deploy the execution container and schedule premarket/refresh jobs hitting `/tasks/watchlist`. |
+| Automation | Enable GitHub Action to deploy the execution container and schedule premarket/refresh jobs that call the `/watchlists` + `/router/run` APIs (or the future orchestrator webhooks). |
 
 ## Safe-Mode & Fallback Concepts
 

@@ -5,9 +5,4 @@
 - **Secrets**: Store in **Key Vault**; grant `get/list` to the web app identity.
 - **Postgres**: Azure Database for PostgreSQL Flexible Server (B1ms). Enforce SSL.
 - **Networking**: Optional VNet Integration + Private Endpoints (Blob, Postgres, Key Vault).
-- **Scheduling**: GitHub Actions cron → call app webhooks:
-  - `/tasks/premarket-scan` (04:00 PT)
-  - `/tasks/watchlist-finalize` (06:15 PT)
-  - `/tasks/refresh` (09:35, 11:30, 13:30 PT)
-  - `/tasks/afterhours-scan` (16:05 PT)
-  - `/tasks/retrain` (17:30 PT)
+- **Scheduling**: Use GitHub Actions (or Azure Automation) to hit the REST API you expose for housekeeping (e.g., `/router/run` for dry runs, `/watchlists` to pin the next session’s basket). No more `/tasks/*` helpers.

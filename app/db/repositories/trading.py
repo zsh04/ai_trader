@@ -102,3 +102,7 @@ class TradingRepository:
             select(models.Order).order_by(models.Order.created_at.desc()).limit(limit)
         )
         return list(self.session.scalars(stmt))
+
+    def all_positions(self) -> list[models.Position]:
+        stmt = select(models.Position).order_by(models.Position.symbol.asc())
+        return list(self.session.scalars(stmt))

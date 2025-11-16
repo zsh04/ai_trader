@@ -21,6 +21,7 @@ except Exception:  # pragma: no cover - OTEL optional
 logger = logging.getLogger(__name__)
 
 _tracer = None
+_telemetry_initialized = False
 _faro_session_id: Optional[str] = None
 
 
@@ -40,7 +41,9 @@ def _parse_kv(raw: Optional[str]) -> Dict[str, str]:
 
 
 def init_telemetry(settings: AppSettings) -> None:
-    global _tracer
+    global _tracer, _telemetry_initialized
+    if _telemetry_initialized:
+        return
     if trace is None or settings.otel_endpoint is None:
         logger.info("OTEL disabled for UI (missing dependency or endpoint)")
         return
@@ -60,6 +63,7 @@ def init_telemetry(settings: AppSettings) -> None:
     provider.add_span_processor(processor)
     trace.set_tracer_provider(provider)
     _tracer = provider.get_tracer(__name__)
+    _telemetry_initialized = True
     logger.info("OTEL tracer initialized for UI")
 
 

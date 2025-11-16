@@ -15,25 +15,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-# Required routes
-from app.api.routes.health import router as health_router
-from app.api.routes.tasks import public_router, tasks_router
+from app.api.routes import mount as mount_routes
 
 
 def get_api_router() -> APIRouter:
-    """Create and return the top-level API router including sub-routers.
-
-    This keeps `main.py` minimal and allows conditional inclusion of optional
-    routers without import-time failures when those modules are absent.
-    """
+    """Return an APIRouter wired with all routes."""
     api = APIRouter()
-
-    # Health / version endpoints (no prefix for convenience)
-    api.include_router(health_router, tags=["health"])  # /health, /health/db, /version
-
-    api.include_router(tasks_router, prefix="/tasks", tags=["tasks"])  # /tasks/*
-    api.include_router(public_router, prefix="/watchlist", tags=["watchlist"])
-
+    mount_routes(api)
     return api
 
 

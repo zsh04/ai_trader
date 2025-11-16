@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Sequence
 
@@ -20,6 +21,10 @@ def _safe_fetch(label: str, func) -> Any:
     except ServiceError as err:
         st.warning(f"{label} unavailable. See details below.")
         render_error(err)
+        return []
+    except Exception:  # pragma: no cover - defensive
+        logging.getLogger(__name__).exception("Unexpected error fetching %s", label)
+        st.error(f"{label} failed due to an unexpected error.")
         return []
 
 

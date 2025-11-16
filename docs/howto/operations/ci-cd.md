@@ -17,7 +17,7 @@
 
 2. **Configure CD pipeline**
    - Use `azure/webapps-deploy@v2` to deploy the built image to the App Service (API and, later, UI).
-   - For scheduled tasks (premarket scans, refreshes, retrain), create GitHub Actions workflows with `schedule` triggers that call protected `/tasks/*` webhooks using a token.
+   - For scheduled housekeeping (premarket scans, refreshes, retrain), create GitHub Actions workflows with `schedule` triggers that call the first-party APIs (`/watchlists` to pin buckets, `/router/run` for dry runs, etc.) using a token.
 
 3. **Manage secrets & networking**
    - Store GitHub secrets for build-time values only; runtime secrets should come from Key Vault via Managed Identity (`@Microsoft.KeyVault(...)` references in App Settings).

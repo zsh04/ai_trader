@@ -48,11 +48,25 @@ Link/path to `openapi.yaml`.
 - `GET /fills` – Lists recent fills (optionally filtered by `symbol`). Provides `order_id`, qty, price, fees, and PnL so Streamlit or downstream tools can render realized trades without direct DB access.
 
 ### Watchlists
-- `GET /watchlists` – List the latest snapshot per bucket (name, tags, symbol list, counts). Used by the Streamlit Watchlists page.
-- `POST /watchlists` – Save symbols/tags to a bucket. Body: `{ "bucket": "core", "symbols": [...], "tags": ["daily"], "source": "streamlit-ui" }`.
-- `POST /watchlists/{bucket}` – Same as above but with bucket in the path (legacy).
-- `GET /watchlists/{bucket}/latest` – Raw snapshot for the named bucket.
-- Legacy tasks endpoint `/tasks/watchlist` still exists for automation but the UI should call `/watchlists`.
+- A *bucket* is just a slug for the list you want to manage (`intraday-core`, `swing-tech`, etc.). Think of it as a saved view — anything that writes to that bucket replaces the latest snapshot that `/watchlists` will show. Symbols are expected to be upper-case strings; tags are free-form labels you can filter on in Streamlit.
+- `GET /watchlists` – Latest snapshot per bucket with `name`, `asof_utc`, `source`, `count`, `symbols`, and `tags`.
+- `POST /watchlists` – Save a snapshot. Example:
+  ```json
+  {
+    "bucket": "intraday-core",
+    "symbols": ["AAPL", "MSFT", "NVDA", "META"],
+    "tags": ["intraday", "tier1"],
+    "source": "streamlit-ui",
+    "meta": { "owner": "ops", "notes": "pre-market scan" }
+  }
+  ```
+- `POST /watchlists/{bucket}` – Path-param form of the same payload.
+- `GET /watchlists/{bucket}/latest` / `{bucket}/{yyyymmdd}` – Retrieve an exact snapshot (useful for audits or recreating past scans).
+
+### Portfolio / trading data
+- `GET /positions` – Current net positions (symbol, qty, average price, realized/unrealized P&L, leverage metadata). Backed by the `trading.positions` table that the execution consumer maintains.
+- `GET /equity/{account}?limit=390` – Equity curve for the requested account slug (we store a single book today; `account` is a label so Streamlit can show multiple tabs later). Returns `{ "account": "paper", "points": [{ "ts": "...", "equity": 200000.0, ...}] }`.
+- `GET /trades/{symbol}` – Recent fills. Pass `all` or `*` to include every symbol, otherwise restricts to the ticker provided.
 
 ### Models
 - `GET /models` – Return FinBERT + Chronos-2 deployment metadata (adapter tag, warm status, shadow toggle, last sync times).

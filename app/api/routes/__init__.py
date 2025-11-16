@@ -25,7 +25,7 @@ from .models import router as models_router
 from .ops import router as ops_router
 from .orchestration import router as orchestration_router
 from .orders import router as orders_router
-from .tasks import public_router, tasks_router
+from .portfolio import router as portfolio_router
 from .watchlists import router as watchlists_router
 
 router = APIRouter()
@@ -34,10 +34,9 @@ router.include_router(backtest_router)
 router.include_router(watchlists_router, prefix="/watchlists", tags=["watchlists"])
 router.include_router(ops_router)
 router.include_router(orchestration_router)
-router.include_router(tasks_router)
-router.include_router(public_router)
 router.include_router(orders_router)
 router.include_router(fills_router)
+router.include_router(portfolio_router)
 router.include_router(models_router)
 
 

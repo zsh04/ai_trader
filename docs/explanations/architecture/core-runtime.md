@@ -15,7 +15,7 @@ Phase 1 explains how we turn raw market data into the probabilistic signals use
 ## Runtime flow
 
 1. **Symbol Universe**
-   - `app/domain/watchlist_service.py` builds watchlists using DAL-backed vendors (`auto`, `alpha`, `finnhub`, `textlist`, `twelvedata`) and exposes `/tasks/watchlist` plus the Streamlit “Watchlist” pane.
+   - `app/domain/watchlist_service.py` builds watchlists using DAL-backed vendors (`auto`, `alpha`, `finnhub`, `textlist`, `twelvedata`) and now feeds the `/watchlists` REST API + Streamlit pane (buckets such as `intraday-core`, `swing-tech`).
    - The fallback sequence is Alpha Vantage → Finnhub → Textlist → Twelve Data so that the feature layer always has a non-empty symbol set.
 
 2. **Market Data DAL**

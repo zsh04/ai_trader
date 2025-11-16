@@ -41,7 +41,7 @@ Daily outputs land in `data/watchlists/YYYY-MM-DD.json` with `symbol`, `price`, 
 4. Unknown values default to `"textlist"` with a warning.
 
 ## Response schema
-All consumers (API route `/tasks/watchlist`, backend services) receive a normalized payload:
+All consumers (API route `/watchlists` or `/watchlists/{bucket}/latest`, backend services) receive a normalized payload:
 
 ```json
 {
@@ -65,4 +65,4 @@ All consumers (API route `/tasks/watchlist`, backend services) receive a normali
 }
 ```
 
-This mirrors the expected output from `tests/unit/test_watchlist_route.py`, validating normalization and deduplication when `WATCHLIST_SOURCE=textlist`.
+This mirrors the expected output from the integration tests when `WATCHLIST_SOURCE=textlist`, validating normalization and deduplication before the snapshot is stored and surfaced via `/watchlists`.
