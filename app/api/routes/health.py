@@ -20,7 +20,6 @@ except Exception:
         APP_VERSION = "0.1.0"
 
 from app.adapters.db.postgres import ping
-from app.api.routes.tasks import get_build_counters
 from app.domain.watchlist_service import get_watchlist_counters
 from app.settings import get_database_settings
 
@@ -206,8 +205,5 @@ async def health_config() -> Dict[str, Any]:
         "checks": checks,
         "validation": checks,
         "config": config,
-        "counters": {
-            "watchlist_sources": get_watchlist_counters(),
-            "watchlist_builds": get_build_counters(),
-        },
+        "counters": {"watchlist_sources": get_watchlist_counters()},
     }
