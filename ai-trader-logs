@@ -874,3 +874,63 @@
 2025-11-15 22:08:26.129 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [http] method=GET url=https://data.alpaca.markets/v2/stocks/bars status=401 latency_ms=460.1 attempt=1/5 non-2xx
 2025-11-15 22:08:26.132 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca fetch_bars failed symbol=NVDA status=401 payload={}
 2025-11-15 22:08:26.135 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | Router ingest failed: empty bar set
+2025-11-15 22:55:16.330 | INFO     | req=f24f9b544c4f4ac0bc17e62287607125 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/backtests/sweeps/jobs status=200 duration_ms=1.13
+2025-11-15 22:55:16.334 | INFO     | req=f5bd45f594834140930cfc3182ff2f84 | env=test | ver=1.6.6 | sha=unknown | request method=POST path=/backtests/sweeps/jobs status=200 duration_ms=1.87
+2025-11-15 22:55:16.337 | INFO     | req=1293e25025ee4022b913d7d66957af71 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/fills/ status=200 duration_ms=1.18
+2025-11-15 22:55:16.339 | INFO     | req=59da762c85ac4103ac438ca5f1e208e4 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/orders status=307 duration_ms=0.21
+2025-11-15 22:55:16.341 | INFO     | req=61578f38eaee431c8e8e6ecf392fe584 | env=test | ver=1.6.6 | sha=unknown | request method=GET path=/orders/ status=200 duration_ms=0.64
+2025-11-15 22:55:16.355 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching history via DAL vendor=%s interval=%s %s → %s
+2025-11-15 22:55:16.361 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic pipeline ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-15 22:55:16.428 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Regime-aware sizing applied: regime=trend_down uncertainty=0.0800 scale=0.420
+2025-11-15 22:55:16.429 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-15 22:55:16.429 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-15 22:55:16.431 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching history via DAL vendor=%s interval=%s %s → %s
+2025-11-15 22:55:16.434 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic pipeline ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-15 22:55:16.440 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-15 22:55:16.440 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-15 22:55:16.445 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching history via DAL vendor=%s interval=%s %s → %s
+2025-11-15 22:55:16.448 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic pipeline ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-15 22:55:16.457 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fractional Kelly applied prob=0.570 payoff=2.00 frac=0.0015
+2025-11-15 22:55:16.457 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-15 22:55:16.457 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-15 22:55:16.459 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic features enabled automatically (%s).
+2025-11-15 22:55:16.459 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching history via DAL vendor=%s interval=%s %s → %s
+2025-11-15 22:55:16.462 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic pipeline ok vendor=hybrid interval=1Day bars=6 signals=6 regimes=6
+2025-11-15 22:55:16.470 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-15 22:55:16.470 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-15 22:55:16.557 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic features enabled automatically (%s).
+2025-11-15 22:55:16.558 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching history via DAL vendor=%s interval=%s %s → %s
+2025-11-15 22:55:16.561 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic pipeline ok vendor=hybrid interval=1Day bars=5 signals=5 regimes=5
+2025-11-15 22:55:16.567 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'sharpe': 1.0, 'sortino': 1.0}
+2025-11-15 22:55:16.567 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-15 22:55:16.575 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching history via DAL vendor=%s interval=%s %s → %s
+2025-11-15 22:55:16.578 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic pipeline ok vendor=stub interval=1Day bars=6 signals=6 regimes=6
+2025-11-15 22:55:16.585 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [AAPL] equity metrics: {'start': '2021-01-01 00:00:00+00:00', 'end': '2021-01-02 00:00:00+00:00', 'periods': 1, 'cagr': 0.0, 'total_return': 0.0, 'vol': 0.0, 'sharpe': 1.0, 'sortino': 1.0, 'max_drawdown': 0.0, 'max_dd_len': 0, 'mar': 0.0}
+2025-11-15 22:55:16.585 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-15 22:55:16.593 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching history via DAL vendor=%s interval=%s %s → %s
+2025-11-15 22:55:16.596 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic pipeline ok vendor=stub interval=1Day bars=6 signals=6 regimes=6
+2025-11-15 22:55:16.605 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [MSFT] equity metrics: {'start': '2021-01-01 00:00:00+00:00', 'end': '2021-01-02 00:00:00+00:00', 'periods': 1, 'cagr': 0.0, 'total_return': 0.0, 'vol': 0.0, 'sharpe': 1.0, 'sortino': 1.0, 'max_drawdown': 0.0, 'max_dd_len': 0, 'mar': 0.0}
+2025-11-15 22:55:16.606 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-15 22:55:16.612 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching history via DAL vendor=%s interval=%s %s → %s
+2025-11-15 22:55:16.614 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic pipeline ok vendor=stub interval=1Day bars=7 signals=7 regimes=7
+2025-11-15 22:55:16.620 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [QQQ] equity metrics: {'start': '2021-01-01 00:00:00+00:00', 'end': '2021-01-02 00:00:00+00:00', 'periods': 1, 'cagr': 0.0, 'total_return': 0.0, 'vol': 0.0, 'sharpe': 1.0, 'sortino': 1.0, 'max_drawdown': 0.0, 'max_dd_len': 0, 'mar': 0.0}
+2025-11-15 22:55:16.620 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-15 22:55:16.622 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Fetching history via DAL vendor=%s interval=%s %s → %s
+2025-11-15 22:55:16.625 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Probabilistic pipeline ok vendor=stub interval=1Day bars=4 signals=4 regimes=4
+2025-11-15 22:55:16.632 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [TSLA] equity metrics: {'start': '2021-01-01 00:00:00+00:00', 'end': '2021-01-02 00:00:00+00:00', 'periods': 1, 'cagr': 0.0, 'total_return': 0.0, 'vol': 0.0, 'sharpe': 1.0, 'sortino': 1.0, 'max_drawdown': 0.0, 'max_dd_len': 0, 'mar': 0.0}
+2025-11-15 22:55:16.633 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | Skipping save of equity curve due to BACKTEST_NO_SAVE=1
+2025-11-15 22:55:16.637 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [sweep] starting job=%s dir=%s jobs=%s
+2025-11-15 22:55:16.638 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [sweep] job=%s strategy=%s params=%s sharpe=%s
+2025-11-15 22:55:16.638 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [sweep] job=%s strategy=%s params=%s sharpe=%s
+2025-11-15 22:55:16.639 | INFO     | req=- | env=test | ver=1.6.6 | sha=unknown | [sweep] completed job=%s dir=%s succeeded=%s
+2025-11-15 22:55:16.662 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | yahoo chart history failed symbol=AAPL status=500 error=nope
+2025-11-15 22:55:16.687 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-15 22:55:16.687 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca snapshots returned empty payload; falling back to Yahoo for 1 symbols
+2025-11-15 22:55:16.704 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | HTTP GET https://example.com/test exception: boom; retrying in 0.0s (attempt 1/4)
+2025-11-15 22:55:16.847 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | Router ingest failed: boom
+2025-11-15 22:55:16.850 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | AlphaVantage API key not configured; fetches will fail
+2025-11-15 22:55:16.851 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | AlphaVantage API key not configured; daily fetches will fail
+2025-11-15 22:55:16.851 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | Finnhub API key not configured; fetches will fail
+2025-11-15 22:55:17.331 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | [http] method=GET url=https://data.alpaca.markets/v2/stocks/bars status=401 latency_ms=479.3 attempt=1/5 non-2xx
+2025-11-15 22:55:17.332 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | alpaca fetch_bars failed symbol=NVDA status=401 payload={}
+2025-11-15 22:55:17.336 | WARNING  | req=- | env=test | ver=1.6.6 | sha=unknown | Router ingest failed: empty bar set

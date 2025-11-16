@@ -32,6 +32,8 @@ def _otel_safe_record_factory(*args, **kwargs):
         record.otelSpanID = "-"
     if not hasattr(record, "otelTraceFlags"):
         record.otelTraceFlags = "-"
+    if not hasattr(record, "otelTraceSampled"):
+        record.otelTraceSampled = "-"
     return record
 
 
@@ -50,6 +52,7 @@ OTEL_MISSING = {
     "otelTraceID": "-",
     "otelSpanID": "-",
     "otelTraceFlags": "-",
+    "otelTraceSampled": "-",
     "otelServiceName": OTEL_SERVICE_NAME,
 }
 
@@ -99,6 +102,7 @@ def _current_otel_fields() -> Dict[str, str]:
         "otelTraceID": trace_id,
         "otelSpanID": span_id,
         "otelTraceFlags": flags,
+        "otelTraceSampled": "1" if ctx.trace_flags & 0x01 else "0",
         "otelServiceName": OTEL_SERVICE_NAME,
     }
 
