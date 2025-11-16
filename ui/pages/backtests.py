@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 import streamlit as st
 
-from app.adapters.storage.azure_blob import blob_load_text, to_url
 from ui.components.drawer import render_drawer
 from ui.components.error_banner import render_error
 from ui.components.status_badge import render_status_badge
@@ -17,6 +16,7 @@ from ui.components.toast import error as toast_error
 from ui.components.toast import success as toast_success
 from ui.services.http_client import ServiceError
 from ui.state.session import get_services, get_session_state
+from ui.utils.blob import blob_load_text, to_url
 from ui.utils.telemetry import ui_action_span
 
 TERMINAL_STATES = {"completed", "failed", "cancelled"}

@@ -95,8 +95,11 @@ def _span_context(name: str, attributes: Optional[Dict[str, str]]) -> Iterator[N
     try:
         with trace.use_span(span, end_on_exit=True):
             yield
-    except Exception:
-        span.record_exception()
+    except Exception as exc:
+        try:
+            span.record_exception(exc)
+        except TypeError:
+            span.record_exception()
         if Status and StatusCode:
             span.set_status(Status(StatusCode.ERROR))
         raise
