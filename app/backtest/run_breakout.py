@@ -16,6 +16,7 @@ import pandas as pd
 from loguru import logger
 from pandas import Timestamp
 
+from app.adapters.storage.azure_blob import blob_save_bytes
 from app.agent.risk import FractionalKellyAgent
 from app.backtest import metrics as bt_metrics
 from app.backtest.engine import Costs, backtest_long_only
@@ -79,6 +80,45 @@ def _ensure_prob_columns(
     if not missing:
         return target
     return target.join(source[missing], how="left")
+
+
+def _safe_blob_segment(value: str, fallback: str = "unknown") -> str:
+    s = (value or "").strip()
+    if not s:
+        return fallback
+    clean = []
+    for ch in s:
+        if ch.isalnum() or ch in {"-", "_"}:
+            clean.append(ch.lower())
+        elif ch in {"/", "\\", " ", ":"}:
+            clean.append("-")
+    token = "".join(clean).strip("-_")
+    return token or fallback
+
+
+def _artifact_prefix(symbol: str, strategy: str, job_ref: str) -> str:
+    return "/".join(
+        [
+            "backtests",
+            _safe_blob_segment(job_ref, fallback="job"),
+            _safe_blob_segment(strategy or "strategy"),
+            _safe_blob_segment(symbol or "symbol"),
+        ]
+    )
+
+
+def _upload_artifact(
+    data: bytes | str, *, key: str, content_type: str
+) -> Optional[str]:
+    if data is None:
+        return None
+    try:
+        locator = blob_save_bytes(data, key, content_type=content_type)
+        logger.info("Uploaded backtest artifact -> %s", key)
+        return locator
+    except Exception as exc:
+        logger.debug("Backtest artifact upload skipped path=%s err=%s", key, exc)
+        return None
 
 
 def infer_probabilistic_success(sig: pd.DataFrame) -> float:
@@ -177,6 +217,7 @@ def run(
     export_csv: str | None = None,
     risk_agent: str | None = None,
     risk_agent_fraction: float = 0.5,
+    job_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     strategy_key = strategy.lower()
     if strategy_key not in STRATEGIES:
@@ -230,6 +271,7 @@ def run(
             export_csv=export_csv,
             risk_agent=risk_agent_label,
             risk_agent_fraction=risk_agent_fraction,
+            job_id=job_id,
         )
 
     record_run(attributes)
@@ -259,7 +301,13 @@ def _run_backtest_core(
     risk_agent_fraction: float = 0.5,
     output_dir: Optional[str] = None,
     no_save: Optional[bool] = None,
+    job_id: Optional[str] = None,
 ) -> Dict[str, Any]:
+    job_ref = (
+        job_id
+        or f"bt-{_safe_blob_segment(symbol or 'sym')}-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}"
+    )
+    artifact_prefix = _artifact_prefix(symbol, strategy, job_ref)
     start_dt = pd.to_datetime(start).date()
     end_dt = pd.to_datetime(end).date() if end else datetime.now(UTC).date()
 
@@ -376,6 +424,7 @@ def _run_backtest_core(
     sig = signal_fn(signal_input, asdict(params))
 
     persisted_path: Optional[str] = None
+    prob_frame_blob: Optional[str] = None
     if prob_cols:
         sig = _ensure_prob_columns(sig, prob_frame)
         nonnull = sig[prob_cols].count()
@@ -393,6 +442,18 @@ def _run_backtest_core(
         )
         if persisted_path:
             logger.debug("Persisted probabilistic signal frame -> {}", persisted_path)
+            try:
+                prob_frame_blob = _upload_artifact(
+                    Path(persisted_path).read_bytes(),
+                    key=f"{artifact_prefix}/prob_frame.parquet",
+                    content_type="application/octet-stream",
+                )
+            except Exception as exc:
+                logger.debug(
+                    "Probabilistic artifact upload skipped path=%s err=%s",
+                    persisted_path,
+                    exc,
+                )
 
     if all(c in sig.columns for c in ["open", "high", "low", "close"]):
         df_engine = sig[["open", "high", "low", "close"]].copy()
@@ -558,8 +619,8 @@ def _run_backtest_core(
     if used_extra:
         logger.debug("backtest_long_only extra kwargs applied: {}", used_extra)
 
+    trades_obj = res.get("trades")
     try:
-        trades_obj = res.get("trades")
         trades_len = len(trades_obj) if hasattr(trades_obj, "__len__") else -1
         logger.debug("trades_len={}", trades_len)
         if trades_len > 0:
@@ -567,6 +628,17 @@ def _run_backtest_core(
             logger.debug("first_trades={}", preview)
     except Exception as exc:
         logger.debug("Trades introspection failed: {}", exc)
+
+    trades_df: Optional[pd.DataFrame] = None
+    if isinstance(trades_obj, pd.DataFrame):
+        trades_df = trades_obj.copy()
+    elif isinstance(trades_obj, (list, tuple)):
+        trades_df = pd.DataFrame(trades_obj)
+    elif trades_obj is not None:
+        try:
+            trades_df = pd.DataFrame(trades_obj)
+        except Exception:
+            trades_df = None
 
     try:
         keys = list(res.keys())
@@ -656,13 +728,23 @@ def _run_backtest_core(
         no_save if no_save is not None else os.getenv("BACKTEST_NO_SAVE", "0") == "1"
     )
     equity_path = None
+    equity_blob: Optional[str] = None
+    trades_blob: Optional[str] = None
+    export_blob_map: dict[str, str] = {}
     if skip_save:
         logger.info("Skipping save of equity curve due to BACKTEST_NO_SAVE=1")
     else:
-        os.makedirs(os.path.dirname(out), exist_ok=True)
-        res_equity.to_csv(out)
+        out_path = Path(out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        csv_payload = res_equity.to_csv()
+        out_path.write_text(csv_payload, encoding="utf-8")
         logger.info("Saved equity curve -> {}", out)
         equity_path = out
+        equity_blob = _upload_artifact(
+            csv_payload,
+            key=f"{artifact_prefix}/equity.csv",
+            content_type="text/csv",
+        )
 
     export_dir: Optional[Path] = None
     if export_csv:
@@ -677,26 +759,49 @@ def _run_backtest_core(
             eq_df = pd.DataFrame()
 
         export_equity_path = (export_dir / f"{symbol}_equity.csv").resolve()
-        eq_df.to_csv(export_equity_path)
+        equity_export_payload = eq_df.to_csv()
+        export_equity_path.write_text(equity_export_payload, encoding="utf-8")
         logger.info("Exported equity CSV -> {}", export_equity_path)
+        locator = _upload_artifact(
+            equity_export_payload,
+            key=f"{artifact_prefix}/exports/{export_equity_path.name}",
+            content_type="text/csv",
+        )
+        if locator:
+            export_blob_map[export_equity_path.name] = locator
 
-        trades = res.get("trades")
-        if isinstance(trades, pd.DataFrame):
-            trades_df = trades.copy()
-        elif isinstance(trades, (list, tuple)):
-            trades_df = pd.DataFrame(trades)
-        else:
-            trades_df = pd.DataFrame()
-
+        trades_df_export = (
+            trades_df.copy() if isinstance(trades_df, pd.DataFrame) else pd.DataFrame()
+        )
         trades_path = (export_dir / f"{symbol}_trades.csv").resolve()
-        trades_df.to_csv(trades_path, index=False)
+        trades_payload = trades_df_export.to_csv(index=False)
+        trades_path.write_text(trades_payload, encoding="utf-8")
         logger.info("Exported trades CSV -> {}", trades_path)
+        locator = _upload_artifact(
+            trades_payload,
+            key=f"{artifact_prefix}/exports/{trades_path.name}",
+            content_type="text/csv",
+        )
+        if locator:
+            export_blob_map[trades_path.name] = locator
+
+    if trades_df is not None and not trades_df.empty:
+        trades_blob = _upload_artifact(
+            trades_df.to_csv(index=False),
+            key=f"{artifact_prefix}/trades.csv",
+            content_type="text/csv",
+        )
 
     return {
+        "job_id": job_ref,
         "metrics": m_dict,
         "equity_path": equity_path,
-        "prob_frame_path": persisted_path,
+        "equity_blob": equity_blob,
+        "trades_blob": trades_blob,
+        "prob_frame_path": str(persisted_path) if persisted_path else None,
+        "prob_frame_blob": prob_frame_blob,
         "export_dir": str(export_dir) if export_csv else None,
+        "export_blobs": export_blob_map or None,
     }
 
 

@@ -74,6 +74,7 @@ def _execute_job(
             "export_csv": str(job_dir),
             "output_dir": str(job_dir),
             "no_save": False,
+            "job_id": f"sweep-{job_idx:04d}",
         }
     )
     attributes = {
@@ -111,6 +112,11 @@ def _execute_job(
         "equity_path": result.get("equity_path"),
         "prob_frame_path": result.get("prob_frame_path"),
         "output_dir": str(job_dir),
+        "job_ref": result.get("job_id"),
+        "equity_blob": result.get("equity_blob"),
+        "trades_blob": result.get("trades_blob"),
+        "prob_frame_blob": result.get("prob_frame_blob"),
+        "export_blobs": result.get("export_blobs"),
     }
     (job_dir / "summary.json").write_text(json.dumps(payload, default=str, indent=2))
     logger.info(

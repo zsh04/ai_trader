@@ -188,6 +188,7 @@ def get_sweep(job_id: str) -> SweepStatus:
 
 @router.post("/run")
 def run_backtest_endpoint(req: BacktestRequest) -> Dict[str, Any]:
+    job_id = f"bt-{uuid4().hex[:8]}"
     result = run_backtest(
         symbol=req.symbol,
         start=req.start,
@@ -204,5 +205,7 @@ def run_backtest_endpoint(req: BacktestRequest) -> Dict[str, Any]:
         fee_per_share=req.fee_per_share,
         risk_frac_override=req.risk_frac,
         min_notional=req.min_notional,
+        job_id=job_id,
     )
+    result.setdefault("job_id", job_id)
     return result

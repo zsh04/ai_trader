@@ -3,6 +3,7 @@ Thin helpers around Azure Blob Storage for simple app data persistence.
 
 Public API (dual-signature where noted):
 - blob_save_json(container, path, obj)  OR blob_save_json(obj, path) -> str
+- blob_save_bytes(container, path, data) OR blob_save_bytes(data, path) -> str
 - blob_load_text(container, path)       OR blob_load_text(path) -> str | None
 - blob_load_json(container, path)       OR blob_load_json(path) -> dict | list | None
 - blob_list(container, prefix="")       OR blob_list(prefix="") -> list[str]
@@ -40,6 +41,7 @@ if TYPE_CHECKING:  # Avoid runtime import of Azure SDK
 
 __all__ = [
     "blob_save_json",
+    "blob_save_bytes",
     "blob_load_text",
     "blob_load_json",
     "blob_list",
@@ -315,6 +317,68 @@ def blob_save_json(*args, **kwargs) -> str:
         container.upload_blob(
             name=path, data=buf, overwrite=True, content_type="application/json"
         )
+    else:
+        raise AttributeError("Blob client/container missing an upload method")
+
+    _INMEM_INDEX[container_name].add(path)
+
+    return _locator(container_name, path)
+
+
+def blob_save_bytes(
+    *args, content_type: Optional[str] = None, encoding: str = "utf-8", **kwargs
+) -> str:
+    """Uploads arbitrary byte content to Azure Blob Storage.
+
+    Args:
+        *args: Variable length arguments following blob_save_json signatures.
+        content_type (Optional[str]): MIME type to set on the blob (default octet-stream).
+        encoding (str): Text encoding when `obj` is a str-like payload.
+        **kwargs: Arbitrary keyword arguments.
+
+    Returns:
+        str: A 'container/path' locator string.
+
+    Raises:
+        RuntimeError: If the container name is not configured.
+        TypeError: If the payload cannot be converted to bytes.
+    """
+
+    container_override, path, obj = _resolve_sig_2_or_3(args, kwargs, want="save")
+    container_name = (container_override or settings.blob_container or "").strip()
+    if not container_name:
+        raise RuntimeError("settings.blob_container is not configured")
+
+    if isinstance(obj, bytes):
+        buf = obj
+    elif isinstance(obj, memoryview):
+        buf = bytes(obj)
+    elif isinstance(obj, bytearray):
+        buf = bytes(obj)
+    elif isinstance(obj, str):
+        buf = obj.encode(encoding)
+    elif hasattr(obj, "read"):
+        data = obj.read()
+        if isinstance(data, str):
+            buf = data.encode(encoding)
+        else:
+            buf = bytes(data)
+    else:
+        raise TypeError(
+            "blob_save_bytes requires bytes-like, str, or file-like payloads"
+        )
+
+    container = _container(container_name)
+    path = _normalize_path(path)
+    blob = container.get_blob_client(path)
+    mime = content_type or "application/octet-stream"
+
+    if hasattr(blob, "upload_blob"):
+        blob.upload_blob(buf, overwrite=True, content_type=mime)
+    elif hasattr(blob, "upload"):
+        blob.upload(buf)
+    elif hasattr(container, "upload_blob"):
+        container.upload_blob(name=path, data=buf, overwrite=True, content_type=mime)
     else:
         raise AttributeError("Blob client/container missing an upload method")
 

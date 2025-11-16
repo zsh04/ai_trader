@@ -14,6 +14,7 @@ class ApiRoutes:
     model_shadow: str = "/models/{service}/shadow"
     sweeps_jobs: str = "/backtests/sweeps/jobs"
     sweeps_job_detail: str = "/backtests/sweeps/jobs/{job_id}"
+    sweep_run_status: str = "/backtests/sweeps/{job_id}"
     orders: str = "/orders"
     fills: str = "/fills"
     trades: str = "/trades/{symbol}"

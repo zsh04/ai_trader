@@ -29,3 +29,7 @@ class BacktestService:
     def job_detail(self, job_id: str) -> Any:
         path = ROUTES.sweeps_job_detail.format(job_id=job_id)
         return self.client.request("GET", path, ui_action="backtests.detail")
+
+    def sweep_status(self, job_id: str) -> Any:
+        path = ROUTES.sweep_run_status.format(job_id=job_id)
+        return self.client.request("GET", path, ui_action="backtests.results")
