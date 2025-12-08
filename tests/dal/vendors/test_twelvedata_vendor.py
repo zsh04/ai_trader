@@ -9,6 +9,12 @@ from app.dal.vendors.market_data.twelvedata import TwelveDataVendor
 
 def test_fetch_bars_without_api_key(monkeypatch):
     monkeypatch.delenv("TWELVEDATA_API_KEY", raising=False)
+    
+    # ENV is a frozen dataclass instantiated at import time, so it caches the API key.
+    # We must replace the module-level ENV with a fresh one that sees the deleted env var.
+    from app.utils.env import EnvSettings
+    monkeypatch.setattr(td_module, "ENV", EnvSettings())
+
     vendor = TwelveDataVendor(api_key="")
     request = FetchRequest(
         symbol="AAPL",

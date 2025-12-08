@@ -1,0 +1,3 @@
+2025-12-07 13:42:57.964 | INFO     | app:<module>:53 - startup: log pipeline ready
+ACA_RESOURCE_GROUP and ACA_JOB_NAME must be set in env
+{'job_id': 'sweep-20251207-214258', 'status': 'dry-run', 'blob_url': 'https://dryrun.blob.core.windows.net/configs/configs/sweep-20251207-214258.yaml'}

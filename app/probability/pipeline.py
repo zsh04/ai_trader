@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Iterable, Optional
 
+import numpy as np
 import pandas as pd
 
 from app.agent.probabilistic.regime import RegimeSnapshot
@@ -99,6 +100,62 @@ def regimes_to_frame(regimes: list[RegimeSnapshot]) -> pd.DataFrame:
     df.index = idx
     df = df.groupby(level=0).last()
     return df.sort_index()
+
+
+
+
+
+def infer_probabilistic_success(sig: pd.DataFrame) -> float:
+    """
+    Infer probability of trade success based on probabilistic features.
+    
+    Uses:
+    - prob_velocity (tanh scaled)
+    - prob_uncertainty (linear penalty)
+    - regime_label (categorical adjustments)
+    """
+    probability = 0.55
+    vel = sig.get("prob_velocity")
+    if vel is not None:
+        # Handle both Series and scalar (though usually Series in a frame context)
+        # If Series, take the last non-NaN
+        if hasattr(vel, "dropna"):
+            valid = vel.dropna()
+            if not valid.empty:
+                probability = 0.5 + 0.5 * np.tanh(float(valid.iloc[-1]))
+        elif pd.notnull(vel):
+             probability = 0.5 + 0.5 * np.tanh(float(vel))
+
+    uncertainty = sig.get("prob_uncertainty")
+    if uncertainty is not None:
+        if hasattr(uncertainty, "dropna"):
+            valid = uncertainty.dropna()
+            if not valid.empty:
+                probability -= float(valid.iloc[-1])
+        elif pd.notnull(uncertainty):
+            probability -= float(uncertainty)
+
+    regime = sig.get("regime_label")
+    if regime is not None:
+        latest = None
+        if hasattr(regime, "dropna"):
+            valid = regime.dropna()
+            if not valid.empty:
+                latest = str(valid.iloc[-1]).lower()
+        elif pd.notnull(regime):
+            latest = str(regime).lower()
+        
+        if latest:
+            probability += {
+                "trend_up": 0.05,
+                "calm": 0.02,
+                "sideways": 0.0,
+                "trend_down": -0.07,
+                "high_volatility": -0.08,
+                "uncertain": -0.1,
+            }.get(latest, 0.0)
+
+    return max(0.05, min(0.95, probability))
 
 
 def join_probabilistic_features(

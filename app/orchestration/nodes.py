@@ -14,7 +14,10 @@ from app.agent.risk import FractionalKellyAgent
 from app.dal.manager import MarketDataDAL
 from app.eventbus.publisher import publish_event
 from app.execution.alpaca_client import AlpacaClient, ExecutionError
-from app.probability.pipeline import join_probabilistic_features
+from app.probability.pipeline import (
+    infer_probabilistic_success,
+    join_probabilistic_features,
+)
 from app.probability.storage import (
     load_probabilistic_frame,
     persist_probabilistic_frame,
@@ -144,6 +147,11 @@ def infer_priors(state: RouterState) -> RouterState:
             win_prob = float((returns > 0).mean()) if not returns.empty else 0.55
             vol_hint = float(returns.std()) if not returns.empty else 0.02
             avg_return = float(returns.mean()) if not returns.empty else 0.0
+            
+            # Use ML inference if probabilistic features are present
+            if all(c in tail.columns for c in ["prob_velocity", "prob_uncertainty"]):
+                win_prob = infer_probabilistic_success(tail)
+            
             payoff = max(1.1, 1.0 + abs(avg_return) * 50)
             priors = {
                 "win_prob": max(0.05, min(0.95, win_prob)),

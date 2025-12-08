@@ -26,6 +26,7 @@ DEFAULT_CHECKS: Sequence[tuple[str, str, str, int]] = (
     ("yahoo", "QQQ", "1Day", 400),
     ("twelvedata", "NVDA", "1Day", 120),
     ("finnhub", "AAPL", "1Day", 60),
+    ("marketstack", "MSFT", "1Day", 10),
 )
 
 

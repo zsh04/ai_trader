@@ -152,6 +152,10 @@ class EnvSettings:
     TWELVEDATA_API_KEY: str = field(
         default_factory=lambda: get_str("TWELVEDATA_API_KEY", "")
     )
+    #: Marketstack API key.
+    MARKETSTACK_API_KEY: str = field(
+        default_factory=lambda: get_str("MARKETSTACK_API_KEY", "")
+    )
 
     #: Ordered preference of upstream price providers.
     PRICE_PROVIDERS: List[str] = field(
@@ -201,6 +205,17 @@ class EnvSettings:
     PGSSLMODE: str = field(default_factory=lambda: get_str("PGSSLMODE", "require"))
     #: Full DATABASE_URL if provided (takes precedence elsewhere).
     DATABASE_URL: str = field(default_factory=lambda: get_str("DATABASE_URL", ""))
+
+    #: Azure Container Apps Resource Group.
+    ACA_RESOURCE_GROUP: str = field(
+        default_factory=lambda: get_str("ACA_RESOURCE_GROUP", "")
+    )
+    #: Azure Container Apps Environment Name.
+    ACA_ENVIRONMENT: str = field(default_factory=lambda: get_str("ACA_ENVIRONMENT", ""))
+    #: Azure Container Apps Job Name for Sweeps.
+    ACA_JOB_NAME: str = field(
+        default_factory=lambda: get_str("ACA_JOB_NAME", "ai-trader-sweep")
+    )
 
     #: Default HTTP request timeout (seconds).
     HTTP_TIMEOUT_SECS: int = field(
@@ -295,7 +310,12 @@ PGDATABASE = ENV.PGDATABASE
 PGUSER = ENV.PGUSER
 PGPASSWORD = ENV.PGPASSWORD
 PGSSLMODE = ENV.PGSSLMODE
+PGSSLMODE = ENV.PGSSLMODE
 DATABASE_URL = ENV.DATABASE_URL
+
+ACA_RESOURCE_GROUP = ENV.ACA_RESOURCE_GROUP
+ACA_ENVIRONMENT = ENV.ACA_ENVIRONMENT
+ACA_JOB_NAME = ENV.ACA_JOB_NAME
 
 HTTP_TIMEOUT_SECS = ENV.HTTP_TIMEOUT_SECS
 HTTP_RETRY_ATTEMPTS = ENV.HTTP_RETRY_ATTEMPTS

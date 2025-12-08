@@ -32,6 +32,7 @@ from app.dal.vendors.market_data import (
     AlphaVantageDailyVendor,
     AlphaVantageVendor,
     FinnhubVendor,
+    MarketstackVendor,
     TwelveDataVendor,
     YahooVendor,
 )
@@ -75,6 +76,7 @@ class MarketDataDAL:
             "finnhub": FinnhubVendor(),
             "yahoo": YahooVendor(),
             "twelvedata": TwelveDataVendor(),
+            "marketstack": MarketstackVendor(),
         }
 
     def fetch_bars(

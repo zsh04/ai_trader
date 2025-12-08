@@ -42,6 +42,18 @@ def start_span(attributes: Dict[str, Any]):
         return nullcontext()
 
 
+def start_step_span(name: str, attributes: Dict[str, Any] | None = None):
+    if not _tracer:
+        return nullcontext()
+    attrs = {"backtest.step": name}
+    if attributes:
+        attrs.update(attributes)
+    try:
+        return _tracer.start_as_current_span(f"backtest.step.{name}", attributes=attrs)
+    except Exception:  # pragma: no cover
+        return nullcontext()
+
+
 def record_run(attributes: Dict[str, Any]) -> None:
     if not _run_counter:
         return
@@ -51,4 +63,4 @@ def record_run(attributes: Dict[str, Any]) -> None:
         return
 
 
-__all__ = ["start_span", "record_run"]
+__all__ = ["start_span", "start_step_span", "record_run"]

@@ -134,7 +134,12 @@ def run_sweep(
     *,
     job_id: str | None = None,
     mode: str = "local",
+    dry_run: bool = False,
 ) -> Dict[str, Any]:
+    if mode == "aca":
+        logger.info("[sweep] Delegating to Azure Container Apps orchestrator")
+        return trigger_sweep_job(config_path, job_id=job_id, dry_run=dry_run)
+
     cfg = _load_config(config_path)
     base_kwargs = _prepare_base_kwargs(cfg)
     param_grid = cfg.get("params", {}) or {}
@@ -213,8 +218,14 @@ def run_sweep(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run parameter sweeps for backtests")
     parser.add_argument("--config", required=True, help="Path to YAML sweep definition")
+    parser.add_argument(
+        "--mode", choices=["local", "aca"], default="local", help="Execution mode"
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Simulate remote trigger"
+    )
     args = parser.parse_args()
-    run_sweep(Path(args.config))
+    run_sweep(Path(args.config), mode=args.mode, dry_run=args.dry_run)
 
 
 if __name__ == "__main__":

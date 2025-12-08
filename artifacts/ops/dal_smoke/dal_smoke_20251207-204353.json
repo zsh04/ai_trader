@@ -1,0 +1,85 @@
+{
+  "generated_at": "2025-12-07T20:43:53.888244+00:00",
+  "results": [
+    {
+      "vendor": "alpaca",
+      "symbol": "AAPL",
+      "interval": "1Day",
+      "lookback_days": 120,
+      "status": "ok",
+      "bars": 0,
+      "signals": 0,
+      "regimes": 0,
+      "cache_paths": {
+        "bars": "artifacts/marketdata/cache/AAPL_alpaca.parquet"
+      },
+      "error": null
+    },
+    {
+      "vendor": "alphavantage",
+      "symbol": "MSFT",
+      "interval": "15Min",
+      "lookback_days": 5,
+      "status": "error",
+      "bars": 0,
+      "signals": 0,
+      "regimes": 0,
+      "cache_paths": null,
+      "error": "AlphaVantage API key missing"
+    },
+    {
+      "vendor": "alphavantage_eod",
+      "symbol": "SPY",
+      "interval": "1Day",
+      "lookback_days": 400,
+      "status": "error",
+      "bars": 0,
+      "signals": 0,
+      "regimes": 0,
+      "cache_paths": null,
+      "error": "AlphaVantage API key missing"
+    },
+    {
+      "vendor": "yahoo",
+      "symbol": "QQQ",
+      "interval": "1Day",
+      "lookback_days": 400,
+      "status": "ok",
+      "bars": 273,
+      "signals": 273,
+      "regimes": 273,
+      "cache_paths": {
+        "bars": "artifacts/marketdata/cache/QQQ_yahoo.parquet",
+        "signals": "artifacts/marketdata/cache/QQQ_yahoo_signals.parquet",
+        "regimes": "artifacts/marketdata/cache/QQQ_regimes.parquet"
+      },
+      "error": null
+    },
+    {
+      "vendor": "twelvedata",
+      "symbol": "NVDA",
+      "interval": "1Day",
+      "lookback_days": 120,
+      "status": "ok",
+      "bars": 0,
+      "signals": 0,
+      "regimes": 0,
+      "cache_paths": {
+        "bars": "artifacts/marketdata/cache/NVDA_twelvedata.parquet"
+      },
+      "error": null
+    },
+    {
+      "vendor": "finnhub",
+      "symbol": "AAPL",
+      "interval": "1Day",
+      "lookback_days": 60,
+      "status": "error",
+      "bars": 0,
+      "signals": 0,
+      "regimes": 0,
+      "cache_paths": null,
+      "error": "Finnhub API key missing"
+    }
+  ]
+}

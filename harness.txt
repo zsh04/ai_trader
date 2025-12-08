@@ -1,0 +1,14 @@
+2025-12-07 13:58:02.273 | INFO     | app:<module>:53 - startup: log pipeline ready
+<frozen runpy>:128: RuntimeWarning: 'app.orchestration.router' found in sys.modules after import of package 'app.orchestration', but prior to execution of 'app.orchestration.router'; this may result in unpredictable behaviour
+2025-12-07 13:58:03.279 | INFO     | req=- | env=local | ver=1.6.6 | sha=unknown | [router] run_id=9b46b890525e48d082900953902247f0 symbol=SPY strategy=momentum latency=10.73ms events=ingest:synthetic,priors:computed,strategy:momentum,risk:fractional_kelly,order:simulated errors=
+[router] run_id=9b46b890525e48d082900953902247f0 symbol=SPY strategy=momentum latency=10.73ms events=ingest:synthetic,priors:computed,strategy:momentum,risk:fractional_kelly,order:simulated errors=
+2025-12-07 13:58:03.281 | INFO     | req=- | env=local | ver=1.6.6 | sha=unknown | [router] run_id=e84606bd4608422fabb840431d880760 symbol=MSFT strategy=mean_reversion latency=1.96ms events=ingest:synthetic,priors:computed,strategy:mean_reversion,risk:fractional_kelly,order:simulated errors=
+[router] run_id=e84606bd4608422fabb840431d880760 symbol=MSFT strategy=mean_reversion latency=1.96ms events=ingest:synthetic,priors:computed,strategy:mean_reversion,risk:fractional_kelly,order:simulated errors=
+2025-12-07 13:58:03.283 | INFO     | req=- | env=local | ver=1.6.6 | sha=unknown | [router] run_id=72c804a1e3d04186baa9f58bb5fec371 symbol=MSFT strategy=momentum latency=1.61ms events=ingest:synthetic,priors:computed,strategy:momentum,risk:fractional_kelly,order:simulated errors=
+[router] run_id=72c804a1e3d04186baa9f58bb5fec371 symbol=MSFT strategy=momentum latency=1.61ms events=ingest:synthetic,priors:computed,strategy:momentum,risk:fractional_kelly,order:simulated errors=
+2025-12-07 13:58:03.285 | INFO     | req=- | env=local | ver=1.6.6 | sha=unknown | [router] run_id=6280f1aefc884fa4b32870a6bee81f68 symbol=QQQ strategy=momentum latency=1.50ms events=ingest:synthetic,priors:computed,strategy:momentum,risk:fractional_kelly,order:simulated errors=
+[router] run_id=6280f1aefc884fa4b32870a6bee81f68 symbol=QQQ strategy=momentum latency=1.50ms events=ingest:synthetic,priors:computed,strategy:momentum,risk:fractional_kelly,order:simulated errors=
+2025-12-07 13:58:03.286 | INFO     | req=- | env=local | ver=1.6.6 | sha=unknown | [router] run_id=9ea8b84769c4432bac88e96191d70310 symbol=SPY strategy=momentum latency=1.49ms events=ingest:synthetic,priors:computed,strategy:momentum,risk:fractional_kelly,order:simulated errors=
+[router] run_id=9ea8b84769c4432bac88e96191d70310 symbol=SPY strategy=momentum latency=1.49ms events=ingest:synthetic,priors:computed,strategy:momentum,risk:fractional_kelly,order:simulated errors=
+2025-12-07 13:58:03.286 | INFO     | req=- | env=local | ver=1.6.6 | sha=unknown | Router harness complete: runs=%s fallbacks=%s avg_latency=%.2fms
+Router harness complete: runs=%s fallbacks=%s avg_latency=%.2fms

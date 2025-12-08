@@ -24,14 +24,17 @@ from app.backtest.model import BetaWinrate
 from app.dal.manager import MarketDataDAL as _LegacyMarketDataDAL
 from app.dal.results import ProbabilisticBatch
 from app.logging_utils import setup_logging
-from app.probability.pipeline import join_probabilistic_features
+from app.probability.pipeline import (
+    infer_probabilistic_success,
+    join_probabilistic_features,
+)
 from app.probability.storage import persist_probabilistic_frame
 from app.strats.breakout import BreakoutParams
 from app.strats.breakout import generate_signals as breakout_signals
 from app.strats.mean_reversion import generate_signals as mean_reversion_signals
 from app.strats.momentum import generate_signals as momentum_signals
 from app.strats.params import MeanReversionParams, MomentumParams
-from app.telemetry.backtest import record_run, start_span
+from app.telemetry.backtest import record_run, start_span, start_step_span
 
 # Backwards-compat alias for older tests that monkeypatch run_breakout.generate_signals
 generate_signals = breakout_signals
@@ -121,26 +124,7 @@ def _upload_artifact(
         return None
 
 
-def infer_probabilistic_success(sig: pd.DataFrame) -> float:
-    probability = 0.55
-    vel = sig.get("prob_velocity")
-    if vel is not None and not vel.dropna().empty:
-        probability = 0.5 + 0.5 * np.tanh(float(vel.dropna().iloc[-1]))
-    uncertainty = sig.get("prob_uncertainty")
-    if uncertainty is not None and not uncertainty.dropna().empty:
-        probability -= float(uncertainty.dropna().iloc[-1])
-    regime = sig.get("regime_label")
-    if regime is not None and not regime.dropna().empty:
-        latest = str(regime.dropna().iloc[-1]).lower()
-        probability += {
-            "trend_up": 0.05,
-            "calm": 0.02,
-            "sideways": 0.0,
-            "trend_down": -0.07,
-            "high_volatility": -0.08,
-            "uncertain": -0.1,
-        }.get(latest, 0.0)
-    return max(0.05, min(0.95, probability))
+
 
 
 def _try_backtest(
@@ -330,13 +314,14 @@ def _run_backtest_core(
         start_dt,
         end_dt,
     )
-    daily_batch = dal_instance.fetch_bars(
-        symbol,
-        start=start_ts,
-        end=end_ts,
-        interval=bars_interval,
-        vendor=bars_vendor,
-    )
+    with start_step_span("dal_fetch", {"vendor": bars_vendor, "interval": bars_interval}):
+        daily_batch = dal_instance.fetch_bars(
+            symbol,
+            start=start_ts,
+            end=end_ts,
+            interval=bars_interval,
+            vendor=bars_vendor,
+        )
     df = daily_batch.bars.to_dataframe().copy()
     if df.empty:
         logger.error(
@@ -364,9 +349,10 @@ def _run_backtest_core(
     prob_frame: Optional[pd.DataFrame] = None
     prob_cols: list[str] = []
     try:
-        prob_frame = join_probabilistic_features(
-            df, signals=daily_batch.signals, regimes=daily_batch.regimes
-        )
+        with start_step_span("probabilistic_pipeline"):
+            prob_frame = join_probabilistic_features(
+                df, signals=daily_batch.signals, regimes=daily_batch.regimes
+            )
         prob_cols = _probabilistic_columns(prob_frame)
         if prob_cols:
             prob_batch = daily_batch
@@ -421,39 +407,41 @@ def _run_backtest_core(
             "Momentum strategy works best with --use-probabilistic to supply filtered prices/regimes."
         )
 
-    sig = signal_fn(signal_input, asdict(params))
+    with start_step_span("signal_gen", {"strategy": strategy}):
+        sig = signal_fn(signal_input, asdict(params))
 
     persisted_path: Optional[str] = None
     prob_frame_blob: Optional[str] = None
     if prob_cols:
-        sig = _ensure_prob_columns(sig, prob_frame)
-        nonnull = sig[prob_cols].count()
-        logger.debug(
-            "Probabilistic features joined: {}",
-            {col: int(nonnull.get(col, 0)) for col in prob_cols},
-        )
-        persisted_path = persist_probabilistic_frame(
-            symbol,
-            strategy,
-            sig,
-            vendor=dal_vendor,
-            interval=dal_interval if use_probabilistic else bars_interval,
-            source="backtest_cli",
-        )
-        if persisted_path:
-            logger.debug("Persisted probabilistic signal frame -> {}", persisted_path)
-            try:
-                prob_frame_blob = _upload_artifact(
-                    Path(persisted_path).read_bytes(),
-                    key=f"{artifact_prefix}/prob_frame.parquet",
-                    content_type="application/octet-stream",
-                )
-            except Exception as exc:
-                logger.debug(
-                    "Probabilistic artifact upload skipped path=%s err=%s",
-                    persisted_path,
-                    exc,
-                )
+        with start_step_span("persistence"):
+            sig = _ensure_prob_columns(sig, prob_frame)
+            nonnull = sig[prob_cols].count()
+            logger.debug(
+                "Probabilistic features joined: {}",
+                {col: int(nonnull.get(col, 0)) for col in prob_cols},
+            )
+            persisted_path = persist_probabilistic_frame(
+                symbol,
+                strategy,
+                sig,
+                vendor=dal_vendor,
+                interval=dal_interval if use_probabilistic else bars_interval,
+                source="backtest_cli",
+            )
+            if persisted_path:
+                logger.debug("Persisted probabilistic signal frame -> {}", persisted_path)
+                try:
+                    prob_frame_blob = _upload_artifact(
+                        Path(persisted_path).read_bytes(),
+                        key=f"{artifact_prefix}/prob_frame.parquet",
+                        content_type="application/octet-stream",
+                    )
+                except Exception as exc:
+                    logger.debug(
+                        "Probabilistic artifact upload skipped path=%s err=%s",
+                        persisted_path,
+                        exc,
+                    )
 
     if all(c in sig.columns for c in ["open", "high", "low", "close"]):
         df_engine = sig[["open", "high", "low", "close"]].copy()
@@ -615,7 +603,8 @@ def _run_backtest_core(
         min_notional=min_notional,
     )
 
-    res, used_extra = _try_backtest(backtest_long_only, bt_kwargs)
+    with start_step_span("engine"):
+        res, used_extra = _try_backtest(backtest_long_only, bt_kwargs)
     if used_extra:
         logger.debug("backtest_long_only extra kwargs applied: {}", used_extra)
 

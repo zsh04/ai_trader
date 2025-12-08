@@ -1,0 +1,90 @@
+.F.                                                                      [100%]
+=================================== FAILURES ===================================
+________________________ test_trigger_sweep_job_success ________________________
+
+mock_run_az = <MagicMock name='_run_az_command' id='4750205840'>
+mock_blob_client = <MagicMock name='BlobStorageClient' id='4753653344'>
+mock_azure_env = None
+tmp_path = PosixPath('/private/var/folders/6f/p6wzlnw53r952kl47p4hlg940000gn/T/pytest-of-zishanmalik/pytest-4/test_trigger_sweep_job_success0')
+
+    @patch("app.orchestration.sweep_trigger.BlobStorageClient")
+    @patch("app.orchestration.sweep_trigger._run_az_command")
+    def test_trigger_sweep_job_success(mock_run_az, mock_blob_client, mock_azure_env, tmp_path):
+        config = tmp_path / "sweep.yaml"
+        config.write_text("strategy: breakout")
+    
+        # Mock blob client
+        mock_client_instance = mock_blob_client.return_value
+        mock_client_instance.upload_text.return_value = "https://blob.url/config.yaml"
+    
+        # Mock az command output
+        mock_run_az.return_value = "Job started"
+    
+>       result = trigger_sweep_job(config, dry_run=False)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/orchestration/test_sweep_trigger.py:40: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+config_path = PosixPath('/private/var/folders/6f/p6wzlnw53r952kl47p4hlg940000gn/T/pytest-of-zishanmalik/pytest-4/test_trigger_sweep_job_success0/sweep.yaml')
+job_id = None, dry_run = False
+
+    def trigger_sweep_job(
+        config_path: Path,
+        job_id: Optional[str] = None,
+        dry_run: bool = False,
+    ) -> Dict[str, Any]:
+        """
+        Trigger a remote ACA sweep job.
+    
+        1. Reads the local YAML config.
+        2. Uploads it to Azure Blob Storage.
+        3. Triggers the 'ai-trader-sweep' job in ACA with the blob URL.
+        """
+        if not config_path.exists():
+            raise FileNotFoundError(f"Config not found: {config_path}")
+    
+        # 1. Prepare Job ID and Config
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        job_ref = job_id or f"sweep-{timestamp}"
+        blob_name = f"configs/{job_ref}.yaml"
+        config_content = config_path.read_text()
+    
+        # 2. Upload Config to Blob
+        if dry_run:
+            logger.info("[dry-run] Would upload config to %s", blob_name)
+            blob_url = f"https://dryrun.blob.core.windows.net/configs/{blob_name}"
+        else:
+            try:
+                client = BlobStorageClient()
+                blob_url = client.upload_text(
+                    container_name="trader-data",  # Storing configs in data container
+                    blob_name=blob_name,
+                    data=config_content,
+                )
+            except Exception as e:
+                logger.warning("Blob upload failed (check credentials?): %s", e)
+                if ENV.AZURE_STORAGE_CONNECTION_STRING:
+                    raise
+                # Fallback for local testing without storage
+                blob_url = f"local://{config_path.name}"
+    
+        # 3. Trigger ACA Job
+        # We pass the blob URL via env var SWEEP_CONFIG_BLOB
+        # The job itself knows how to download from that URL (or sas token if needed, but we assume managed identity)
+    
+        resource_group = ENV.ACA_RESOURCE_GROUP
+        job_name = ENV.ACA_JOB_NAME
+    
+        if not resource_group or not job_name:
+             msg = "ACA_RESOURCE_GROUP and ACA_JOB_NAME must be set in env"
+             if dry_run:
+                 logger.warning(msg)
+             else:
+>                raise ValueError(msg)
+E                ValueError: ACA_RESOURCE_GROUP and ACA_JOB_NAME must be set in env
+
+app/orchestration/sweep_trigger.py:75: ValueError
+=========================== short test summary info ============================
+FAILED tests/orchestration/test_sweep_trigger.py::test_trigger_sweep_job_success
+1 failed, 2 passed in 0.18s
