@@ -5,42 +5,8 @@
 ├── .env.dev
 ├── .env.example
 ├── .github
-│   ├── vale-styles
-│   │   └── Google
-│   │       ├── AMPM.yml
-│   │       ├── Acronyms.yml
-│   │       ├── Colons.yml
-│   │       ├── Contractions.yml
-│   │       ├── DateFormat.yml
-│   │       ├── Ellipses.yml
-│   │       ├── EmDash.yml
-│   │       ├── Exclamation.yml
-│   │       ├── FirstPerson.yml
-│   │       ├── Gender.yml
-│   │       ├── GenderBias.yml
-│   │       ├── HeadingPunctuation.yml
-│   │       ├── Headings.yml
-│   │       ├── Latin.yml
-│   │       ├── LyHyphens.yml
-│   │       ├── OptionalPlurals.yml
-│   │       ├── Ordinal.yml
-│   │       ├── OxfordComma.yml
-│   │       ├── Parens.yml
-│   │       ├── Passive.yml
-│   │       ├── Periods.yml
-│   │       ├── Quotes.yml
-│   │       ├── Ranges.yml
-│   │       ├── Semicolons.yml
-│   │       ├── Slang.yml
-│   │       ├── Spacing.yml
-│   │       ├── Spelling.yml
-│   │       ├── Units.yml
-│   │       ├── We.yml
-│   │       ├── Will.yml
-│   │       ├── WordList.yml
-│   │       ├── meta.json
-│   │       └── vocab.txt
 │   └── workflows
+│       ├── build-consumer.yml
 │       ├── ci-api.yml
 │       ├── ci-smoke.yml
 │       ├── ci-ui.yml
@@ -107,10 +73,11 @@
 │   │       ├── backtest.py
 │   │       ├── fills.py
 │   │       ├── health.py
+│   │       ├── models.py
 │   │       ├── ops.py
 │   │       ├── orchestration.py
 │   │       ├── orders.py
-│   │       ├── tasks.py
+│   │       ├── portfolio.py
 │   │       └── watchlists.py
 │   ├── backtest
 │   │   ├── __init__.py
@@ -145,6 +112,7 @@
 │   │           ├── alphavantage.py
 │   │           ├── alphavantage_daily.py
 │   │           ├── finnhub.py
+│   │           ├── marketstack.py
 │   │           ├── twelvedata.py
 │   │           └── yahoo.py
 │   ├── data
@@ -161,6 +129,7 @@
 │   │       └── trading.py
 │   ├── domain
 │   │   ├── __init__.py
+│   │   ├── model_registry.py
 │   │   ├── watchlist_models.py
 │   │   ├── watchlist_repo.py
 │   │   ├── watchlist_service.py
@@ -172,8 +141,7 @@
 │   │   └── sweep_job_consumer.py
 │   ├── execution
 │   │   ├── __init__.py
-│   │   ├── alpaca_client.py
-│   │   └── router.py
+│   │   └── alpaca_client.py
 │   ├── features
 │   │   ├── __init__.py
 │   │   ├── indicators.py
@@ -186,13 +154,15 @@
 │   ├── main.py
 │   ├── monitoring
 │   │   ├── __init__.py
-│   │   └── dashboard.py
+│   │   ├── dashboard.py
+│   │   └── market_data.py
 │   ├── observability
 │   │   └── __init__.py
 │   ├── orchestration
 │   │   ├── __init__.py
 │   │   ├── nodes.py
 │   │   ├── router.py
+│   │   ├── sweep_trigger.py
 │   │   └── types.py
 │   ├── probability
 │   │   ├── __init__.py
@@ -204,9 +174,6 @@
 │   │   ├── __init__.py
 │   │   ├── intraday_scanner.py
 │   │   └── watchlist_builder.py
-│   ├── services
-│   │   ├── __init__.py
-│   │   └── market_data.py
 │   ├── sessions
 │   │   ├── __init__.py
 │   │   ├── session_clock.py
@@ -231,6 +198,7 @@
 │   │   └── router.py
 │   ├── utils
 │   │   ├── __init__.py
+│   │   ├── azure_storage.py
 │   │   ├── datetime_utils.py
 │   │   ├── env.py
 │   │   ├── formatting.py
@@ -246,22 +214,51 @@
 │   │       └── jobs_manifest.jsonl
 │   ├── marketdata
 │   │   └── cache
-│   │       └── NVDA_alpaca.parquet
+│   │       ├── AAPL_alpaca.parquet
+│   │       ├── AAPL_alpaca_signals.parquet
+│   │       ├── AAPL_finnhub.parquet
+│   │       ├── AAPL_finnhub_signals.parquet
+│   │       ├── AAPL_regimes.parquet
+│   │       ├── MSFT_alphavantage.parquet
+│   │       ├── NVDA_alpaca.parquet
+│   │       ├── NVDA_alpaca_signals.parquet
+│   │       ├── NVDA_regimes.parquet
+│   │       ├── NVDA_twelvedata.parquet
+│   │       ├── NVDA_twelvedata_signals.parquet
+│   │       ├── QQQ_regimes.parquet
+│   │       ├── QQQ_yahoo.parquet
+│   │       ├── QQQ_yahoo_signals.parquet
+│   │       ├── SPY_alpaca.parquet
+│   │       ├── SPY_alpaca_signals.parquet
+│   │       ├── SPY_regimes.parquet
+│   │       ├── SPY_yahoo.parquet
+│   │       └── SPY_yahoo_signals.parquet
+│   ├── ops
+│   │   └── dal_smoke
+│   │       ├── dal_smoke_20251207-204353.json
+│   │       └── dal_smoke_20251207-205101.json
 │   └── probabilistic
 │       ├── .DS_Store
 │       └── frames
 │           ├── AAPL_breakout_hybrid_1day.parquet
+│           ├── NVDA_breakout_alpaca_1day.parquet
+│           ├── SPY_momentum_alpaca_1day.parquet
 │           ├── dal_smoke_20251110-220013.json
 │           └── manifest.jsonl
+├── backtest_SPY.csv
 ├── config
 │   ├── __init__.py
 │   ├── config.yaml
 │   └── watchlist_source.yaml
 ├── configs
+│   ├── .DS_Store
 │   └── backtest
 │       └── momentum_sweep.yaml
+├── debug_import.py
 ├── deploy
+│   ├── .DS_Store
 │   └── aca
+│       ├── .DS_Store
 │       ├── README.md
 │       ├── env.forecast.example
 │       ├── env.nlp.example
@@ -315,9 +312,11 @@
 │   ├── ops
 │   │   └── model-artifacts.md
 │   ├── reference
+│   │   ├── Ai Trader — Full Project Overview.pdf
 │   │   ├── CONTRIBUTING.md
 │   │   ├── GLOSSARY.md
 │   │   ├── LICENSE
+│   │   ├── ai_trader_full_project_overview.md
 │   │   ├── api.md
 │   │   ├── config.md
 │   │   ├── data-models.md
@@ -325,6 +324,7 @@
 │   │   ├── database-architecture.md
 │   │   ├── database.md
 │   │   ├── doc-guidelines.md
+│   │   ├── env.md
 │   │   ├── metrics.md
 │   │   ├── risk-policy.md
 │   │   ├── secrets.md
@@ -333,6 +333,8 @@
 │   │   └── sre-slos.md
 │   └── tutorials
 │       └── dev-backtest.md
+├── dryrun_result.txt
+├── harness.txt
 ├── infra
 │   ├── README.md
 │   ├── __init__.py
@@ -340,6 +342,9 @@
 │   │   ├── Dockerfile
 │   │   ├── Dockerfile.ui
 │   │   └── docker-compose.yml
+│   ├── grafana
+│   │   ├── README.md
+│   │   └── router-health.json
 │   └── otel
 │       ├── collector-config.yml
 │       └── otel.Dockerfile
@@ -359,6 +364,7 @@
 │       ├── health-checklist.md
 │       └── project_notes.md
 ├── jobs
+│   ├── .DS_Store
 │   └── sweep
 │       └── Dockerfile
 ├── migrations
@@ -369,7 +375,9 @@
 │   └── versions
 │       └── 337e81e1d35c_initial_schema.py
 ├── models
+│   ├── .DS_Store
 │   ├── chronos2
+│   │   ├── .DS_Store
 │   │   ├── Dockerfile
 │   │   ├── README.md
 │   │   ├── app
@@ -405,6 +413,7 @@
 ├── project_structure.txt
 ├── pyproject.toml
 ├── pytest.ini
+├── pytest_out.txt
 ├── renovate.json
 ├── requirements-dev.txt
 ├── requirements.txt
@@ -413,10 +422,16 @@
 │   ├── README.md
 │   ├── __init__.py
 │   ├── adapters
+│   │   ├── finbert
+│   │   │   └── base
+│   │   │       └── adapter.json
 │   │   └── publish_adapters.zsh
 │   ├── build_api.sh
+│   ├── build_consumer_acr.sh
+│   ├── build_consumer_local.sh
 │   ├── build_ui.sh
 │   ├── check_alpaca_entitlement.py
+│   ├── check_blob_env.py
 │   ├── check_no_env.py
 │   ├── check_quickreceive_eventhubs.py
 │   ├── check_quicksend_eventhubs.py
@@ -425,7 +440,6 @@
 │   ├── dev.sh
 │   ├── images
 │   │   └── build_and_push.zsh
-│   ├── junk.zsh
 │   ├── kv_sync_from_env.zsh
 │   ├── models
 │   │   └── populate_blob_from_hf.zsh
@@ -434,7 +448,9 @@
 │   │   ├── curl_forecast.sh
 │   │   └── curl_nlp.sh
 │   ├── sweep_job_consumer.py
-│   ├── sweep_job_entry.py
+│   └── sweep_job_entry.py
+├── signals_flat_debug_SPY.csv
+├── signals_tail_SPY.csv
 ├── tests
 │   ├── __init__.py
 │   ├── adapters
@@ -463,6 +479,7 @@
 │   │       ├── test_alphavantage_daily_vendor.py
 │   │       ├── test_alphavantage_vendor.py
 │   │       ├── test_finnhub_vendor.py
+│   │       ├── test_marketstack_vendor.py
 │   │       ├── test_twelvedata_vendor.py
 │   │       └── test_yahoo_vendor.py
 │   ├── data
@@ -480,7 +497,8 @@
 │   ├── observability
 │   │   └── test_observability.py
 │   ├── orchestration
-│   │   └── test_router.py
+│   │   ├── test_router.py
+│   │   └── test_sweep_trigger.py
 │   ├── probability
 │   │   ├── __init__.py
 │   │   ├── test_pipeline.py
@@ -500,13 +518,13 @@
 │   ├── test_logging_utils.py
 │   ├── test_settings.py
 │   ├── test_smoke.py
+│   ├── ui
+│   │   └── test_telemetry.py
 │   ├── unit
-│   │   ├── test_health_config.py
 │   │   ├── test_market_alpaca_client.py
 │   │   ├── test_textlist_source.py
 │   │   ├── test_watchlist_builder.py
 │   │   ├── test_watchlist_manual.py
-│   │   ├── test_watchlist_route.py
 │   │   ├── test_watchlist_service.py
 │   │   ├── test_watchlist_sources_unified.py
 │   │   ├── test_watchlist_utils.py
@@ -516,9 +534,67 @@
 │   │   ├── test_http.py
 │   │   └── test_normalize.py
 │   └── wiring
-└── ui
-    ├── pages
-    │   └── Monitoring Dashboard.py
-    └── streamlit_app.py
+├── ui
+│   ├── __init__.py
+│   ├── app.py
+│   ├── assets
+│   │   ├── README.md
+│   │   └── __init__.py
+│   ├── components
+│   │   ├── __init__.py
+│   │   ├── drawer.py
+│   │   ├── error_banner.py
+│   │   ├── kpi.py
+│   │   ├── line_chart.py
+│   │   ├── status_badge.py
+│   │   ├── table_with_toolbar.py
+│   │   └── toast.py
+│   ├── pages
+│   │   ├── __init__.py
+│   │   ├── backtests.py
+│   │   ├── health.py
+│   │   ├── home.py
+│   │   ├── models.py
+│   │   ├── orders_fills.py
+│   │   ├── settings_page.py
+│   │   ├── trades_positions.py
+│   │   └── watchlists.py
+│   ├── services
+│   │   ├── __init__.py
+│   │   ├── api_routes.py
+│   │   ├── backtests.py
+│   │   ├── health.py
+│   │   ├── http_client.py
+│   │   ├── models.py
+│   │   ├── orders.py
+│   │   ├── registry.py
+│   │   ├── trading.py
+│   │   └── watchlists.py
+│   ├── settings
+│   │   ├── __init__.py
+│   │   └── config.py
+│   ├── state
+│   │   ├── __init__.py
+│   │   └── session.py
+│   ├── tests
+│   │   ├── README.md
+│   │   ├── __init__.py
+│   │   └── mocks.py
+│   └── utils
+│       ├── __init__.py
+│       ├── blob.py
+│       ├── cache.py
+│       ├── request_id.py
+│       ├── rum.py
+│       ├── telemetry.py
+│       └── time_windows.py
+└── workers
+    ├── .DS_Store
+    ├── __init__.py
+    └── consumer
+        ├── Dockerfile
+        ├── __init__.py
+        ├── __main__.py
+        └── requirements.txt
 
-123 directories, 401 files
+135 directories, 463 files
